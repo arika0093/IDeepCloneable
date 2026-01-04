@@ -432,13 +432,16 @@ public class CloneableGenerator : IIncrementalGenerator
                         // This is needed because C# 10's nullable context is very strict with object initializers
                         nestedAssignments.Add($"{nestedProp.Name} = {nestedCloneExpr}!");
                     }
-                    
+
                     // Format nested object initializer across multiple lines with proper indentation
                     // Each nesting level adds 4 spaces of indentation beyond PropertyIndent
                     var additionalIndent = new string(' ', nestingLevel * 4);
                     var nestedIndent = PropertyIndent + additionalIndent;
-                    
-                    var formattedAssignments = string.Join($",\n{nestedIndent}    ", nestedAssignments);
+
+                    var formattedAssignments = string.Join(
+                        $",\n{nestedIndent}    ",
+                        nestedAssignments
+                    );
                     return $"{sourceObjectName}.{property.Name} != null ? new {namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}\n{nestedIndent}{{\n{nestedIndent}    {formattedAssignments}\n{nestedIndent}}} : null";
                 }
             }
@@ -541,7 +544,11 @@ public class CloneableGenerator : IIncrementalGenerator
                 var propertyAssignments = new List<string>();
                 foreach (var prop in properties)
                 {
-                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "kvp.Value", 0);
+                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(
+                        prop,
+                        "kvp.Value",
+                        0
+                    );
                     propertyAssignments.Add($"{prop.Name} = {propCloneExpr}!");
                 }
                 var assignmentsStr = string.Join(", ", propertyAssignments);
@@ -654,7 +661,11 @@ public class CloneableGenerator : IIncrementalGenerator
                 var propertyAssignments = new List<string>();
                 foreach (var prop in properties)
                 {
-                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "kvp.Value", 0);
+                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(
+                        prop,
+                        "kvp.Value",
+                        0
+                    );
                     propertyAssignments.Add($"{prop.Name} = {propCloneExpr}!");
                 }
                 var assignmentsStr = string.Join(", ", propertyAssignments);
