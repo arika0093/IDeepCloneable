@@ -436,12 +436,10 @@ public class CloneableGenerator : IIncrementalGenerator
                     // Format nested object initializer across multiple lines with proper indentation
                     // Each nesting level adds 4 spaces of indentation beyond PropertyIndent
                     var additionalIndent = new string(' ', nestingLevel * 4);
-                    var nestedPropertyIndent = PropertyIndent + additionalIndent;
-                    var nestedOpenBraceIndent = PropertyIndent + additionalIndent;
-                    var nestedCloseBraceIndent = PropertyIndent + additionalIndent;
+                    var nestedIndent = PropertyIndent + additionalIndent;
                     
-                    var formattedAssignments = string.Join($",\n{nestedPropertyIndent}    ", nestedAssignments);
-                    return $"{sourceObjectName}.{property.Name} != null ? new {namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}\n{nestedOpenBraceIndent}{{\n{nestedPropertyIndent}    {formattedAssignments}\n{nestedCloseBraceIndent}}} : null";
+                    var formattedAssignments = string.Join($",\n{nestedIndent}    ", nestedAssignments);
+                    return $"{sourceObjectName}.{property.Name} != null ? new {namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}\n{nestedIndent}{{\n{nestedIndent}    {formattedAssignments}\n{nestedIndent}}} : null";
                 }
             }
         }
