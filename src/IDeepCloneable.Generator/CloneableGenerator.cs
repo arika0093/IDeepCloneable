@@ -326,9 +326,16 @@ public class CloneableGenerator : IIncrementalGenerator
 
         // Generate object initializer with deep cloned properties
         var propertyAssignments = new List<string>();
+        bool hasNestedObjects = false;
         foreach (var prop in properties)
         {
-            var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, propertyName);
+            var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, propertyName, 0);
+
+            // Check if the expression contains newlines (indicating nested objects)
+            if (propCloneExpr.Contains('\n'))
+            {
+                hasNestedObjects = true;
+            }
 
             // Always add null-forgiving operator for ALL properties in object initializers to avoid CS8628
             // This is needed because C# 10's nullable context is very strict with object initializers
@@ -340,13 +347,23 @@ public class CloneableGenerator : IIncrementalGenerator
             return $"this.{propertyName}";
         }
 
-        var assignments = string.Join(", ", propertyAssignments);
-        return $"this.{propertyName} != null ? new {typeName} {{ {assignments} }} : null";
+        // If there are nested objects, format across multiple lines with proper indentation
+        if (hasNestedObjects)
+        {
+            var formattedAssignments = string.Join($",\n{PropertyIndent}    ", propertyAssignments);
+            return $"this.{propertyName} != null ? new {typeName}\n{PropertyIndent}{{\n{PropertyIndent}    {formattedAssignments}\n{PropertyIndent}}} : null";
+        }
+        else
+        {
+            var assignments = string.Join(", ", propertyAssignments);
+            return $"this.{propertyName} != null ? new {typeName} {{ {assignments} }} : null";
+        }
     }
 
     private static string GeneratePropertyCloneExpressionForObject(
         IPropertySymbol property,
-        string sourceObjectName
+        string sourceObjectName,
+        int nestingLevel
     )
     {
         var typeSymbol = property.Type;
@@ -407,15 +424,22 @@ public class CloneableGenerator : IIncrementalGenerator
                     {
                         var nestedCloneExpr = GeneratePropertyCloneExpressionForObject(
                             nestedProp,
-                            $"{sourceObjectName}.{property.Name}"
+                            $"{sourceObjectName}.{property.Name}",
+                            nestingLevel + 1
                         );
 
                         // Always add null-forgiving operator for ALL properties in object initializers to avoid CS8628
                         // This is needed because C# 10's nullable context is very strict with object initializers
                         nestedAssignments.Add($"{nestedProp.Name} = {nestedCloneExpr}!");
                     }
-                    var nestedAssignmentsStr = string.Join(", ", nestedAssignments);
-                    return $"{sourceObjectName}.{property.Name} != null ? new {namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} {{ {nestedAssignmentsStr} }} : null";
+                    
+                    // Format nested object initializer across multiple lines with proper indentation
+                    // Each nesting level adds 4 spaces of indentation beyond PropertyIndent
+                    var additionalIndent = new string(' ', nestingLevel * 4);
+                    var nestedIndent = PropertyIndent + additionalIndent;
+                    
+                    var formattedAssignments = string.Join($",\n{nestedIndent}    ", nestedAssignments);
+                    return $"{sourceObjectName}.{property.Name} != null ? new {namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}\n{nestedIndent}{{\n{nestedIndent}    {formattedAssignments}\n{nestedIndent}}} : null";
                 }
             }
         }
@@ -472,7 +496,7 @@ public class CloneableGenerator : IIncrementalGenerator
                 var propertyAssignments = new List<string>();
                 foreach (var prop in properties)
                 {
-                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "x");
+                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "x", 0);
                     propertyAssignments.Add($"{prop.Name} = {propCloneExpr}!");
                 }
                 var assignmentsStr = string.Join(", ", propertyAssignments);
@@ -517,7 +541,7 @@ public class CloneableGenerator : IIncrementalGenerator
                 var propertyAssignments = new List<string>();
                 foreach (var prop in properties)
                 {
-                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "kvp.Value");
+                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "kvp.Value", 0);
                     propertyAssignments.Add($"{prop.Name} = {propCloneExpr}!");
                 }
                 var assignmentsStr = string.Join(", ", propertyAssignments);
@@ -630,7 +654,7 @@ public class CloneableGenerator : IIncrementalGenerator
                 var propertyAssignments = new List<string>();
                 foreach (var prop in properties)
                 {
-                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "kvp.Value");
+                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "kvp.Value", 0);
                     propertyAssignments.Add($"{prop.Name} = {propCloneExpr}!");
                 }
                 var assignmentsStr = string.Join(", ", propertyAssignments);
@@ -914,7 +938,7 @@ public class CloneableGenerator : IIncrementalGenerator
                 var propertyAssignments = new List<string>();
                 foreach (var prop in properties)
                 {
-                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "x");
+                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "x", 0);
                     propertyAssignments.Add($"{prop.Name} = {propCloneExpr}!");
                 }
                 var assignmentsStr = string.Join(", ", propertyAssignments);
@@ -972,7 +996,7 @@ public class CloneableGenerator : IIncrementalGenerator
                 var propertyAssignments = new List<string>();
                 foreach (var prop in properties)
                 {
-                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "item");
+                    var propCloneExpr = GeneratePropertyCloneExpressionForObject(prop, "item", 0);
                     propertyAssignments.Add($"{prop.Name} = {propCloneExpr}!");
                 }
                 var assignmentsStr = string.Join(", ", propertyAssignments);
