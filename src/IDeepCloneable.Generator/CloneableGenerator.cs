@@ -179,8 +179,8 @@ public class CloneableGenerator : IIncrementalGenerator
         #pragma warning disable
 
         using System;
-        using System.Linq;
         using System.Collections.Immutable;
+        using System.Linq;
 
         """;
 
@@ -609,23 +609,13 @@ public class CloneableGenerator : IIncrementalGenerator
 
         // Check for other common blittable types
         var fullName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullName == "global::System.Guid" || 
-            fullName == "global::System.DateTime" ||
-            fullName == "global::System.TimeSpan" ||
-            fullName == "global::System.DateTimeOffset")
-        {
-            return true;
-        }
+        return fullName is "global::System.Guid" 
+            or "global::System.DateTime" 
+            or "global::System.TimeSpan" 
+            or "global::System.DateTimeOffset";
 
-        // Check if it's a struct containing only blittable fields
-        if (type.IsValueType && type is INamedTypeSymbol namedType && !namedType.IsRecord)
-        {
-            // For custom structs, we would need to recursively check all fields
-            // For now, we'll be conservative and only optimize known types
-            return false;
-        }
-
-        return false;
+        // Note: For custom structs, we would need to recursively check all fields
+        // For now, we're conservative and only optimize known types
     }
 
     private static string GenerateArrayDeepClone(
@@ -662,7 +652,6 @@ public class CloneableGenerator : IIncrementalGenerator
         // Optimize for primitive and blittable types using span-based copy
         if (IsPrimitiveOrBlittableType(elementType))
         {
-            var arrayTypeName = $"{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]";
             // Use span-based copy for better performance - this uses memory copy under the hood
             return $"this.{propertyName} != null ? this.{propertyName}.AsSpan().ToArray() : null";
         }
