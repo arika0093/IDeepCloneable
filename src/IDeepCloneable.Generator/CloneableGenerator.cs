@@ -178,8 +178,11 @@ public class CloneableGenerator : IIncrementalGenerator
         #nullable disable
         #pragma warning disable
 
+        using System;
         using System.Linq;
         using System.Collections.Immutable;
+        using System.Runtime.InteropServices;
+        using System.Runtime.CompilerServices;
 
         """;
 
@@ -386,6 +389,12 @@ public class CloneableGenerator : IIncrementalGenerator
                 return $"{sourceObjectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToArray()";
             }
 
+            // Optimize for primitive and blittable types using span-based copy
+            if (IsPrimitiveOrBlittableType(elementType))
+            {
+                return $"{sourceObjectName}.{propertyName} != null ? {sourceObjectName}.{propertyName}.AsSpan().ToArray() : null";
+            }
+
             if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
             {
                 return $"{sourceObjectName}.{propertyName} != null ? ({elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]){sourceObjectName}.{propertyName}.Clone() : null";
@@ -575,6 +584,52 @@ public class CloneableGenerator : IIncrementalGenerator
         );
     }
 
+    private static bool IsPrimitiveOrBlittableType(ITypeSymbol type)
+    {
+        // Check for primitive types that can be efficiently copied with memory operations
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Char:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+                return true;
+            default:
+                break;
+        }
+
+        // Check for other common blittable types
+        var fullName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullName == "global::System.Guid" || 
+            fullName == "global::System.DateTime" ||
+            fullName == "global::System.TimeSpan" ||
+            fullName == "global::System.DateTimeOffset")
+        {
+            return true;
+        }
+
+        // Check if it's a struct containing only blittable fields
+        if (type.IsValueType && type is INamedTypeSymbol namedType && !namedType.IsRecord)
+        {
+            // For custom structs, we would need to recursively check all fields
+            // For now, we'll be conservative and only optimize known types
+            return false;
+        }
+
+        return false;
+    }
+
     private static string GenerateArrayDeepClone(
         IPropertySymbol property,
         IArrayTypeSymbol arrayType
@@ -606,7 +661,24 @@ public class CloneableGenerator : IIncrementalGenerator
             }
         }
 
-        if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
+        // Optimize for primitive and blittable types using span-based copy
+        if (IsPrimitiveOrBlittableType(elementType))
+        {
+            var arrayTypeName = $"{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]";
+            // Use span-based copy for better performance - this uses memory copy under the hood
+            return $"this.{propertyName} != null ? this.{propertyName}.AsSpan().ToArray() : null";
+        }
+
+        // For string arrays, use Array.Clone (strings are immutable so shallow copy is safe)
+        if (elementType.SpecialType == SpecialType.System_String)
+        {
+            var arrayTypeName =
+                $"{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]";
+            return $"this.{propertyName} != null ? ({arrayTypeName})this.{propertyName}.Clone() : null";
+        }
+
+        // For other value types (structs that may contain references), use Array.Clone
+        if (elementType.IsValueType)
         {
             var arrayTypeName =
                 $"{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]";
