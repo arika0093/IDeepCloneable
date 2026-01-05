@@ -40,8 +40,8 @@ You can also use interfaces or abstract classes.
 using IDeepCloneable;
 public interface IPerson : IDeepCloneable<IPerson>
 {
-    string Name { get; set; }
-    int Age { get; set; }
+    string Name { get; }
+    int Age { get; }
 }
 
 // and then
@@ -65,14 +65,16 @@ public partial class Person { /* ... */ }
 
 // or
 [DeepCloneable<Person>]
-public partial class PersonCloneHelper;
+public partial class PersonCloneGenerator;
 ```
 
 This approach is not bad, but the automatically generated code cannot be accessed from the **another library side**.  
 In other words, if the library wants to call the `Clone` method, it has to choose one of the following approaches:
 
 #### 1. Implement a generic `Clone` using reflection
-For example:
+
+<details>
+<summary>Example Code</summary>
 
 ```csharp
 // 3rd-party library
@@ -86,10 +88,14 @@ public static T DeepClone<T>(T obj)
 // Nothing is required on the user side
 ```
 
+</details>
+
 This approach uses reflection, which results in poor performance. Also, NativeAOT cannot be used.
 
 #### 2. Have the user implement some `ICloneable` interface
-For example:
+
+<details>
+<summary>Example Code</summary>
 
 ```csharp
 // 3rd-party library
@@ -114,10 +120,14 @@ public partial class Person : ICloneable<Person>
 }
 ```
 
+</details>
+
 This method allows free implementation and use of any library, but it is obviously tedious.
 
 #### 3. Have the user specify a method for cloning
-For example:
+
+<details>
+<summary>Example Code</summary>
 
 ```csharp
 // 3rd-party library
@@ -139,6 +149,8 @@ var config = new MethodConfig()
     // Must be implemented manually
   });
 ```
+
+</details>
 
 This method also allows free implementation, but again, manual implementation is required.
 
