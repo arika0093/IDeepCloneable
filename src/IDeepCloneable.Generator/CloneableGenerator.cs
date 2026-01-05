@@ -181,8 +181,6 @@ public class CloneableGenerator : IIncrementalGenerator
         using System;
         using System.Linq;
         using System.Collections.Immutable;
-        using System.Runtime.InteropServices;
-        using System.Runtime.CompilerServices;
 
         """;
 
@@ -1059,7 +1057,6 @@ public class CloneableGenerator : IIncrementalGenerator
             }
         }
 
-        // Optimize for primitive/blittable types - use CollectionsMarshal or direct constructor copy
         // For value types including primitives and strings, the List constructor is already optimized
         // and will use Array.Copy internally which is very efficient
         return $"this.{propertyName} != null ? new System.Collections.Generic.List<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(this.{propertyName}) : null";
