@@ -19,7 +19,7 @@ public class PerformanceTests
         var original = new ClassWithLargeArray
         {
             Name = "Test",
-            Numbers = Enumerable.Range(0, 100000).ToArray()
+            Numbers = Enumerable.Range(0, 100000).ToArray(),
         };
 
         // Warm up
@@ -45,17 +45,13 @@ public class PerformanceTests
     public void DeepClone_ImmutableCollectionOfValueTypes_ReusesSameInstance()
     {
         var list = ImmutableList.Create(1, 2, 3, 4, 5);
-        var original = new ClassWithImmutableIntList
-        {
-            Name = "Test",
-            Items = list
-        };
+        var original = new ClassWithImmutableIntList { Name = "Test", Items = list };
 
         var clone = original.DeepClone();
 
         // Verify that the immutable collection is reused (same instance)
         clone.Items.ShouldBeSameAs(original.Items);
-        
+
         // But the parent object is cloned
         clone.ShouldNotBeSameAs(original);
     }
@@ -64,18 +60,14 @@ public class PerformanceTests
     public void DeepClone_ImmutableArrayOfValueTypes_ReusesSameInstance()
     {
         var array = ImmutableArray.Create(1, 2, 3, 4, 5);
-        var original = new ClassWithImmutableIntArray
-        {
-            Name = "Test",
-            Items = array
-        };
+        var original = new ClassWithImmutableIntArray { Name = "Test", Items = array };
 
         var clone = original.DeepClone();
 
         // For immutable arrays of value types, the exact same array should be used
         // This is safe because both the array and its elements are immutable
         clone.Items.ShouldBe(original.Items); // Same values
-        
+
         // Verify parent is cloned
         clone.ShouldNotBeSameAs(original);
     }
@@ -85,12 +77,12 @@ public class PerformanceTests
     {
         // This test validates that AsSpan().ToArray() is being used
         // by checking it's faster than reflection-based approaches would be
-        
+
         var original = new ClassWithMultipleArrays
         {
             Integers = Enumerable.Range(0, 50000).ToArray(),
             Doubles = Enumerable.Range(0, 50000).Select(x => (double)x).ToArray(),
-            Booleans = Enumerable.Range(0, 50000).Select(x => x % 2 == 0).ToArray()
+            Booleans = Enumerable.Range(0, 50000).Select(x => x % 2 == 0).ToArray(),
         };
 
         // Warm up

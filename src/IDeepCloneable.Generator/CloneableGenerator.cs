@@ -609,10 +609,11 @@ public class CloneableGenerator : IIncrementalGenerator
 
         // Check for other common blittable types
         var fullName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        return fullName is "global::System.Guid" 
-            or "global::System.DateTime" 
-            or "global::System.TimeSpan" 
-            or "global::System.DateTimeOffset";
+        return fullName
+            is "global::System.Guid"
+                or "global::System.DateTime"
+                or "global::System.TimeSpan"
+                or "global::System.DateTimeOffset";
 
         // Note: For custom structs, we would need to recursively check all fields
         // For now, we're conservative and only optimize known types
