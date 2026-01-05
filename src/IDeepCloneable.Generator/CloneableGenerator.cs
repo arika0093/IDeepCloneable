@@ -178,8 +178,9 @@ public class CloneableGenerator : IIncrementalGenerator
         #nullable disable
         #pragma warning disable
 
-        using System.Linq;
+        using System;
         using System.Collections.Immutable;
+        using System.Linq;
 
         """;
 
@@ -386,6 +387,12 @@ public class CloneableGenerator : IIncrementalGenerator
                 return $"{sourceObjectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToArray()";
             }
 
+            // Optimize for primitive and blittable types using span-based copy
+            if (IsPrimitiveOrBlittableType(elementType))
+            {
+                return $"{sourceObjectName}.{propertyName} != null ? {sourceObjectName}.{propertyName}.AsSpan().ToArray() : null";
+            }
+
             if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
             {
                 return $"{sourceObjectName}.{propertyName} != null ? ({elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]){sourceObjectName}.{propertyName}.Clone() : null";
@@ -575,6 +582,42 @@ public class CloneableGenerator : IIncrementalGenerator
         );
     }
 
+    private static bool IsPrimitiveOrBlittableType(ITypeSymbol type)
+    {
+        // Check for primitive types that can be efficiently copied with memory operations
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Char:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+                return true;
+            default:
+                break;
+        }
+
+        // Check for other common blittable types
+        var fullName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return fullName is "global::System.Guid" 
+            or "global::System.DateTime" 
+            or "global::System.TimeSpan" 
+            or "global::System.DateTimeOffset";
+
+        // Note: For custom structs, we would need to recursively check all fields
+        // For now, we're conservative and only optimize known types
+    }
+
     private static string GenerateArrayDeepClone(
         IPropertySymbol property,
         IArrayTypeSymbol arrayType
@@ -606,7 +649,23 @@ public class CloneableGenerator : IIncrementalGenerator
             }
         }
 
-        if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
+        // Optimize for primitive and blittable types using span-based copy
+        if (IsPrimitiveOrBlittableType(elementType))
+        {
+            // Use span-based copy for better performance - this uses memory copy under the hood
+            return $"this.{propertyName} != null ? this.{propertyName}.AsSpan().ToArray() : null";
+        }
+
+        // For string arrays, use Array.Clone (strings are immutable so shallow copy is safe)
+        if (elementType.SpecialType == SpecialType.System_String)
+        {
+            var arrayTypeName =
+                $"{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]";
+            return $"this.{propertyName} != null ? ({arrayTypeName})this.{propertyName}.Clone() : null";
+        }
+
+        // For other value types (structs that may contain references), use Array.Clone
+        if (elementType.IsValueType)
         {
             var arrayTypeName =
                 $"{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}[]";
@@ -697,6 +756,7 @@ public class CloneableGenerator : IIncrementalGenerator
             {
                 return $"this.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyDictionary<{keyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, {valueType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(this.{propertyName}.ToDictionary(kvp => kvp.Key, kvp => {valueCloneExpression})) : null";
             }
+            // ReadOnlyDictionary wraps a mutable dictionary, so we need to clone it even for value types
             return $"this.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyDictionary<{keyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, {valueType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(new System.Collections.Generic.Dictionary<{keyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, {valueType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(this.{propertyName})) : null";
         }
 
@@ -848,6 +908,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             return $"this.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyCollection<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(this.{propertyName}.Select(x => x?.{DeepCloneMethodName}()).ToList()) : null";
         }
+        // ReadOnlyCollection wraps a mutable list, so we need to clone it even for value types
         return $"this.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyCollection<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(this.{propertyName}.ToList()) : null";
     }
 
@@ -860,6 +921,12 @@ public class CloneableGenerator : IIncrementalGenerator
         if (isCloneable)
         {
             return $"this.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToImmutableList()";
+        }
+        // For value types and strings in immutable collections, we can safely reuse the same collection
+        // since both the collection and elements are immutable
+        if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
+        {
+            return $"this.{propertyName}";
         }
         return $"this.{propertyName}?.ToImmutableList()";
     }
@@ -874,6 +941,12 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             return $"this.{propertyName}.IsDefault ? default : this.{propertyName}.Select(x => x?.{DeepCloneMethodName}()).ToImmutableArray()";
         }
+        // For value types and strings in immutable arrays, we can safely reuse the same array
+        // since both the array and elements are immutable
+        if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
+        {
+            return $"this.{propertyName}";
+        }
         return $"this.{propertyName}.IsDefault ? default : this.{propertyName}.ToImmutableArray()";
     }
 
@@ -886,6 +959,12 @@ public class CloneableGenerator : IIncrementalGenerator
         if (isCloneable)
         {
             return $"this.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToImmutableHashSet()";
+        }
+        // For value types and strings in immutable collections, we can safely reuse the same collection
+        // since both the collection and elements are immutable
+        if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
+        {
+            return $"this.{propertyName}";
         }
         return $"this.{propertyName}?.ToImmutableHashSet()";
     }
@@ -900,6 +979,11 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             return $"this.{propertyName} == null ? System.Collections.Immutable.ImmutableQueue<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>.Empty : System.Collections.Immutable.ImmutableQueue.CreateRange(this.{propertyName}.Select(x => x?.{DeepCloneMethodName}()))";
         }
+        // For value types and strings in immutable collections, we can safely reuse the same collection
+        if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
+        {
+            return $"this.{propertyName}";
+        }
         return $"this.{propertyName} == null ? System.Collections.Immutable.ImmutableQueue<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>.Empty : System.Collections.Immutable.ImmutableQueue.CreateRange(this.{propertyName})";
     }
 
@@ -912,6 +996,11 @@ public class CloneableGenerator : IIncrementalGenerator
         if (isCloneable)
         {
             return $"this.{propertyName} == null ? System.Collections.Immutable.ImmutableStack<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>.Empty : System.Collections.Immutable.ImmutableStack.CreateRange(this.{propertyName}.Select(x => x?.{DeepCloneMethodName}()))";
+        }
+        // For value types and strings in immutable collections, we can safely reuse the same collection
+        if (elementType.IsValueType || elementType.SpecialType == SpecialType.System_String)
+        {
+            return $"this.{propertyName}";
         }
         return $"this.{propertyName} == null ? System.Collections.Immutable.ImmutableStack<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>.Empty : System.Collections.Immutable.ImmutableStack.CreateRange(this.{propertyName})";
     }
@@ -957,6 +1046,8 @@ public class CloneableGenerator : IIncrementalGenerator
             }
         }
 
+        // For value types including primitives and strings, the List constructor is already optimized
+        // and will use Array.Copy internally which is very efficient
         return $"this.{propertyName} != null ? new System.Collections.Generic.List<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(this.{propertyName}) : null";
     }
 
