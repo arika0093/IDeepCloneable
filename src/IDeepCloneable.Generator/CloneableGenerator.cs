@@ -27,8 +27,7 @@ public class CloneableGenerator : IIncrementalGenerator
         var classDeclarations = context
             .SyntaxProvider.ForAttributeWithMetadataName(
                 DeepCloneableAttributeMetadataName,
-                predicate: static (node, _) =>
-                    node is TypeDeclarationSyntax t && t.Modifiers.Any(SyntaxKind.PartialKeyword),
+                predicate: static (node, _) => true,
                 transform: static (ctx, _) => GetClassInfo(ctx)
             )
             .Where(static m => m is not null)
