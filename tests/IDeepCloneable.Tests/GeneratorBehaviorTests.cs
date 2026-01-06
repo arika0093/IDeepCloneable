@@ -33,7 +33,7 @@ public class GeneratorBehaviorTests
     [Fact]
     public void InterfaceInheritance_GeneratesMethod()
     {
-        var original = new DerivedInterfaceClass { Name = "Test" };
+        var original = new BehaviorTestDerivedInterfaceClass { Name = "Test" };
 
         var clone = original.DeepClone();
 
@@ -44,9 +44,9 @@ public class GeneratorBehaviorTests
     [Fact]
     public void AbstractClass_ImplementsInterface_GeneratesMethod()
     {
-        var original = new ConcreteClass { Name = "Test", Value = 42 };
+        var original = new BehaviorTestConcreteClass { Name = "Test", Value = 42 };
 
-        var clone = (ConcreteClass)original.DeepClone();
+        var clone = (BehaviorTestConcreteClass)original.DeepClone();
 
         clone.ShouldNotBeSameAs(original);
         clone.Name.ShouldBe(original.Name);
@@ -70,9 +70,9 @@ public partial class ManualImplementationClass : IDeepCloneable<ManualImplementa
     }
 }
 
-public interface ICustomCloneable : IDeepCloneable<DerivedInterfaceClass> { }
+public interface ICustomCloneable : IDeepCloneable<BehaviorTestDerivedInterfaceClass> { }
 
-public partial class DerivedInterfaceClass : ICustomCloneable
+public partial class BehaviorTestDerivedInterfaceClass : ICustomCloneable
 {
     public string Name { get; set; } = string.Empty;
 }
@@ -84,12 +84,12 @@ public abstract partial class AbstractBaseClass : IDeepCloneable<AbstractBaseCla
     public abstract AbstractBaseClass DeepClone();
 }
 
-public partial class ConcreteClass : AbstractBaseClass
+public partial class BehaviorTestConcreteClass : AbstractBaseClass
 {
     public int Value { get; set; }
 
     public override AbstractBaseClass DeepClone()
     {
-        return new ConcreteClass { Name = this.Name, Value = this.Value };
+        return new BehaviorTestConcreteClass { Name = this.Name, Value = this.Value };
     }
 }
