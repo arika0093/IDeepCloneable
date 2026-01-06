@@ -6,6 +6,86 @@ Automatic implementation of the `IDeepCloneable<T>` interface via source generat
 ## Overview
 Provides automatic generation of the `DeepClone()` method and `IDeepCloneable<T>` implementation for partial types marked with `[DeepCloneable]`.
 
+### What is DeepClone?
+DeepClone (also commonly referred to as DeepCopy) refers to the operation of creating a complete copy of an object.
+
+For example, if you simply assign an object, reference-type properties are not copied, and both variables will point to the same instance.
+```csharp
+var person1 = new Person
+{
+    Name = "Alice",
+    Address = new Address { City = "Wonderland" }
+};
+var person2 = person1; // shallow copy
+person2.Address.City = "New City";
+
+// person1.Address.City is now "New City"
+```
+
+Additionally, in the following example, the `Address` property is a shallow copy, which is insufficient.
+```csharp
+var person3 = new Person
+{
+    Name = person1.Name,
+    Address = person1.Address // shallow copy
+};
+person3.Address.City = "Another City";
+// person1.Address.City is now "Another City"
+```
+
+To avoid this, you would need to manually copy everything.
+```csharp
+var person4 = new Person
+{
+    Name = person1.Name,
+    Address = new Address { City = person1.Address.City }
+};
+person4.Address.City = "Different City";
+// person1.Address.City remains unchanged
+```
+
+Writing this every time is tedious. Instead, you can use the `DeepClone()` method to easily create a complete copy of an object.
+```csharp
+public class Person
+{
+    public string Name { get; set; }
+    public Address Address { get; set; }
+
+    public Person DeepClone()
+    {
+        return new Person
+        {
+            Name = this.Name,
+            Address = new Address
+            {
+                City = this.Address.City
+            }
+        };
+    }
+}
+
+var person5 = person1.DeepClone();
+person5.Address.City = "Cloned City";
+// person1.Address.City remains unchanged
+```
+
+While this works, it is still a bit cumbersome. With this library, you can automatically generate the implementation of the `DeepClone()` method.
+
+```csharp
+using IDeepCloneable;
+
+[DeepCloneable] // <- add this attribute
+public partial class Person // <- make it partial
+{
+    public string Name { get; set; }
+    public Address Address { get; set; }
+}
+
+var person6 = person1.DeepClone();
+person6.Address.City = "Auto Cloned City";
+// person1.Address.City remains unchanged
+```
+
 ### Benefits
 While there are many similar libraries available, this library's key feature is that it generates the `DeepClone()` method as an implementation of the `IDeepCloneable<T>` interface.
 
