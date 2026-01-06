@@ -21,32 +21,35 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
 
     public EquatableArray(T[] array)
     {
-        _array = array;
+        _array = array ?? Array.Empty<T>();
     }
 
     public EquatableArray(IEnumerable<T> items)
     {
-        _array = items.ToArray();
+        _array = items?.ToArray() ?? Array.Empty<T>();
     }
 
-    public int Count => _array?.Length ?? 0;
+    public int Count => _array.Length;
 
     public T this[int index] => _array[index];
 
     public bool Equals(EquatableArray<T> other)
     {
-        if (_array is null && other._array is null)
-            return true;
-
-        if (_array is null || other._array is null)
-            return false;
-
         if (_array.Length != other._array.Length)
             return false;
 
         for (int i = 0; i < _array.Length; i++)
         {
-            if (!_array[i].Equals(other._array[i]))
+            var item1 = _array[i];
+            var item2 = other._array[i];
+            
+            if (item1 is null && item2 is null)
+                continue;
+            
+            if (item1 is null || item2 is null)
+                return false;
+            
+            if (!item1.Equals(item2))
                 return false;
         }
 
@@ -60,9 +63,6 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
 
     public override int GetHashCode()
     {
-        if (_array is null)
-            return 0;
-
         unchecked
         {
             int hash = 17;
@@ -76,7 +76,7 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
 
     public IEnumerator<T> GetEnumerator()
     {
-        return (_array ?? Array.Empty<T>()).AsEnumerable().GetEnumerator();
+        return (_array).AsEnumerable().GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
