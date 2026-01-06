@@ -12,6 +12,7 @@ namespace IDeepCloneable.Generator;
 public class CloneableGenerator : IIncrementalGenerator
 {
     private const string DeepCloneMethodName = "DeepClone";
+    private const string DeepCloneableAttributeMetadataName = "IDeepCloneable.DeepCloneableAttribute";
     private const string DeepCloneableAttributeFullName = "global::IDeepCloneable.DeepCloneableAttribute";
 
     // Indentation constants for generated code
@@ -21,13 +22,16 @@ public class CloneableGenerator : IIncrementalGenerator
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        // Find all partial types that implement IDeepCloneable<T>
         var classDeclarations = context
-            .SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (s, _) => IsCandidateType(s),
-                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx)
+            .SyntaxProvider
+            .ForAttributeWithMetadataName(
+                DeepCloneableAttributeMetadataName,
+                predicate: static (node, _) =>
+                    node is TypeDeclarationSyntax t && t.Modifiers.Any(SyntaxKind.PartialKeyword),
+                transform: static (ctx, _) => GetClassInfo(ctx)
             )
-            .Where(static m => m is not null);
+            .Where(static m => m is not null)
+            .Select(static (m, _) => m!);
 
         context.RegisterSourceOutput(
             classDeclarations,
@@ -35,34 +39,16 @@ public class CloneableGenerator : IIncrementalGenerator
         );
     }
 
-    private static bool IsCandidateType(SyntaxNode node)
+    private static ClassInfo? GetClassInfo(GeneratorAttributeSyntaxContext context)
     {
-        return (
-                node is ClassDeclarationSyntax classDeclaration
-                && classDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword)
-            )
-            || (
-                node is RecordDeclarationSyntax recordDeclaration
-                && recordDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword)
-            )
-            || (
-                node is StructDeclarationSyntax structDeclaration
-                && structDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword)
-            );
-    }
-
-    private static ClassInfo? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
-    {
-        var typeDeclaration = context.Node as TypeDeclarationSyntax;
-        if (typeDeclaration is null)
+        if (context.TargetSymbol is not INamedTypeSymbol classSymbol)
             return null;
 
-        var classSymbol = context.SemanticModel.GetDeclaredSymbol(typeDeclaration);
+        // Ensure the declaration is partial
+        bool isPartial = context.TargetNode is TypeDeclarationSyntax typeDecl
+            && typeDecl.Modifiers.Any(SyntaxKind.PartialKeyword);
 
-        if (classSymbol is null)
-            return null;
-
-        if (!HasDeepCloneableAttribute(classSymbol))
+        if (!isPartial)
             return null;
 
         bool hasDeepClone = HasMethodImplementation(classSymbol, DeepCloneMethodName);
