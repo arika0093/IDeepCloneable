@@ -58,7 +58,7 @@ public class CloneableGenerator : IIncrementalGenerator
 
         var classSymbol = context.SemanticModel.GetDeclaredSymbol(typeDeclaration);
 
-        if (classSymbol is null || classSymbol.IsAbstract)
+        if (classSymbol is null)
             return null;
 
         var deepCloneableInterface = FindCloneableInterface(
@@ -100,7 +100,8 @@ public class CloneableGenerator : IIncrementalGenerator
             true,
             typeKeyword,
             GetContainingTypes(classSymbol),
-            baseCloneableInterface
+            baseCloneableInterface,
+            classSymbol.IsAbstract
         );
     }
 
@@ -132,7 +133,7 @@ public class CloneableGenerator : IIncrementalGenerator
         return classSymbol
             .GetMembers(methodName)
             .OfType<IMethodSymbol>()
-            .Any(m => !m.IsAbstract && m.DeclaringSyntaxReferences.Any());
+            .Any(m => m.DeclaringSyntaxReferences.Any());
     }
 
     private static string? GetNamespace(ISymbol symbol)
@@ -269,6 +270,18 @@ public class CloneableGenerator : IIncrementalGenerator
 
     private static string GenerateDeepCloneMethod(ClassInfo classInfo)
     {
+        // For abstract classes, generate an abstract method declaration
+        if (classInfo.IsAbstract)
+        {
+            var baseTypeName = classInfo.ClassName;
+            return $$"""
+                        /// <summary>
+                        /// Creates a deep clone of this instance.
+                        /// </summary>
+                        public abstract {{baseTypeName}} {{DeepCloneMethodName}}();
+                """;
+        }
+
         var properties = GetCloneableProperties(classInfo.ClassSymbol);
 
         bool hasInitOnlyProperties = properties.Any(p => p.SetMethod?.IsInitOnly == true);
@@ -1246,6 +1259,7 @@ public class CloneableGenerator : IIncrementalGenerator
         bool ShouldGenerateDeepClone,
         string TypeKeyword,
         List<string> ContainingTypes,
-        INamedTypeSymbol? BaseCloneableInterface
+        INamedTypeSymbol? BaseCloneableInterface,
+        bool IsAbstract
     );
 }

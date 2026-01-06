@@ -38,14 +38,13 @@ You can also use interfaces or abstract classes.
 
 ```csharp
 using IDeepCloneable;
+
+// -------
+// interface example
 public interface IPerson : IDeepCloneable<IPerson>
 {
   string Name { get; }
   int Age { get; }
-}
-public abstract class PersonBase : IDeepCloneable<PersonBase>
-{
-  public abstract PersionBase DeepClone();
 }
 
 // and then
@@ -54,6 +53,21 @@ public partial class Person : IPerson
   public string Name { get; set; }
   public int Age { get; set; }
   // -> DeepClone() will be generated!
+}
+
+// -------
+// abstract class example
+public abstract partial class PersonBase : IDeepCloneable<PersonBase>
+{
+    public string Name { get; set; }
+    public int Age { get; set; }
+    // public abstract PersonBase DeepClone(); <- this declare is automatically added
+}
+
+public partial class Person : PersonBase
+{
+    public string Address { get; set; }
+    // -> Person.DeepClone() also will be generated
 }
 ```
 

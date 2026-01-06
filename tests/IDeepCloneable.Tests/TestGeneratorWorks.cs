@@ -22,6 +22,10 @@ public partial class TestGeneratorWorksTest
         var concreteClone = concreteOriginal.DeepClone();
         concreteClone.GetType().ShouldBe(typeof(ConcreteClass));
         concreteClone.ShouldNotBeSameAs(concreteOriginal);
+
+        var abstractClone = (AbstractBaseClass)concreteOriginal.DeepClone();
+        abstractClone.GetType().ShouldBe(typeof(ConcreteClass));
+        abstractClone.ShouldNotBeSameAs(concreteOriginal);
     }
 
     public partial class TestClass : IDeepCloneable<TestClass>
@@ -40,10 +44,10 @@ public partial class TestGeneratorWorksTest
         // should be generated DeepClone method
     }
 
-    public abstract class AbstractBaseClass : IDeepCloneable<AbstractBaseClass>
+    public abstract partial class AbstractBaseClass : IDeepCloneable<AbstractBaseClass>
     {
         public string Name { get; set; } = string.Empty;
-        public abstract AbstractBaseClass DeepClone();
+        // public abstract AbstractBaseClass DeepClone(); should be generated
     }
 
     public partial class ConcreteClass : AbstractBaseClass
