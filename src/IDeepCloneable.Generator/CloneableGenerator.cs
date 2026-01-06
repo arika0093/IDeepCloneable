@@ -42,13 +42,13 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
         {
             var item1 = _array[i];
             var item2 = other._array[i];
-            
+
             if (item1 is null && item2 is null)
                 continue;
-            
+
             if (item1 is null || item2 is null)
                 return false;
-            
+
             if (!item1.Equals(item2))
                 return false;
         }
