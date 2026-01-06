@@ -235,67 +235,78 @@ public class AdvancedCollectionTests
     }
 }
 
-public partial class ClassWithStack : IDeepCloneable<ClassWithStack>
+[DeepCloneable]
+public partial class ClassWithStack
 {
     public string Name { get; set; } = string.Empty;
     public Stack<int>? Items { get; set; }
 }
 
-public partial class ClassWithQueue : IDeepCloneable<ClassWithQueue>
+[DeepCloneable]
+public partial class ClassWithQueue
 {
     public string Name { get; set; } = string.Empty;
     public Queue<int>? Items { get; set; }
 }
 
-public partial class ClassWithHashSet : IDeepCloneable<ClassWithHashSet>
+[DeepCloneable]
+public partial class ClassWithHashSet
 {
     public string Name { get; set; } = string.Empty;
     public HashSet<int>? Items { get; set; }
 }
 
-public partial class ClassWithSortedSet : IDeepCloneable<ClassWithSortedSet>
+[DeepCloneable]
+public partial class ClassWithSortedSet
 {
     public string Name { get; set; } = string.Empty;
     public SortedSet<int>? Items { get; set; }
 }
 
-public partial class ClassWithObservableCollection : IDeepCloneable<ClassWithObservableCollection>
+[DeepCloneable]
+public partial class ClassWithObservableCollection
 {
     public string Name { get; set; } = string.Empty;
     public ObservableCollection<int>? Items { get; set; }
 }
 
-public partial class ClassWithReadOnlyCollection : IDeepCloneable<ClassWithReadOnlyCollection>
+[DeepCloneable]
+public partial class ClassWithReadOnlyCollection
 {
     public string Name { get; set; } = string.Empty;
     public ReadOnlyCollection<int>? Items { get; set; }
 }
 
-public partial class ClassWithImmutableList : IDeepCloneable<ClassWithImmutableList>
+[DeepCloneable]
+public partial class ClassWithImmutableList
 {
     public string Name { get; set; } = string.Empty;
     public ImmutableList<int>? Items { get; set; }
 }
 
-public partial class ClassWithImmutableArray : IDeepCloneable<ClassWithImmutableArray>
+[DeepCloneable]
+public partial class ClassWithImmutableArray
 {
     public string Name { get; set; } = string.Empty;
     public ImmutableArray<int> Items { get; set; }
 }
 
-public partial class ClassWithImmutableHashSet : IDeepCloneable<ClassWithImmutableHashSet>
+[DeepCloneable]
+public partial class ClassWithImmutableHashSet
 {
     public string Name { get; set; } = string.Empty;
     public ImmutableHashSet<int>? Items { get; set; }
 }
 
-public partial class ClassWithImmutableDictionary : IDeepCloneable<ClassWithImmutableDictionary>
+[DeepCloneable]
+public partial class ClassWithImmutableDictionary
 {
     public string Name { get; set; } = string.Empty;
     public ImmutableDictionary<string, int>? Items { get; set; }
 }
 
-public partial class ClassWithCloneableStack : IDeepCloneable<ClassWithCloneableStack>
+[DeepCloneable]
+public partial class ClassWithCloneableStack
 {
     public string Name { get; set; } = string.Empty;
     public Stack<SimpleClass>? Items { get; set; }

@@ -311,14 +311,16 @@ public class ComplexNestedCloneTests
 }
 
 // Test classes for triple-nested list
-public partial class ClassWithTripleNestedList : IDeepCloneable<ClassWithTripleNestedList>
+[DeepCloneable]
+public partial class ClassWithTripleNestedList
 {
     public string Name { get; set; } = string.Empty;
     public List<List<List<int>>>? Items { get; set; }
 }
 
 // Test classes for multi-level nesting
-public partial class Level1 : IDeepCloneable<Level1>
+[DeepCloneable]
+public partial class Level1
 {
     public string Name { get; set; } = string.Empty;
     public int Value { get; set; }
@@ -339,7 +341,8 @@ public partial class Level3
 }
 
 // Test classes for complex mixed structures
-public partial class ComplexStructure : IDeepCloneable<ComplexStructure>
+[DeepCloneable]
+public partial class ComplexStructure
 {
     public string Name { get; set; } = string.Empty;
     public List<ItemWithNestedData>? Items { get; set; }
@@ -358,20 +361,23 @@ public partial class SubItem
 }
 
 // Test classes for list of lists of objects
-public partial class ClassWithNestedListOfObjects : IDeepCloneable<ClassWithNestedListOfObjects>
+[DeepCloneable]
+public partial class ClassWithNestedListOfObjects
 {
     public string Name { get; set; } = string.Empty;
     public List<List<SimpleCloneableItem>>? Groups { get; set; }
 }
 
-public partial class SimpleCloneableItem : IDeepCloneable<SimpleCloneableItem>
+[DeepCloneable]
+public partial class SimpleCloneableItem
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 }
 
 // Test classes for nested dictionary
-public partial class ClassWithNestedDictionary : IDeepCloneable<ClassWithNestedDictionary>
+[DeepCloneable]
+public partial class ClassWithNestedDictionary
 {
     public string Name { get; set; } = string.Empty;
     public Dictionary<string, DataContainer>? Data { get; set; }
@@ -383,7 +389,8 @@ public partial class DataContainer
 }
 
 // Test classes for shared references
-public partial class ComplexWithSharedReferences : IDeepCloneable<ComplexWithSharedReferences>
+[DeepCloneable]
+public partial class ComplexWithSharedReferences
 {
     public string Name { get; set; } = string.Empty;
     public Level2? Reference1 { get; set; }

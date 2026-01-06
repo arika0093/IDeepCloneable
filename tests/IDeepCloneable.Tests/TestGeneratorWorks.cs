@@ -28,28 +28,27 @@ public partial class TestGeneratorWorksTest
         abstractClone.ShouldNotBeSameAs(concreteOriginal);
     }
 
-    public partial class TestClass : IDeepCloneable<TestClass>
+    [DeepCloneable]
+    public partial class TestClass
     {
         public string Name { get; set; } = "";
     }
 
-    public interface ITestInterface<T> : IDeepCloneable<T>
-    {
-        string Name { get; }
-    }
-
-    public partial class DerivedInterfaceClass : ITestInterface<DerivedInterfaceClass>
+    [DeepCloneable]
+    public partial class DerivedInterfaceClass
     {
         public string Name { get; set; } = string.Empty;
         // should be generated DeepClone method
     }
 
-    public abstract partial class AbstractBaseClass : IDeepCloneable<AbstractBaseClass>
+    [DeepCloneable]
+    public abstract partial class AbstractBaseClass
     {
         public string Name { get; set; } = string.Empty;
         // public abstract AbstractBaseClass DeepClone(); should be generated
     }
 
+    [DeepCloneable]
     public partial class ConcreteClass : AbstractBaseClass
     {
         public new string Name { get; set; } = string.Empty;

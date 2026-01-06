@@ -136,25 +136,29 @@ public class ArrayCloneTests
     }
 }
 
-public partial class ClassWithIntArray : IDeepCloneable<ClassWithIntArray>
+[DeepCloneable]
+public partial class ClassWithIntArray
 {
     public string Name { get; set; } = string.Empty;
     public int[]? Numbers { get; set; }
 }
 
-public partial class ClassWithStringArray : IDeepCloneable<ClassWithStringArray>
+[DeepCloneable]
+public partial class ClassWithStringArray
 {
     public string Name { get; set; } = string.Empty;
     public string[]? Items { get; set; }
 }
 
-public partial class ClassWithCloneableArray : IDeepCloneable<ClassWithCloneableArray>
+[DeepCloneable]
+public partial class ClassWithCloneableArray
 {
     public string Name { get; set; } = string.Empty;
     public SimpleClass?[]? Items { get; set; }
 }
 
-public partial class ClassWithMultiDimensionalArray : IDeepCloneable<ClassWithMultiDimensionalArray>
+[DeepCloneable]
+public partial class ClassWithMultiDimensionalArray
 {
     public string Name { get; set; } = string.Empty;
     public int[,]? Matrix { get; set; }

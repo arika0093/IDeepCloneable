@@ -106,38 +106,44 @@ public class RecordCloneTests
     }
 }
 
-public partial record SimpleRecord(string Name, int Age) : IDeepCloneable<SimpleRecord>;
+[DeepCloneable]
+public partial record SimpleRecord(string Name, int Age);
 
-public partial record PersonRecord : IDeepCloneable<PersonRecord>
+[DeepCloneable]
+public partial record PersonRecord
 {
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public int Age { get; set; }
 }
 
-public partial record AddressRecord : IDeepCloneable<AddressRecord>
+[DeepCloneable]
+public partial record AddressRecord
 {
     public string Street { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public string ZipCode { get; set; } = string.Empty;
 }
 
-public partial record PersonWithAddressRecord : IDeepCloneable<PersonWithAddressRecord>
+[DeepCloneable]
+public partial record PersonWithAddressRecord
 {
     public string Name { get; set; } = string.Empty;
     public AddressRecord? Address { get; set; }
 }
 
-public partial record RecordWithInitProps : IDeepCloneable<RecordWithInitProps>
+[DeepCloneable]
+public partial record RecordWithInitProps
 {
     public string Name { get; init; } = string.Empty;
     public int Value { get; init; }
 }
 
-public partial record struct PointRecordStruct(double X, double Y)
-    : IDeepCloneable<PointRecordStruct>;
+[DeepCloneable]
+public partial record struct PointRecordStruct(double X, double Y);
 
-public partial record RecordWithCollection : IDeepCloneable<RecordWithCollection>
+[DeepCloneable]
+public partial record RecordWithCollection
 {
     public string Name { get; init; } = string.Empty;
     public System.Collections.Generic.List<string>? Tags { get; init; }

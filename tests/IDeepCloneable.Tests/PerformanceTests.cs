@@ -103,25 +103,29 @@ public class PerformanceTests
     }
 }
 
-public partial class ClassWithLargeArray : IDeepCloneable<ClassWithLargeArray>
+[DeepCloneable]
+public partial class ClassWithLargeArray
 {
     public string Name { get; set; } = string.Empty;
     public int[]? Numbers { get; set; }
 }
 
-public partial class ClassWithImmutableIntList : IDeepCloneable<ClassWithImmutableIntList>
+[DeepCloneable]
+public partial class ClassWithImmutableIntList
 {
     public string Name { get; set; } = string.Empty;
     public ImmutableList<int>? Items { get; set; }
 }
 
-public partial class ClassWithImmutableIntArray : IDeepCloneable<ClassWithImmutableIntArray>
+[DeepCloneable]
+public partial class ClassWithImmutableIntArray
 {
     public string Name { get; set; } = string.Empty;
     public ImmutableArray<int> Items { get; set; }
 }
 
-public partial class ClassWithMultipleArrays : IDeepCloneable<ClassWithMultipleArrays>
+[DeepCloneable]
+public partial class ClassWithMultipleArrays
 {
     public int[] Integers { get; set; } = Array.Empty<int>();
     public double[] Doubles { get; set; } = Array.Empty<double>();

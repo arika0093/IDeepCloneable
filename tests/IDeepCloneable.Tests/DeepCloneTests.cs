@@ -81,19 +81,22 @@ public class DeepCloneTests
     }
 }
 
-public partial class SimpleClass : IDeepCloneable<SimpleClass>
+[DeepCloneable]
+public partial class SimpleClass
 {
     public string Name { get; set; } = string.Empty;
     public int Age { get; set; }
     public bool IsActive { get; set; }
 }
 
-public partial class NestedClass : IDeepCloneable<NestedClass>
+[DeepCloneable]
+public partial class NestedClass
 {
     public string Value { get; set; } = string.Empty;
 }
 
-public partial class ClassWithNested : IDeepCloneable<ClassWithNested>
+[DeepCloneable]
+public partial class ClassWithNested
 {
     public string Name { get; set; } = string.Empty;
     public NestedClass? Nested { get; set; }

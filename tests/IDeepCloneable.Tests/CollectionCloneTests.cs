@@ -77,13 +77,15 @@ public class CollectionCloneTests
     }
 }
 
-public partial class ClassWithList : IDeepCloneable<ClassWithList>
+[DeepCloneable]
+public partial class ClassWithList
 {
     public string Name { get; set; } = string.Empty;
     public List<NestedClass>? Items { get; set; }
 }
 
-public partial class ClassWithValueList : IDeepCloneable<ClassWithValueList>
+[DeepCloneable]
+public partial class ClassWithValueList
 {
     public string Name { get; set; } = string.Empty;
     public List<int>? Numbers { get; set; }

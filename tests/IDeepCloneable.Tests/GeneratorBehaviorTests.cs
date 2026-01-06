@@ -8,7 +8,7 @@ namespace IDeepCloneable.Tests;
 public class GeneratorBehaviorTests
 {
     [Fact]
-    public void PartialClass_ImplementsInterface_GeneratesMethod()
+    public void PartialClass_WithAttribute_GeneratesMethod()
     {
         var original = new PartialTestClass { Name = "Test" };
 
@@ -31,9 +31,9 @@ public class GeneratorBehaviorTests
     }
 
     [Fact]
-    public void InterfaceInheritance_GeneratesMethod()
+    public void Attribute_GeneratesMethod()
     {
-        var original = new BehaviorTestDerivedInterfaceClass { Name = "Test" };
+        var original = new BehaviorTestAttributeClass { Name = "Test" };
 
         var clone = original.DeepClone();
 
@@ -54,12 +54,14 @@ public class GeneratorBehaviorTests
     }
 }
 
-public partial class PartialTestClass : IDeepCloneable<PartialTestClass>
+[DeepCloneable]
+public partial class PartialTestClass
 {
     public string Name { get; set; } = string.Empty;
 }
 
-public partial class ManualImplementationClass : IDeepCloneable<ManualImplementationClass>
+[DeepCloneable]
+public partial class ManualImplementationClass
 {
     public string Name { get; set; } = string.Empty;
     public int CustomValue { get; set; }
@@ -68,27 +70,29 @@ public partial class ManualImplementationClass : IDeepCloneable<ManualImplementa
     {
         return new ManualImplementationClass { Name = this.Name, CustomValue = 100 };
     }
+
 }
 
-public interface ICustomCloneable : IDeepCloneable<BehaviorTestDerivedInterfaceClass> { }
-
-public partial class BehaviorTestDerivedInterfaceClass : ICustomCloneable
+[DeepCloneable]
+public partial class BehaviorTestAttributeClass
 {
     public string Name { get; set; } = string.Empty;
 }
 
-public abstract partial class AbstractBaseClass : IDeepCloneable<AbstractBaseClass>
+[DeepCloneable]
+public abstract partial class AbstractBaseClass
 {
     public string Name { get; set; } = string.Empty;
 
     public abstract AbstractBaseClass DeepClone();
 }
 
+[DeepCloneable]
 public partial class BehaviorTestConcreteClass : AbstractBaseClass
 {
     public int Value { get; set; }
 
-    public override AbstractBaseClass DeepClone()
+    public override BehaviorTestConcreteClass DeepClone()
     {
         return new BehaviorTestConcreteClass { Name = this.Name, Value = this.Value };
     }

@@ -144,13 +144,15 @@ public class DictionaryCloneTests
     }
 }
 
-public partial class ClassWithValueDictionary : IDeepCloneable<ClassWithValueDictionary>
+[DeepCloneable]
+public partial class ClassWithValueDictionary
 {
     public string Name { get; set; } = string.Empty;
     public Dictionary<string, int>? Scores { get; set; }
 }
 
-public partial class ClassWithCloneableDictionary : IDeepCloneable<ClassWithCloneableDictionary>
+[DeepCloneable]
+public partial class ClassWithCloneableDictionary
 {
     public string Name { get; set; } = string.Empty;
     public Dictionary<string, SimpleClass>? Items { get; set; }

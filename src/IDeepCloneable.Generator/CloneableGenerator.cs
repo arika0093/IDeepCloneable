@@ -12,6 +12,7 @@ namespace IDeepCloneable.Generator;
 public class CloneableGenerator : IIncrementalGenerator
 {
     private const string DeepCloneMethodName = "DeepClone";
+    private const string DeepCloneableAttributeFullName = "global::IDeepCloneable.DeepCloneableAttribute";
 
     // Indentation constants for generated code
     // These represent the final indentation after raw string literal baseline removal (12 spaces)
@@ -61,17 +62,10 @@ public class CloneableGenerator : IIncrementalGenerator
         if (classSymbol is null)
             return null;
 
-        var deepCloneableInterface = FindCloneableInterface(
-            classSymbol,
-            "IDeepCloneable.IDeepCloneable"
-        );
-
-        if (deepCloneableInterface is null)
+        if (!HasDeepCloneableAttribute(classSymbol))
             return null;
 
         bool hasDeepClone = HasMethodImplementation(classSymbol, DeepCloneMethodName);
-        if (hasDeepClone)
-            return null;
 
         string typeKeyword;
         if (classSymbol.IsRecord)
@@ -83,38 +77,28 @@ public class CloneableGenerator : IIncrementalGenerator
             typeKeyword = classSymbol.IsValueType ? "struct" : "class";
         }
 
-        // Check if base class implements IDeepCloneable<TBase>
-        INamedTypeSymbol? baseCloneableInterface = null;
-        if (classSymbol.BaseType != null && !classSymbol.BaseType.SpecialType.Equals(SpecialType.System_Object))
-        {
-            baseCloneableInterface = FindCloneableInterface(
-                classSymbol.BaseType,
-                "IDeepCloneable.IDeepCloneable"
-            );
-        }
+        var baseCloneableType = GetBaseCloneableType(classSymbol);
 
         return new ClassInfo(
             classSymbol.Name,
             GetNamespace(classSymbol),
             classSymbol,
-            true,
+            !hasDeepClone,
             typeKeyword,
             GetContainingTypes(classSymbol),
-            baseCloneableInterface,
+            baseCloneableType,
             classSymbol.IsAbstract
         );
     }
 
-    private static INamedTypeSymbol? FindCloneableInterface(
-        INamedTypeSymbol classSymbol,
-        string interfaceName
-    )
+    private static INamedTypeSymbol? GetBaseCloneableType(INamedTypeSymbol classSymbol)
     {
-        // Check if any interface is IDeepCloneable.IDeepCloneable<T>
-        return classSymbol.AllInterfaces.FirstOrDefault(i =>
-            i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                .StartsWith("global::IDeepCloneable.IDeepCloneable<")
-        );
+        if (classSymbol.BaseType is null || classSymbol.BaseType.SpecialType.Equals(SpecialType.System_Object))
+        {
+            return null;
+        }
+
+        return HasDeepCloneableAttribute(classSymbol.BaseType) ? classSymbol.BaseType : null;
     }
 
     private static bool IsCloneableType(ITypeSymbol typeSymbol)
@@ -122,10 +106,53 @@ public class CloneableGenerator : IIncrementalGenerator
         if (typeSymbol is not INamedTypeSymbol namedType)
             return false;
 
-        return namedType.AllInterfaces.Any(i =>
-            i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                .StartsWith("global::IDeepCloneable.IDeepCloneable<")
-        );
+        if (HasDeepCloneableAttribute(namedType))
+        {
+            return true;
+        }
+
+        return namedType.AllInterfaces.Any(IsDeepCloneableInterface);
+    }
+
+    private static bool IsDeepCloneableInterface(INamedTypeSymbol interfaceSymbol)
+    {
+        return interfaceSymbol.OriginalDefinition
+            .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            .StartsWith("global::IDeepCloneable.IDeepCloneable<");
+    }
+
+    private static bool HasDeepCloneableAttribute(INamedTypeSymbol typeSymbol)
+    {
+        foreach (var attribute in typeSymbol.GetAttributes())
+        {
+            var attributeClass = attribute.AttributeClass;
+            if (attributeClass is null)
+            {
+                continue;
+            }
+
+            var fullName = attributeClass.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+            if (fullName == DeepCloneableAttributeFullName)
+            {
+                return true;
+            }
+
+            if (fullName == "IDeepCloneable.DeepCloneableAttribute")
+            {
+                return true;
+            }
+
+            if (
+                attributeClass.Name == "DeepCloneableAttribute"
+                && attributeClass.ContainingNamespace.ToDisplayString() == "IDeepCloneable"
+            )
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool HasMethodImplementation(INamedTypeSymbol classSymbol, string methodName)
@@ -162,7 +189,17 @@ public class CloneableGenerator : IIncrementalGenerator
     private static void Execute(ClassInfo classInfo, SourceProductionContext context)
     {
         var source = GenerateCloneMethod(classInfo);
-        context.AddSource($"{classInfo.ClassName}.g.cs", SourceText.From(source, Encoding.UTF8));
+        var hintNameParts = new List<string>();
+        if (!string.IsNullOrEmpty(classInfo.Namespace))
+        {
+            hintNameParts.Add(classInfo.Namespace!);
+        }
+
+        hintNameParts.AddRange(classInfo.ContainingTypes);
+        hintNameParts.Add(classInfo.ClassName);
+
+        var hintName = string.Join(".", hintNameParts) + ".g.cs";
+        context.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
     }
 
     private static string GenerateCloneMethod(ClassInfo classInfo)
@@ -202,9 +239,9 @@ public class CloneableGenerator : IIncrementalGenerator
         
         // Build interface list
         var interfaces = $"IDeepCloneable.IDeepCloneable<{classInfo.ClassName}>";
-        if (classInfo.BaseCloneableInterface != null)
+        if (classInfo.BaseCloneableType is not null)
         {
-            var baseTypeName = classInfo.BaseCloneableInterface.TypeArguments[0].Name;
+            var baseTypeName = classInfo.BaseCloneableType.Name;
             interfaces += $", IDeepCloneable.IDeepCloneable<{baseTypeName}>";
         }
         
@@ -292,7 +329,7 @@ public class CloneableGenerator : IIncrementalGenerator
         var sb = new StringBuilder();
         
         // Determine if we need override keyword
-        var methodModifier = classInfo.BaseCloneableInterface != null ? "public override" : "public";
+        var methodModifier = classInfo.BaseCloneableType != null ? "public override" : "public";
         
         // Generate the main DeepClone method that returns the derived type
         if (needsStatements || hasInitOnlyProperties)
@@ -378,12 +415,7 @@ public class CloneableGenerator : IIncrementalGenerator
 
         if (typeSymbol is INamedTypeSymbol namedType)
         {
-            var deepCloneableInterface = namedType.AllInterfaces.FirstOrDefault(i =>
-                i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                    .StartsWith("global::IDeepCloneable.IDeepCloneable")
-            );
-
-            if (deepCloneableInterface is not null)
+            if (IsCloneableType(namedType))
             {
                 return $"this.{property.Name}?.{DeepCloneMethodName}()";
             }
@@ -741,17 +773,9 @@ public class CloneableGenerator : IIncrementalGenerator
             return $"this.{propertyName} != null ? ({arrayTypeName})this.{propertyName}.Clone() : null";
         }
 
-        if (elementType is INamedTypeSymbol elementNamedType)
+        if (IsCloneableType(elementType))
         {
-            var deepCloneableInterface = elementNamedType.AllInterfaces.FirstOrDefault(i =>
-                i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                    .StartsWith("global::IDeepCloneable.IDeepCloneable")
-            );
-
-            if (deepCloneableInterface is not null)
-            {
-                return $"this.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToArray()";
-            }
+            return $"this.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToArray()";
         }
 
         // Optimize for primitive and blittable types using span-based copy
@@ -794,15 +818,7 @@ public class CloneableGenerator : IIncrementalGenerator
         var valueType = dictionaryType.TypeArguments[1];
         var propertyName = property.Name;
 
-        bool valueIsCloneable = false;
-        if (valueType is INamedTypeSymbol valueNamedType)
-        {
-            var deepCloneableInterface = valueNamedType.AllInterfaces.FirstOrDefault(i =>
-                i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                    .StartsWith("global::IDeepCloneable.IDeepCloneable")
-            );
-            valueIsCloneable = deepCloneableInterface is not null;
-        }
+        bool valueIsCloneable = IsCloneableType(valueType);
 
         var typeName = dictionaryType.OriginalDefinition.ToDisplayString(
             SymbolDisplayFormat.FullyQualifiedFormat
@@ -892,15 +908,7 @@ public class CloneableGenerator : IIncrementalGenerator
             SymbolDisplayFormat.FullyQualifiedFormat
         );
 
-        bool isCloneable = false;
-        if (elementType is INamedTypeSymbol elementNamedType)
-        {
-            var deepCloneableInterface = elementNamedType.AllInterfaces.FirstOrDefault(i =>
-                i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                    .StartsWith("global::IDeepCloneable.IDeepCloneable")
-            );
-            isCloneable = deepCloneableInterface is not null;
-        }
+        bool isCloneable = IsCloneableType(elementType);
 
         if (typeName == "global::System.Collections.Generic.Stack<T>")
             return GenerateStackClone(propertyName, elementType, isCloneable);
@@ -1259,7 +1267,7 @@ public class CloneableGenerator : IIncrementalGenerator
         bool ShouldGenerateDeepClone,
         string TypeKeyword,
         List<string> ContainingTypes,
-        INamedTypeSymbol? BaseCloneableInterface,
+        INamedTypeSymbol? BaseCloneableType,
         bool IsAbstract
     );
 }

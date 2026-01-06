@@ -4,8 +4,7 @@
 Automatic implementation of the `IDeepCloneable<T>` interface via source generators. For library authors.
 
 ## Overview
-Provides automatic generation of the `DeepClone()` method for types implementing `IDeepCloneable<T>`.
-This works not only for `IDeepCloneable<T>` itself, but also for interfaces and abstract classes that inherit from it.
+Provides automatic generation of the `DeepClone()` method and `IDeepCloneable<T>` implementation for partial types marked with `[DeepCloneable]`.
 
 ## How to use
 Install the NuGet package [IDeepCloneable](https://www.nuget.org/packages/IDeepCloneable/) to your project.
@@ -14,19 +13,20 @@ Install the NuGet package [IDeepCloneable](https://www.nuget.org/packages/IDeepC
 dotnet add package IDeepCloneable
 ```
 
-Then create a partial class that implements `IDeepCloneable<T>`.
+Then mark a partial type with the `[DeepCloneable]` attribute.
 
 ```csharp
 using IDeepCloneable;
 
-public partial class Person : IDeepCloneable<Person>
+[DeepCloneable]
+public partial class Person
 {
   public string Name { get; set; }
   public int Age { get; set; }
 }
 ```
 
-That's it! The `DeepClone()` method will be automatically generated.
+That's it! The `DeepClone()` method will be automatically generated and the generated partial type will implement `IDeepCloneable<Person>`.
 
 ```csharp
 var person1 = new Person { Name = "Alice", Age = 30 };
@@ -34,36 +34,22 @@ var person2 = person1.DeepClone();
 person2.ShouldNotBeSameAs(person1);
 ```
 
-You can also use interfaces or abstract classes.
+You can also use abstract classes.
 
 ```csharp
 using IDeepCloneable;
 
 // -------
-// interface example
-public interface IPerson : IDeepCloneable<IPerson>
-{
-  string Name { get; }
-  int Age { get; }
-}
-
-// and then
-public partial class Person : IPerson
-{
-  public string Name { get; set; }
-  public int Age { get; set; }
-  // -> DeepClone() will be generated!
-}
-
-// -------
 // abstract class example
-public abstract partial class PersonBase : IDeepCloneable<PersonBase>
+[DeepCloneable]
+public abstract partial class PersonBase
 {
     public string Name { get; set; }
     public int Age { get; set; }
     // public abstract PersonBase DeepClone(); <- this declare is automatically added
 }
 
+[DeepCloneable]
 public partial class Person : PersonBase
 {
     public string Address { get; set; }
@@ -226,7 +212,7 @@ public partial class MyModel : ILibraryModel<MyModel>
 This consists of two libraries.
 
 ### IDeepCloneable
-This is the library that defines the `IDeepCloneable<T>` interface. It contains only the [following content](src/IDeepCloneable/IDeepCloneable.cs).
+This is the library that defines the `IDeepCloneable<T>` interface and the `[DeepCloneable]` marker attribute.
 
 ```csharp
 namespace IDeepCloneable;
@@ -234,6 +220,8 @@ public interface IDeepCloneable<T>
 {
     T DeepClone();
 }
+
+public sealed class DeepCloneableAttribute : Attribute;
 ```
 
 Additionally, it will automatically reference the `IDeepCloneable.Generator`.
