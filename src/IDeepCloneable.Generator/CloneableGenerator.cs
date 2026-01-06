@@ -76,12 +76,12 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
 
     public IEnumerator<T> GetEnumerator()
     {
-        return (_array).AsEnumerable().GetEnumerator();
+        return ((IEnumerable<T>)_array).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return GetEnumerator();
+        return _array.GetEnumerator();
     }
 
     public static bool operator ==(EquatableArray<T> left, EquatableArray<T> right)
