@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,6 +9,91 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 namespace IDeepCloneable.Generator;
+
+/// <summary>
+/// An immutable array that implements value-based equality.
+/// This is used in incremental generators to ensure proper caching behavior.
+/// </summary>
+internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnumerable<T>
+    where T : IEquatable<T>
+{
+    private readonly T[] _array;
+
+    public EquatableArray(T[] array)
+    {
+        _array = array;
+    }
+
+    public EquatableArray(IEnumerable<T> items)
+    {
+        _array = items.ToArray();
+    }
+
+    public int Count => _array?.Length ?? 0;
+
+    public T this[int index] => _array[index];
+
+    public bool Equals(EquatableArray<T> other)
+    {
+        if (_array is null && other._array is null)
+            return true;
+
+        if (_array is null || other._array is null)
+            return false;
+
+        if (_array.Length != other._array.Length)
+            return false;
+
+        for (int i = 0; i < _array.Length; i++)
+        {
+            if (!_array[i].Equals(other._array[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is EquatableArray<T> other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        if (_array is null)
+            return 0;
+
+        unchecked
+        {
+            int hash = 17;
+            foreach (var item in _array)
+            {
+                hash = hash * 31 + (item?.GetHashCode() ?? 0);
+            }
+            return hash;
+        }
+    }
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        return (_array ?? Array.Empty<T>()).AsEnumerable().GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+
+    public static bool operator ==(EquatableArray<T> left, EquatableArray<T> right)
+    {
+        return left.Equals(right);
+    }
+
+    public static bool operator !=(EquatableArray<T> left, EquatableArray<T> right)
+    {
+        return !left.Equals(right);
+    }
+}
 
 [Generator]
 public class CloneableGenerator : IIncrementalGenerator
@@ -164,7 +251,7 @@ public class CloneableGenerator : IIncrementalGenerator
             .Replace("global::", "");
     }
 
-    private static List<string> GetContainingTypes(ISymbol symbol)
+    private static EquatableArray<string> GetContainingTypes(ISymbol symbol)
     {
         var containingTypes = new List<string>();
         var containingType = symbol.ContainingType;
@@ -173,7 +260,7 @@ public class CloneableGenerator : IIncrementalGenerator
             containingTypes.Insert(0, containingType.Name);
             containingType = containingType.ContainingType;
         }
-        return containingTypes;
+        return new EquatableArray<string>(containingTypes);
     }
 
     private static void Execute(ClassInfo classInfo, SourceProductionContext context)
@@ -1267,7 +1354,7 @@ public class CloneableGenerator : IIncrementalGenerator
         INamedTypeSymbol ClassSymbol,
         bool ShouldGenerateDeepClone,
         string TypeKeyword,
-        List<string> ContainingTypes,
+        EquatableArray<string> ContainingTypes,
         INamedTypeSymbol? BaseCloneableType,
         bool IsAbstract
     );
