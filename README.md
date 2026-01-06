@@ -21,8 +21,8 @@ using IDeepCloneable;
 
 public partial class Person : IDeepCloneable<Person>
 {
-    public string Name { get; set; }
-    public int Age { get; set; }
+  public string Name { get; set; }
+  public int Age { get; set; }
 }
 ```
 
@@ -31,7 +31,7 @@ That's it! The `DeepClone()` method will be automatically generated.
 ```csharp
 var person1 = new Person { Name = "Alice", Age = 30 };
 var person2 = person1.DeepClone();
-person2.ShoultNotBeSameAs(person1);
+person2.ShouldNotBeSameAs(person1);
 ```
 
 You can also use interfaces or abstract classes.
@@ -40,21 +40,26 @@ You can also use interfaces or abstract classes.
 using IDeepCloneable;
 public interface IPerson : IDeepCloneable<IPerson>
 {
-    string Name { get; }
-    int Age { get; }
+  string Name { get; }
+  int Age { get; }
+}
+public abstract class PersonBase : IDeepCloneable<PersonBase>
+{
+  public abstract PersionBase DeepClone();
 }
 
 // and then
 public partial class Person : IPerson
 {
-    public string Name { get; set; }
-    public int Age { get; set; }
-    // -> DeepClone() will be generated!
+  public string Name { get; set; }
+  public int Age { get; set; }
+  // -> DeepClone() will be generated!
 }
 ```
 
 ## Why this library?
 ### Problem
+#### How to use DeepClone in your library?
 There are many libraries that implement DeepCopy. Why is this library necessary?
 
 Traditional libraries implement copy methods by adding some kind of attribute to specific types.
@@ -115,7 +120,7 @@ public partial class Person : ICloneable<Person>
 {
   public Person Clone()
   {
-    // Must be implemented manually
+  // Must be implemented manually
   }
 }
 ```
@@ -137,8 +142,8 @@ public class MethodConfig
 
   public MethodConfig SetCloneFunc<T>(Func<T, T> cloneFunc)
   {
-    _cloneFunc = cloneFunc;
-    return this;
+  _cloneFunc = cloneFunc;
+  return this;
   }
 }
 
@@ -146,7 +151,7 @@ public class MethodConfig
 var config = new MethodConfig()
   .SetCloneFunc<Person>(person => 
   {
-    // Must be implemented manually
+  // Must be implemented manually
   });
 ```
 
@@ -202,3 +207,23 @@ public partial class MyModel : ILibraryModel<MyModel>
   public int Age { get; set; }
 }
 ```
+
+### Library Structure
+This consists of two libraries.
+
+### IDeepCloneable
+This is the library that defines the `IDeepCloneable<T>` interface. It contains only the [following content](src/IDeepCloneable/IDeepCloneable.cs).
+
+```csharp
+namespace IDeepCloneable;
+public interface IDeepCloneable<T>
+{
+    T DeepClone();
+}
+```
+
+Additionally, it will automatically reference the `IDeepCloneable.Generator`.
+
+### IDeepCloneable.Generator
+This is the source generator library that automatically generates the `IDeepCloneable<T>.DeepClone()` method.
+There is no need to directly reference this library.
