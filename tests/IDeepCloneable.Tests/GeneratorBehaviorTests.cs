@@ -70,7 +70,6 @@ public partial class ManualImplementationClass
     {
         return new ManualImplementationClass { Name = this.Name, CustomValue = 100 };
     }
-
 }
 
 [DeepCloneable]
