@@ -83,12 +83,24 @@ public class CloneableGenerator : IIncrementalGenerator
             typeKeyword = classSymbol.IsValueType ? "struct" : "class";
         }
 
+        // Check if base class implements IDeepCloneable<TBase>
+        INamedTypeSymbol? baseCloneableInterface = null;
+        if (classSymbol.BaseType != null && !classSymbol.BaseType.SpecialType.Equals(SpecialType.System_Object))
+        {
+            baseCloneableInterface = FindCloneableInterface(
+                classSymbol.BaseType,
+                "IDeepCloneable.IDeepCloneable"
+            );
+        }
+
         return new ClassInfo(
             classSymbol.Name,
             GetNamespace(classSymbol),
             classSymbol,
             true,
-            typeKeyword
+            typeKeyword,
+            GetContainingTypes(classSymbol),
+            baseCloneableInterface
         );
     }
 
@@ -134,6 +146,18 @@ public class CloneableGenerator : IIncrementalGenerator
             .Replace("global::", "");
     }
 
+    private static List<string> GetContainingTypes(ISymbol symbol)
+    {
+        var containingTypes = new List<string>();
+        var containingType = symbol.ContainingType;
+        while (containingType != null)
+        {
+            containingTypes.Insert(0, containingType.Name);
+            containingType = containingType.ContainingType;
+        }
+        return containingTypes;
+    }
+
     private static void Execute(ClassInfo classInfo, SourceProductionContext context)
     {
         var source = GenerateCloneMethod(classInfo);
@@ -146,16 +170,18 @@ public class CloneableGenerator : IIncrementalGenerator
             ? GenerateDeepCloneMethod(classInfo)
             : string.Empty;
 
+        var fullClassName = string.Join(".", classInfo.ContainingTypes.Concat(new[] { classInfo.ClassName }));
+        
+        // Build the nested class structure
+        var classDeclaration = BuildNestedClassDeclaration(classInfo, deepCloneMethod);
+
         if (classInfo.Namespace is not null)
         {
             return $$"""
                 {{OutputFileHeaderParts}}
                 namespace {{classInfo.Namespace}}
                 {
-                    partial {{classInfo.TypeKeyword}} {{classInfo.ClassName}} : IDeepCloneable.IDeepCloneable<{{classInfo.ClassName}}>
-                    {
-                {{deepCloneMethod}}
-                    }
+                {{classDeclaration}}
                 }
                 """;
         }
@@ -163,12 +189,69 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             return $$"""
                 {{OutputFileHeaderParts}}
-                partial {{classInfo.TypeKeyword}} {{classInfo.ClassName}} : IDeepCloneable.IDeepCloneable<{{classInfo.ClassName}}>
-                {
-                {{deepCloneMethod}}
-                }
+                {{classDeclaration}}
                 """;
         }
+    }
+
+    private static string BuildNestedClassDeclaration(ClassInfo classInfo, string deepCloneMethod)
+    {
+        var indent = "    ";
+        var currentIndent = indent;
+        
+        // Build interface list
+        var interfaces = $"IDeepCloneable.IDeepCloneable<{classInfo.ClassName}>";
+        if (classInfo.BaseCloneableInterface != null)
+        {
+            var baseTypeName = classInfo.BaseCloneableInterface.TypeArguments[0].Name;
+            interfaces += $", IDeepCloneable.IDeepCloneable<{baseTypeName}>";
+        }
+        
+        if (classInfo.ContainingTypes.Count == 0)
+        {
+            // No nesting
+            return $$"""
+                {{indent}}partial {{classInfo.TypeKeyword}} {{classInfo.ClassName}} : {{interfaces}}
+                {{indent}}{
+                {{deepCloneMethod}}
+                {{indent}}}
+                """;
+        }
+
+        var sb = new StringBuilder();
+        
+        // Open containing types
+        foreach (var containingType in classInfo.ContainingTypes)
+        {
+            sb.AppendLine($"{currentIndent}partial class {containingType}");
+            sb.AppendLine($"{currentIndent}{{");
+            currentIndent += indent;
+        }
+        
+        // Add the actual class with DeepClone implementation
+        sb.AppendLine($"{currentIndent}partial {classInfo.TypeKeyword} {classInfo.ClassName} : {interfaces}");
+        sb.AppendLine($"{currentIndent}{{");
+        
+        // Add the deep clone method with proper indentation
+        var methodLines = deepCloneMethod.Split('\n');
+        foreach (var line in methodLines)
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                sb.AppendLine($"{currentIndent}{line.TrimStart()}");
+            }
+        }
+        
+        sb.AppendLine($"{currentIndent}}}");
+        
+        // Close containing types
+        for (int i = classInfo.ContainingTypes.Count - 1; i >= 0; i--)
+        {
+            currentIndent = currentIndent.Substring(0, currentIndent.Length - indent.Length);
+            sb.AppendLine($"{currentIndent}}}");
+        }
+        
+        return sb.ToString().TrimEnd();
     }
 
     private const string OutputFileHeaderParts = $"""
@@ -193,6 +276,12 @@ public class CloneableGenerator : IIncrementalGenerator
             p.Type is IArrayTypeSymbol arrayType && arrayType.Rank > 1
         );
 
+        var sb = new StringBuilder();
+        
+        // Determine if we need override keyword
+        var methodModifier = classInfo.BaseCloneableInterface != null ? "public override" : "public";
+        
+        // Generate the main DeepClone method that returns the derived type
         if (needsStatements || hasInitOnlyProperties)
         {
             if (classInfo.ClassSymbol.IsRecord && hasInitOnlyProperties)
@@ -206,16 +295,16 @@ public class CloneableGenerator : IIncrementalGenerator
 
                 var withAssignments = string.Join(",\n", assignments);
 
-                return $$"""
+                sb.AppendLine($$"""
                             /// <inheritdoc />
-                            public {{classInfo.ClassName}} {{DeepCloneMethodName}}()
+                            {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
                             {
                                 return this with
                                 {
                     {{withAssignments}}
                                 };
                             }
-                    """;
+                    """);
             }
             else
             {
@@ -232,13 +321,13 @@ public class CloneableGenerator : IIncrementalGenerator
 
                 var methodBody = string.Join("\n", statements);
 
-                return $$"""
+                sb.AppendLine($$"""
                             /// <inheritdoc />
-                            public {{classInfo.ClassName}} {{DeepCloneMethodName}}()
+                            {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
                             {
                     {{methodBody}}
                             }
-                    """;
+                    """);
             }
         }
         else
@@ -250,17 +339,19 @@ public class CloneableGenerator : IIncrementalGenerator
                 )
             );
 
-            return $$"""
+            sb.AppendLine($$"""
                         /// <inheritdoc />
-                        public {{classInfo.ClassName}} {{DeepCloneMethodName}}()
+                        {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
                         {
                             return new {{classInfo.ClassName}}
                             {
                 {{propertyAssignments}}
                             };
                         }
-                """;
+                """);
         }
+
+        return sb.ToString().TrimEnd();
     }
 
     private static string GenerateDeepCloneExpression(IPropertySymbol property)
@@ -1153,6 +1244,8 @@ public class CloneableGenerator : IIncrementalGenerator
         string? Namespace,
         INamedTypeSymbol ClassSymbol,
         bool ShouldGenerateDeepClone,
-        string TypeKeyword
+        string TypeKeyword,
+        List<string> ContainingTypes,
+        INamedTypeSymbol? BaseCloneableInterface
     );
 }
