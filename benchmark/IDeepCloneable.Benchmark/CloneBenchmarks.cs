@@ -4,10 +4,13 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AutoMapper;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Running;
 using MemoryPack;
 using MessagePack;
 using Newtonsoft.Json;
+using Riok.Mapperly.Abstractions;
 
 namespace IDeepCloneable.Benchmark;
 
@@ -16,6 +19,7 @@ namespace IDeepCloneable.Benchmark;
 /// </summary>
 [MemoryDiagnoser]
 [SimpleJob]
+[Orderer(SummaryOrderPolicy.FastestToSlowest)]
 public class CloneBenchmarks
 {
     private ComplexModel _model = null!;
@@ -56,59 +60,65 @@ public class CloneBenchmarks
     }
 
     [Benchmark(Baseline = true)]
-    public ComplexModel IDeepCloneable_DeepClone()
+    public ComplexModel IDeepCloneable()
     {
         return _model.DeepClone();
     }
 
     [Benchmark]
-    public ComplexModel FastCloner_DeepClone()
-    {
-        return FastCloner.FastCloner.DeepClone(_model)!;
-    }
-
-    [Benchmark]
-    public ComplexModel AutoMapper_Map()
-    {
-        return _autoMapper.Map<ComplexModel>(_model);
-    }
-
-    [Benchmark]
-    public ComplexModel ManualDeepCopy()
+    public ComplexModel Manual()
     {
         return ManualMapper.DeepCopy(_model);
     }
 
     [Benchmark]
-    public ComplexModel MemoryPack_SerializeDeserialize()
+    public ComplexModel FastCloner_Clone()
+    {
+        return FastCloner.FastCloner.DeepClone(_model)!;
+    }
+
+    [Benchmark]
+    public ComplexModel AutoMapper()
+    {
+        return _autoMapper.Map<ComplexModel>(_model);
+    }
+
+    [Benchmark]
+    public ComplexModel Mapperly()
+    {
+        return ComplexModelMapper.MapToComplexModel(_model);
+    }
+
+    [Benchmark]
+    public ComplexModel MemoryPack()
     {
         var bytes = MemoryPackSerializer.Serialize(_model);
         return MemoryPackSerializer.Deserialize<ComplexModel>(bytes)!;
     }
 
     [Benchmark]
-    public ComplexModel MessagePack_SerializeDeserialize()
+    public ComplexModel MessagePack()
     {
         var bytes = MessagePackSerializer.Serialize(_model);
         return MessagePackSerializer.Deserialize<ComplexModel>(bytes);
     }
 
     [Benchmark]
-    public ComplexModel SystemTextJson_SerializeDeserialize()
+    public ComplexModel SystemTextJson_Reflection()
     {
         var json = System.Text.Json.JsonSerializer.Serialize(_model, _systemTextJsonOptions);
         return System.Text.Json.JsonSerializer.Deserialize<ComplexModel>(json, _systemTextJsonOptions)!;
     }
 
     [Benchmark]
-    public ComplexModel SystemTextJson_SourceGen_SerializeDeserialize()
+    public ComplexModel SystemTextJson_SourceGen()
     {
         var json = System.Text.Json.JsonSerializer.Serialize(_model, BenchmarkJsonContext.Default.ComplexModel);
         return System.Text.Json.JsonSerializer.Deserialize(json, BenchmarkJsonContext.Default.ComplexModel)!;
     }
 
     [Benchmark]
-    public ComplexModel NewtonsoftJson_SerializeDeserialize()
+    public ComplexModel NewtonsoftJson()
     {
         var json = JsonConvert.SerializeObject(_model);
         return JsonConvert.DeserializeObject<ComplexModel>(json)!;
@@ -116,115 +126,12 @@ public class CloneBenchmarks
 }
 
 /// <summary>
-/// Manual deep copy implementation for comparison.
-/// This represents a handwritten deep clone method without any library support.
+/// Mapperly mapper for ComplexModel (compile-time code generation, no reflection).
 /// </summary>
-public static class ManualMapper
+[Mapper]
+public static partial class ComplexModelMapper
 {
-    public static ComplexModel DeepCopy(ComplexModel source)
-    {
-        return new ComplexModel
-        {
-            Id = source.Id,
-            Name = source.Name,
-            Version = source.Version,
-            CreatedAt = source.CreatedAt,
-            UpdatedAt = source.UpdatedAt,
-            Owner = source.Owner != null ? DeepCopy(source.Owner) : null,
-            Contributors = source.Contributors != null
-                ? source.Contributors.ConvertAll(DeepCopy)
-                : null,
-            Metadata = source.Metadata != null
-                ? new Dictionary<string, string>(source.Metadata)
-                : null,
-            Items = source.Items != null
-                ? source.Items.ConvertAll(DeepCopy)
-                : null,
-            Settings = source.Settings != null ? DeepCopy(source.Settings) : null,
-        };
-    }
-
-    private static UserInfo DeepCopy(UserInfo source)
-    {
-        return new UserInfo
-        {
-            UserId = source.UserId,
-            UserName = source.UserName,
-            Email = source.Email,
-            Role = source.Role,
-            Contact = source.Contact != null ? DeepCopy(source.Contact) : null,
-        };
-    }
-
-    private static ContactInfo DeepCopy(ContactInfo source)
-    {
-        return new ContactInfo
-        {
-            Phone = source.Phone,
-            Address = source.Address,
-            City = source.City,
-            Country = source.Country,
-        };
-    }
-
-    private static DataItem DeepCopy(DataItem source)
-    {
-        return new DataItem
-        {
-            ItemId = source.ItemId,
-            Title = source.Title,
-            Description = source.Description,
-            Value = source.Value,
-            Tags = source.Tags != null ? new List<string>(source.Tags) : null,
-            SubItems = source.SubItems != null
-                ? source.SubItems.ConvertAll(DeepCopy)
-                : null,
-            Properties = source.Properties != null
-                ? new Dictionary<string, string>(source.Properties)
-                : null,
-        };
-    }
-
-    private static SubItem DeepCopy(SubItem source)
-    {
-        return new SubItem
-        {
-            SubId = source.SubId,
-            Label = source.Label,
-            Quantity = source.Quantity,
-            Price = source.Price,
-        };
-    }
-
-    private static Settings DeepCopy(Settings source)
-    {
-        return new Settings
-        {
-            IsEnabled = source.IsEnabled,
-            MaxItems = source.MaxItems,
-            Timeout = source.Timeout,
-            AllowedDomains = source.AllowedDomains != null
-                ? new List<string>(source.AllowedDomains)
-                : null,
-            Limits = source.Limits != null
-                ? new Dictionary<string, int>(source.Limits)
-                : null,
-            Advanced = source.Advanced != null ? DeepCopy(source.Advanced) : null,
-        };
-    }
-
-    private static AdvancedSettings DeepCopy(AdvancedSettings source)
-    {
-        return new AdvancedSettings
-        {
-            CacheSize = source.CacheSize,
-            UseCompression = source.UseCompression,
-            CompressionLevel = source.CompressionLevel,
-            Features = source.Features != null
-                ? new List<string>(source.Features)
-                : null,
-        };
-    }
+    public static partial ComplexModel MapToComplexModel(ComplexModel source);
 }
 
 /// <summary>
