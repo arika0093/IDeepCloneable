@@ -1,4 +1,5 @@
 using System.Linq;
+
 namespace IDeepCloneable.Tests;
 
 /// <summary>

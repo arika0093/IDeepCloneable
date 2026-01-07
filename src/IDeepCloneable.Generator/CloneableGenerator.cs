@@ -99,10 +99,8 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnu
 public class CloneableGenerator : IIncrementalGenerator
 {
     private const string DeepCloneMethodName = "DeepClone";
-    private const string DeepCloneableAttributeMetadataName =
-        "DeepCloneableAttribute";
-    private const string DeepCloneableAttributeFullName =
-        "global::DeepCloneableAttribute";
+    private const string DeepCloneableAttributeMetadataName = "DeepCloneableAttribute";
+    private const string DeepCloneableAttributeFullName = "global::DeepCloneableAttribute";
 
     // Indentation constants for generated code
     // These represent the final indentation after raw string literal baseline removal (12 spaces)
