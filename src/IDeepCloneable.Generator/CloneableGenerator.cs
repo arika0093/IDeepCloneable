@@ -107,6 +107,11 @@ public class CloneableGenerator : IIncrementalGenerator
     private const string PropertyIndent = "                "; // 16 spaces (4 levels: namespace/class/method/initializer)
     private const string StatementIndent = "            "; // 12 spaces (3 levels: namespace/class/method)
 
+    // Thread-local context for generation
+    [ThreadStatic]
+    private static CloneInternalNameGenerator? s_currentNameGenerator;
+
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // Collect all types with [DeepCloneable] attribute
@@ -132,6 +137,7 @@ public class CloneableGenerator : IIncrementalGenerator
     {
         var registry = new TypeRegistry();
         var discovery = new TypeDiscovery(registry);
+        var nameGenerator = new CloneInternalNameGenerator();
 
         // Discover all reachable types from root types
         foreach (var rootType in rootTypes)
@@ -139,52 +145,62 @@ public class CloneableGenerator : IIncrementalGenerator
             discovery.DiscoverTypes(rootType, true);
         }
 
-        // Generate code for each discovered type
+        // Register all discovered types with the name generator
         foreach (var typeInfo in registry.GetAllTypes())
         {
-            var classInfo = GetClassInfoFromSymbol(typeInfo.Symbol, typeInfo.HasDeepCloneableAttribute);
-            if (classInfo != null)
+            nameGenerator.RegisterType(typeInfo.FullName);
+        }
+
+        // Set the thread-local context
+        s_currentNameGenerator = nameGenerator;
+
+        try
+        {
+            // Generate code for each discovered type
+            foreach (var typeInfo in registry.GetAllTypes())
             {
-                // Only generate main class file for types with [DeepCloneable] attribute
-                if (typeInfo.HasDeepCloneableAttribute)
+                var classInfo = GetClassInfoFromSymbol(typeInfo.Symbol, typeInfo.HasDeepCloneableAttribute);
+                if (classInfo != null)
                 {
-                    var source = GenerateCloneMethod(classInfo);
-                    var hintNameParts = new List<string>();
-                    if (!string.IsNullOrEmpty(classInfo.Namespace))
+                    // Only generate main class file for types with [DeepCloneable] attribute
+                    if (typeInfo.HasDeepCloneableAttribute)
                     {
-                        hintNameParts.Add(classInfo.Namespace!);
+                        var source = GenerateCloneMethod(classInfo);
+                        var hintNameParts = new List<string>();
+                        if (!string.IsNullOrEmpty(classInfo.Namespace))
+                        {
+                            hintNameParts.Add(classInfo.Namespace!);
+                        }
+
+                        hintNameParts.AddRange(classInfo.ContainingTypes);
+                        hintNameParts.Add(classInfo.ClassName);
+
+                        var hintName = string.Join(".", hintNameParts) + ".g.cs";
+                        context.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
                     }
-
-                    hintNameParts.AddRange(classInfo.ContainingTypes);
-                    hintNameParts.Add(classInfo.ClassName);
-
-                    var hintName = string.Join(".", hintNameParts) + ".g.cs";
-                    context.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
-                }
-                
-                // Generate CloneInternal extension method for all types (if not abstract)
-                if (!classInfo.IsAbstract)
-                {
-                    var extensionSource = GenerateCloneInternalExtension(classInfo, typeInfo.Symbol);
                     
-                    // Create unique hint name using full type name
-                    var safeName = GenerateSafeName(classInfo.FullName);
-                    var extensionHintName = safeName + ".CloneInternal.g.cs";
-                    context.AddSource(extensionHintName, SourceText.From(extensionSource, Encoding.UTF8));
+                    // Generate CloneInternal extension method for all types (if not abstract)
+                    if (!classInfo.IsAbstract)
+                    {
+                        var extensionSource = GenerateCloneInternalExtension(classInfo, typeInfo.Symbol, nameGenerator);
+                        
+                        // Create unique hint name using full type name
+                        var safeName = nameGenerator.GetSafeName(classInfo.FullName);
+                        var extensionHintName = safeName + ".CloneInternal.g.cs";
+                        context.AddSource(extensionHintName, SourceText.From(extensionSource, Encoding.UTF8));
+                    }
                 }
             }
+        }
+        finally
+        {
+            // Clear the thread-local context
+            s_currentNameGenerator = null;
         }
     }
 
     private static ClassInfo? GetClassInfoFromSymbol(INamedTypeSymbol classSymbol, bool hasDeepCloneableAttribute)
     {
-        // Ensure the type is partial if it has the attribute
-        if (hasDeepCloneableAttribute)
-        {
-            // This check would need syntax info which we don't have here
-            // For now, assume it's partial
-        }
-
         bool hasDeepClone = HasMethodImplementation(classSymbol, DeepCloneMethodName);
 
         string typeKeyword;
@@ -379,30 +395,6 @@ public class CloneableGenerator : IIncrementalGenerator
         return new EquatableArray<string>(containingTypes);
     }
 
-    private static void Execute(ClassInfo classInfo, INamedTypeSymbol classSymbol, SourceProductionContext context)
-    {
-        // Generate the main class with DeepClone method
-        var source = GenerateCloneMethod(classInfo);
-        var hintNameParts = new List<string>();
-        if (!string.IsNullOrEmpty(classInfo.Namespace))
-        {
-            hintNameParts.Add(classInfo.Namespace!);
-        }
-
-        hintNameParts.AddRange(classInfo.ContainingTypes);
-        hintNameParts.Add(classInfo.ClassName);
-
-        var hintName = string.Join(".", hintNameParts) + ".g.cs";
-        context.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
-        
-        // Generate CloneInternal extension method
-        if (!classInfo.IsAbstract)
-        {
-            var extensionSource = GenerateCloneInternalExtension(classInfo, classSymbol);
-            var extensionHintName = string.Join(".", hintNameParts) + ".CloneInternal.g.cs";
-            context.AddSource(extensionHintName, SourceText.From(extensionSource, Encoding.UTF8));
-        }
-    }
 
     private static string GenerateCloneMethod(ClassInfo classInfo)
     {
@@ -554,7 +546,7 @@ public class CloneableGenerator : IIncrementalGenerator
             .Replace(":", "_");
     }
 
-    private static string GenerateCloneInternalExtension(ClassInfo classInfo, INamedTypeSymbol classSymbol)
+    private static string GenerateCloneInternalExtension(ClassInfo classInfo, INamedTypeSymbol classSymbol, CloneInternalNameGenerator nameGenerator)
     {
         var fullTypeName = classSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var safeName = GenerateSafeName(classInfo.FullName);
@@ -685,26 +677,27 @@ public class CloneableGenerator : IIncrementalGenerator
                 var props = GetCloneableProperties(namedType);
                 if (props.Count > 0)
                 {
-                    // Check if this type has [DeepCloneable] attribute - if so, it will have a CloneInternal method
-                    var hasDeepCloneableAttr = HasDeepCloneableAttribute(namedType);
+                    // Check if this type has a CloneInternal method registered
+                    var fullName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+                    var hasCloneInternal = s_currentNameGenerator?.HasCloneInternal(fullName) ?? false;
                     
-                    if (hasDeepCloneableAttr)
+                    if (hasCloneInternal)
                     {
-                        var safeName = GenerateSafeName(namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                        var cloneInternalName = s_currentNameGenerator!.GetCloneInternalName(fullName);
                         var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
                         
                         if (isNullable)
                         {
-                            sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName} != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({sourceVar}.{propertyName}) : null;");
+                            sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName} != null ? {cloneInternalName}({sourceVar}.{propertyName}) : null;");
                         }
                         else
                         {
-                            sb.AppendLine($"{indent}{targetVar}.{propertyName} = IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({sourceVar}.{propertyName});");
+                            sb.AppendLine($"{indent}{targetVar}.{propertyName} = {cloneInternalName}({sourceVar}.{propertyName});");
                         }
                     }
                     else
                     {
-                        // Generate inline object initializer for types without [DeepCloneable]
+                        // Generate inline object initializer for types without CloneInternal
                         var fullTypeName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                         var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
                         
@@ -1063,19 +1056,20 @@ public class CloneableGenerator : IIncrementalGenerator
                     var props = GetCloneableProperties(elementRefType);
                     if (props.Count > 0)
                     {
-                        var hasDeepCloneableAttr = HasDeepCloneableAttribute(elementRefType);
+                        var fullName = elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+                        var hasCloneInternal = s_currentNameGenerator?.HasCloneInternal(fullName) ?? false;
                         
-                        if (hasDeepCloneableAttr)
+                        if (hasCloneInternal)
                         {
-                            var safeName = GenerateSafeName(elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                            var cloneInternalName = s_currentNameGenerator!.GetCloneInternalName(fullName);
                             sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                             sb.AppendLine($"{tempIndent}{{");
-                            sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal(item) : null);");
+                            sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item != null ? {cloneInternalName}(item) : null);");
                             sb.AppendLine($"{tempIndent}}}");
                         }
                         else
                         {
-                            // Generate inline cloning for types without [DeepCloneable]
+                            // Generate inline cloning for types without CloneInternal
                             var elementFullTypeName = elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                             sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                             sb.AppendLine($"{tempIndent}{{");
@@ -1187,19 +1181,20 @@ public class CloneableGenerator : IIncrementalGenerator
                 var props = GetCloneableProperties(valueRefType);
                 if (props.Count > 0)
                 {
-                    var hasDeepCloneableAttr = HasDeepCloneableAttribute(valueRefType);
+                    var fullName = valueRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+                    var hasCloneInternal = s_currentNameGenerator?.HasCloneInternal(fullName) ?? false;
                     
-                    if (hasDeepCloneableAttr)
+                    if (hasCloneInternal)
                     {
-                        var safeName = GenerateSafeName(valueRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                        var cloneInternalName = s_currentNameGenerator!.GetCloneInternalName(fullName);
                         sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
                         sb.AppendLine($"{tempIndent}{{");
-                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = kvp.Value != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal(kvp.Value) : null;");
+                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = kvp.Value != null ? {cloneInternalName}(kvp.Value) : null;");
                         sb.AppendLine($"{tempIndent}}}");
                     }
                     else
                     {
-                        // Generate inline cloning for types without [DeepCloneable]
+                        // Generate inline cloning for types without CloneInternal
                         var valueFullTypeName = valueRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                         sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
                         sb.AppendLine($"{tempIndent}{{");
@@ -1281,27 +1276,28 @@ public class CloneableGenerator : IIncrementalGenerator
                 var props = GetCloneableProperties(namedType);
                 if (props.Count > 0)
                 {
-                    var hasDeepCloneableAttr = HasDeepCloneableAttribute(namedType);
+                    var fullName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+                    var hasCloneInternal = s_currentNameGenerator?.HasCloneInternal(fullName) ?? false;
                     var fullTypeName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                     var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
                     
-                    if (hasDeepCloneableAttr)
+                    if (hasCloneInternal)
                     {
-                        // Call CloneInternal for types with [DeepCloneable]
-                        var safeName = GenerateSafeName(namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                        // Call CloneInternal for types that have it registered
+                        var cloneInternalName = s_currentNameGenerator!.GetCloneInternalName(fullName);
                         
                         if (isNullable)
                         {
-                            return $"{objectName}.{property.Name} != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({objectName}.{property.Name}) : null";
+                            return $"{objectName}.{property.Name} != null ? {cloneInternalName}({objectName}.{property.Name}) : null";
                         }
                         else
                         {
-                            return $"IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({objectName}.{property.Name})";
+                            return $"{cloneInternalName}({objectName}.{property.Name})";
                         }
                     }
                     else
                     {
-                        // Generate inline object initializer for types without [DeepCloneable]
+                        // Generate inline object initializer for types without CloneInternal
                         var assignments = props.Select(p => 
                             $"{p.Name} = {GenerateCloneExpression(p, $"{objectName}.{property.Name}")}"
                         );
