@@ -800,8 +800,10 @@ public class CloneableGenerator : IIncrementalGenerator
         // Cloneable elements - use foreach
         if (IsCloneableType(elementType))
         {
-            var elementIsNullable = elementType.NullableAnnotation == NullableAnnotation.Annotated;
-            var cloneExpr = GetCloneExpression(elementType, $"{{sourceVar}}.{propertyName}[i]", elementIsNullable);
+            // For reference types, treat as nullable by default
+            var elementIsNullable = !elementType.IsValueType || elementType.NullableAnnotation == NullableAnnotation.Annotated;
+            var itemExpr = $"{sourceVar}.{propertyName}[i]";
+            var cloneExpr = GetCloneExpression(elementType, itemExpr, elementIsNullable);
             
             if (isNullable)
             {
@@ -812,13 +814,11 @@ public class CloneableGenerator : IIncrementalGenerator
                 sb.AppendLine($"{indent}    {{");
                 if (cloneExpr != null)
                 {
-                    // Replace placeholder with actual source
-                    cloneExpr = cloneExpr.Replace($"{{sourceVar}}.{propertyName}[i]", $"{sourceVar}.{propertyName}[i]");
                     sb.AppendLine($"{indent}        array[i] = {cloneExpr};");
                 }
                 else
                 {
-                    sb.AppendLine($"{indent}        array[i] = {sourceVar}.{propertyName}[i];");
+                    sb.AppendLine($"{indent}        array[i] = {itemExpr};");
                 }
                 sb.AppendLine($"{indent}    }}");
                 sb.AppendLine($"{indent}    {targetVar}.{propertyName} = array;");
@@ -835,13 +835,11 @@ public class CloneableGenerator : IIncrementalGenerator
                 sb.AppendLine($"{indent}{{");
                 if (cloneExpr != null)
                 {
-                    // Replace placeholder with actual source
-                    cloneExpr = cloneExpr.Replace($"{{sourceVar}}.{propertyName}[i]", $"{sourceVar}.{propertyName}[i]");
                     sb.AppendLine($"{indent}    array_{propertyName}[i] = {cloneExpr};");
                 }
                 else
                 {
-                    sb.AppendLine($"{indent}    array_{propertyName}[i] = {sourceVar}.{propertyName}[i];");
+                    sb.AppendLine($"{indent}    array_{propertyName}[i] = {itemExpr};");
                 }
                 sb.AppendLine($"{indent}}}");
                 sb.AppendLine($"{indent}{targetVar}.{propertyName} = array_{propertyName};");
