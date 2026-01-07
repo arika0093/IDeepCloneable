@@ -225,3 +225,26 @@ Additionally, it will automatically reference the `IDeepCloneable.Generator`.
 ### IDeepCloneable.Generator
 This is the source generator library that automatically generates the `IDeepCloneable<T>.DeepClone()` method.
 There is no need to directly reference this library.
+
+## Benchmark Summary
+
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.3 LTS (Noble Numbat) (container)
+AMD EPYC 7763 3.24GHz, 1 CPU, 2 logical cores and 1 physical core
+.NET SDK 10.0.100
+  [Host]     : .NET 10.0.0 (10.0.0, 10.0.25.52411), X64 RyuJIT x86-64-v3
+  DefaultJob : .NET 10.0.0 (10.0.0, 10.0.25.52411), X64 RyuJIT x86-64-v3
+
+
+ Method                    | Mean      | Error     | StdDev    | Median    | Ratio | RatioSD | Gen0   | Gen1   | Allocated | Alloc Ratio |
+-------------------------- |----------:|----------:|----------:|----------:|------:|--------:|-------:|-------:|----------:|------------:|
+ Mapperly                  |  1.325 μs | 0.0265 μs | 0.0674 μs |  1.314 μs |  0.71 |    0.07 | 0.2880 | 0.0038 |   4.73 KB |        0.83 |
+ Manual                    |  1.360 μs | 0.0271 μs | 0.0761 μs |  1.349 μs |  0.73 |    0.08 | 0.2880 | 0.0038 |   4.73 KB |        0.83 |
+ FastCloner_SourceGen      |  1.569 μs | 0.0313 μs | 0.0681 μs |  1.554 μs |  0.84 |    0.08 | 0.2880 | 0.0038 |   4.73 KB |        0.83 |
+ IDeepCloneable            |  1.886 μs | 0.0613 μs | 0.1760 μs |  1.873 μs |  1.01 |    0.13 | 0.3490 | 0.0057 |   5.72 KB |        1.00 |
+ AutoMapper                |  4.353 μs | 0.0838 μs | 0.1857 μs |  4.335 μs |  2.33 |    0.23 | 0.3433 |      - |   5.65 KB |        0.99 |
+ MemoryPack                |  9.578 μs | 0.1894 μs | 0.4426 μs |  9.536 μs |  5.12 |    0.51 | 0.9003 | 0.0153 |   14.8 KB |        2.59 |
+ FastCloner_Reflection     | 11.529 μs | 0.2278 μs | 0.5501 μs | 11.532 μs |  6.16 |    0.62 | 0.8392 | 0.0153 |  13.79 KB |        2.41 |
+ MessagePack               | 17.769 μs | 0.4060 μs | 1.1844 μs | 17.600 μs |  9.50 |    1.05 | 0.8240 | 0.0305 |  13.48 KB |        2.36 |
+ SystemTextJson_SourceGen  | 29.829 μs | 0.5786 μs | 1.4832 μs | 29.326 μs | 15.95 |    1.61 | 0.9766 |      - |  20.28 KB |        3.55 |
+ SystemTextJson_Reflection | 36.723 μs | 0.7343 μs | 0.6869 μs | 36.416 μs | 19.63 |    1.76 | 1.2207 |      - |  20.59 KB |        3.60 |
+ NewtonsoftJson            | 57.806 μs | 1.2501 μs | 3.5867 μs | 57.145 μs | 30.90 |    3.32 | 2.0752 | 0.1221 |  35.73 KB |        6.25 |

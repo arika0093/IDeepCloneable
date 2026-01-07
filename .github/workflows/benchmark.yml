@@ -1,0 +1,40 @@
+name: Run Benchmarks
+
+on:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run benchmarks
+        run: dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj
+
+      - name: Generate summary
+        run: |
+          # Assuming the summary is generated in a specific format
+          cat benchmark/IDeepCloneable.Benchmark/BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report.md > summary.md
+
+      # replace README.md benchmark section
+      - name: Update README with benchmark summary
+        run: |
+          sed -i '/## Benchmark Summary/,/^$/d' README.md
+          echo -e "\n## Benchmark Summary\n" >> README.md
+          cat summary.md >> README.md
+
+      - name: Delete summary file
+        run: rm summary.md
+
+      - name: Commit & Push
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "[skip-ci] chore: update benchmark summary"
