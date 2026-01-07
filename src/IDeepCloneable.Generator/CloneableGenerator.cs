@@ -110,6 +110,41 @@ public class CloneableGenerator : IIncrementalGenerator
     // Thread-local context for generation
     [ThreadStatic]
     private static CloneInternalNameGenerator? s_currentNameGenerator;
+    
+    /// <summary>
+    /// Gets the clone expression for a given type. Uses CloneInternal if available, otherwise returns null indicating direct assignment.
+    /// </summary>
+    private static string? GetCloneExpression(ITypeSymbol typeSymbol, string valueExpression, bool isNullable)
+    {
+        var fullTypeName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+        var nameGenerator = s_currentNameGenerator;
+        
+        if (nameGenerator != null && nameGenerator.HasCloneInternal(fullTypeName))
+        {
+            var cloneMethodName = nameGenerator.GetCloneInternalName(fullTypeName);
+            if (isNullable)
+            {
+                return $"{valueExpression} != null ? {cloneMethodName}({valueExpression}) : null";
+            }
+            else
+            {
+                return $"{cloneMethodName}({valueExpression})";
+            }
+        }
+        
+        // No CloneInternal available, return null to indicate direct assignment
+        return null;
+    }
+    
+    /// <summary>
+    /// Generate clone statement for an item. Uses CloneInternal if available, otherwise assigns directly.
+    /// </summary>
+    private static string GetItemCloneStatement(ITypeSymbol elementType, string itemExpression)
+    {
+        var elementIsNullable = elementType.NullableAnnotation == NullableAnnotation.Annotated;
+        var cloneExpr = GetCloneExpression(elementType, itemExpression, elementIsNullable);
+        return cloneExpr ?? itemExpression;
+    }
 
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -646,13 +681,15 @@ public class CloneableGenerator : IIncrementalGenerator
             if (IsCloneableType(namedType))
             {
                 var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
-                if (isNullable)
+                var cloneExpr = GetCloneExpression(namedType, $"{sourceVar}.{propertyName}", isNullable);
+                if (cloneExpr != null)
                 {
-                    sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName}?.{DeepCloneMethodName}();");
+                    sb.AppendLine($"{indent}{targetVar}.{propertyName} = {cloneExpr};");
                 }
                 else
                 {
-                    sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName}.{DeepCloneMethodName}();");
+                    // No CloneInternal available, assign directly
+                    sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName};");
                 }
                 return;
             }
@@ -762,6 +799,9 @@ public class CloneableGenerator : IIncrementalGenerator
         // Cloneable elements - use foreach
         if (IsCloneableType(elementType))
         {
+            var elementIsNullable = elementType.NullableAnnotation == NullableAnnotation.Annotated;
+            var cloneExpr = GetCloneExpression(elementType, $"{{sourceVar}}.{propertyName}[i]", elementIsNullable);
+            
             if (isNullable)
             {
                 sb.AppendLine($"{indent}if ({sourceVar}.{propertyName} != null)");
@@ -769,7 +809,16 @@ public class CloneableGenerator : IIncrementalGenerator
                 sb.AppendLine($"{indent}    var array = new {elementTypeName}[{sourceVar}.{propertyName}.Length];");
                 sb.AppendLine($"{indent}    for (int i = 0; i < {sourceVar}.{propertyName}.Length; i++)");
                 sb.AppendLine($"{indent}    {{");
-                sb.AppendLine($"{indent}        array[i] = {sourceVar}.{propertyName}[i]?.{DeepCloneMethodName}();");
+                if (cloneExpr != null)
+                {
+                    // Replace placeholder with actual source
+                    cloneExpr = cloneExpr.Replace($"{{sourceVar}}.{propertyName}[i]", $"{sourceVar}.{propertyName}[i]");
+                    sb.AppendLine($"{indent}        array[i] = {cloneExpr};");
+                }
+                else
+                {
+                    sb.AppendLine($"{indent}        array[i] = {sourceVar}.{propertyName}[i];");
+                }
                 sb.AppendLine($"{indent}    }}");
                 sb.AppendLine($"{indent}    {targetVar}.{propertyName} = array;");
                 sb.AppendLine($"{indent}}}");
@@ -783,7 +832,16 @@ public class CloneableGenerator : IIncrementalGenerator
                 sb.AppendLine($"{indent}var array_{propertyName} = new {elementTypeName}[{sourceVar}.{propertyName}.Length];");
                 sb.AppendLine($"{indent}for (int i = 0; i < {sourceVar}.{propertyName}.Length; i++)");
                 sb.AppendLine($"{indent}{{");
-                sb.AppendLine($"{indent}    array_{propertyName}[i] = {sourceVar}.{propertyName}[i]?.{DeepCloneMethodName}();");
+                if (cloneExpr != null)
+                {
+                    // Replace placeholder with actual source
+                    cloneExpr = cloneExpr.Replace($"{{sourceVar}}.{propertyName}[i]", $"{sourceVar}.{propertyName}[i]");
+                    sb.AppendLine($"{indent}    array_{propertyName}[i] = {cloneExpr};");
+                }
+                else
+                {
+                    sb.AppendLine($"{indent}    array_{propertyName}[i] = {sourceVar}.{propertyName}[i];");
+                }
                 sb.AppendLine($"{indent}}}");
                 sb.AppendLine($"{indent}{targetVar}.{propertyName} = array_{propertyName};");
             }
@@ -863,7 +921,8 @@ public class CloneableGenerator : IIncrementalGenerator
                     sb.AppendLine($"{tempIndent}var temp = new System.Collections.Generic.List<{elementTypeName}>();");
                     sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                     sb.AppendLine($"{tempIndent}{{");
-                    sb.AppendLine($"{tempIndent}    temp.Add(item?.{DeepCloneMethodName}());");
+                    var cloneStmt = GetItemCloneStatement(elementType, "item");
+                    sb.AppendLine($"{tempIndent}    temp.Add({cloneStmt});");
                     sb.AppendLine($"{tempIndent}}}");
                     sb.AppendLine($"{tempIndent}temp.Reverse();");
                     sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.Stack<{elementTypeName}>(temp);");
@@ -888,7 +947,8 @@ public class CloneableGenerator : IIncrementalGenerator
                 {
                     sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                     sb.AppendLine($"{tempIndent}{{");
-                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Enqueue(item?.{DeepCloneMethodName}());");
+                    var cloneStmt = GetItemCloneStatement(elementType, "item");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Enqueue({cloneStmt});");
                     sb.AppendLine($"{tempIndent}}}");
                 }
                 else
@@ -912,7 +972,8 @@ public class CloneableGenerator : IIncrementalGenerator
                 {
                     sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                     sb.AppendLine($"{tempIndent}{{");
-                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item?.{DeepCloneMethodName}());");
+                    var cloneStmt = GetItemCloneStatement(elementType, "item");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add({cloneStmt});");
                     sb.AppendLine($"{tempIndent}}}");
                 }
                 else
@@ -936,7 +997,8 @@ public class CloneableGenerator : IIncrementalGenerator
                 {
                     sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                     sb.AppendLine($"{tempIndent}{{");
-                    sb.AppendLine($"{tempIndent}    tempList.Add(item?.{DeepCloneMethodName}());");
+                    var cloneStmt = GetItemCloneStatement(elementType, "item");
+                    sb.AppendLine($"{tempIndent}    tempList.Add({cloneStmt});");
                     sb.AppendLine($"{tempIndent}}}");
                 }
                 else
@@ -969,7 +1031,8 @@ public class CloneableGenerator : IIncrementalGenerator
                 {
                     sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                     sb.AppendLine($"{tempIndent}{{");
-                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item?.{DeepCloneMethodName}());");
+                    var cloneStmt = GetItemCloneStatement(elementType, "item");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add({cloneStmt});");
                     sb.AppendLine($"{tempIndent}}}");
                 }
                 else if (elementType is INamedTypeSymbol elementNamedType && IsCollectionType(elementNamedType))
@@ -991,7 +1054,8 @@ public class CloneableGenerator : IIncrementalGenerator
                         {
                             sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
                             sb.AppendLine($"{tempIndent}        {{");
-                            sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem?.{DeepCloneMethodName}());");
+                            var nestedCloneStmt = GetItemCloneStatement(nestedElementType, "nestedItem");
+                            sb.AppendLine($"{tempIndent}            nestedClone.Add({nestedCloneStmt});");
                             sb.AppendLine($"{tempIndent}        }}");
                         }
                         else if (nestedElementType is INamedTypeSymbol nestedNamedType && IsCollectionType(nestedNamedType))
@@ -1173,7 +1237,8 @@ public class CloneableGenerator : IIncrementalGenerator
             {
                 sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
                 sb.AppendLine($"{tempIndent}{{");
-                sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = kvp.Value?.{DeepCloneMethodName}();");
+                var cloneStmt = GetItemCloneStatement(valueType, "kvp.Value");
+                sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = {cloneStmt};");
                 sb.AppendLine($"{tempIndent}}}");
             }
             else if (valueType is INamedTypeSymbol valueRefType && !valueRefType.IsValueType && valueRefType.SpecialType != SpecialType.System_String)
@@ -1255,7 +1320,9 @@ public class CloneableGenerator : IIncrementalGenerator
             // Check if it's a cloneable type
             if (IsCloneableType(namedType))
             {
-                return $"{objectName}.{property.Name}?.{DeepCloneMethodName}()";
+                var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+                var cloneExpr = GetCloneExpression(namedType, $"{objectName}.{property.Name}", isNullable);
+                return cloneExpr ?? $"{objectName}.{property.Name}";
             }
             
             // Dictionaries
@@ -1336,7 +1403,28 @@ public class CloneableGenerator : IIncrementalGenerator
         // Cloneable elements
         if (IsCloneableType(elementType))
         {
-            return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToArray()";
+            // Check if we have CloneInternal for this type
+            var fullTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+            var nameGenerator = s_currentNameGenerator;
+            
+            if (nameGenerator != null && nameGenerator.HasCloneInternal(fullTypeName))
+            {
+                var cloneInternalName = nameGenerator.GetCloneInternalName(fullTypeName);
+                var elementIsNullable = elementType.NullableAnnotation == NullableAnnotation.Annotated;
+                if (elementIsNullable)
+                {
+                    return $"{objectName}.{propertyName}?.Select(x => x != null ? {cloneInternalName}(x) : null).ToArray()";
+                }
+                else
+                {
+                    return $"{objectName}.{propertyName}?.Select(x => {cloneInternalName}(x)).ToArray()";
+                }
+            }
+            else
+            {
+                // Fallback to direct assignment
+                return $"{objectName}.{propertyName}?.ToArray()";
+            }
         }
         
         // Value types or immutable types
@@ -1368,7 +1456,8 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (valueIsCloneable)
             {
-                return $"{objectName}.{propertyName}?.ToImmutableDictionary(kvp => kvp.Key, kvp => kvp.Value?.{DeepCloneMethodName}())";
+                var cloneStmt = GetItemCloneStatement(valueType, "kvp.Value");
+                return $"{objectName}.{propertyName}?.ToImmutableDictionary(kvp => kvp.Key, kvp => {cloneStmt})";
             }
             return $"{objectName}.{propertyName}";
         }
@@ -1376,7 +1465,8 @@ public class CloneableGenerator : IIncrementalGenerator
         // Regular dictionaries
         if (valueIsCloneable)
         {
-            return $"{objectName}.{propertyName}?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.{DeepCloneMethodName}())";
+            var cloneStmt = GetItemCloneStatement(valueType, "kvp.Value");
+            return $"{objectName}.{propertyName}?.ToDictionary(kvp => kvp.Key, kvp => {cloneStmt})";
         }
         
         // Check if value is a reference type with properties
@@ -1412,12 +1502,21 @@ public class CloneableGenerator : IIncrementalGenerator
         bool isCloneable = IsCloneableType(elementType);
         var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         
+        // Helper to get clone expression for element
+        string GetElementClone()
+        {
+            if (!isCloneable) return "x";
+            return GetItemCloneStatement(elementType, "x");
+        }
+        
+        string elementClone = GetElementClone();
+        
         // Stack
         if (typeName == "global::System.Collections.Generic.Stack<T>")
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Stack<{elementTypeName}>({objectName}.{propertyName}.Reverse().Select(x => x?.{DeepCloneMethodName}())) : null";
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Stack<{elementTypeName}>({objectName}.{propertyName}.Reverse().Select(x => {elementClone})) : null";
             }
             return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Stack<{elementTypeName}>({objectName}.{propertyName}.Reverse()) : null";
         }
@@ -1427,7 +1526,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Queue<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Queue<{elementTypeName}>({objectName}.{propertyName}.Select(x => {elementClone})) : null";
             }
             return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Queue<{elementTypeName}>({objectName}.{propertyName}) : null";
         }
@@ -1437,7 +1536,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.HashSet<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.HashSet<{elementTypeName}>({objectName}.{propertyName}.Select(x => {elementClone})) : null";
             }
             return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.HashSet<{elementTypeName}>({objectName}.{propertyName}) : null";
         }
@@ -1447,7 +1546,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.SortedSet<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.SortedSet<{elementTypeName}>({objectName}.{propertyName}.Select(x => {elementClone})) : null";
             }
             return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.SortedSet<{elementTypeName}>({objectName}.{propertyName}) : null";
         }
@@ -1457,7 +1556,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ObservableCollection<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+                return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ObservableCollection<{elementTypeName}>({objectName}.{propertyName}.Select(x => {elementClone})) : null";
             }
             return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ObservableCollection<{elementTypeName}>({objectName}.{propertyName}) : null";
         }
@@ -1467,7 +1566,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyCollection<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()).ToList()) : null";
+                return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyCollection<{elementTypeName}>({objectName}.{propertyName}.Select(x => {elementClone}).ToList()) : null";
             }
             return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyCollection<{elementTypeName}>({objectName}.{propertyName}.ToList()) : null";
         }
@@ -1477,7 +1576,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToImmutableList()";
+                return $"{objectName}.{propertyName}?.Select(x => {elementClone}).ToImmutableList()";
             }
             if (IsValueOrImmutableType(elementType))
             {
@@ -1491,7 +1590,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName}.IsDefault ? default : {objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()).ToImmutableArray()";
+                return $"{objectName}.{propertyName}.IsDefault ? default : {objectName}.{propertyName}.Select(x => {elementClone}).ToImmutableArray()";
             }
             if (IsValueOrImmutableType(elementType))
             {
@@ -1505,7 +1604,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToImmutableHashSet()";
+                return $"{objectName}.{propertyName}?.Select(x => {elementClone}).ToImmutableHashSet()";
             }
             if (IsValueOrImmutableType(elementType))
             {
@@ -1519,7 +1618,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableQueue<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableQueue.CreateRange({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()))";
+                return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableQueue<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableQueue.CreateRange({objectName}.{propertyName}.Select(x => {elementClone}))";
             }
             if (IsValueOrImmutableType(elementType))
             {
@@ -1533,7 +1632,7 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             if (isCloneable)
             {
-                return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableStack<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableStack.CreateRange({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()))";
+                return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableStack<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableStack.CreateRange({objectName}.{propertyName}.Select(x => {elementClone}))";
             }
             if (IsValueOrImmutableType(elementType))
             {
@@ -1545,7 +1644,7 @@ public class CloneableGenerator : IIncrementalGenerator
         // Regular collections (List, etc.) - default to List
         if (isCloneable)
         {
-            return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToList()";
+            return $"{objectName}.{propertyName}?.Select(x => {elementClone}).ToList()";
         }
         
         // Check if element is a collection (nested collection scenario)
@@ -1587,7 +1686,8 @@ public class CloneableGenerator : IIncrementalGenerator
         
         if (isCloneable)
         {
-            return $"{varName}?.Select(item => item?.{DeepCloneMethodName}()).ToList()";
+            var cloneStmt = GetItemCloneStatement(elementType, "item");
+            return $"{varName}?.Select(item => {cloneStmt}).ToList()";
         }
         
         // Check if element is itself a collection
