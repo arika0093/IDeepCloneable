@@ -134,7 +134,7 @@ public class CloneBenchmarks
 /// <summary>
 /// Mapperly mapper for ComplexModel (compile-time code generation, no reflection).
 /// </summary>
-[Mapper]
+[Mapper(UseDeepCloning = true)]
 public static partial class ComplexModelMapper
 {
     public static partial ComplexModel MapToComplexModel(ComplexModel source);
