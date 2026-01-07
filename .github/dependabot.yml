@@ -9,6 +9,8 @@ updates:
       # and if it is too high, the number of environments that do not work will increase.
       # Therefore, we want to keep it at the lowest possible version.
       - dependency-name: "Microsoft.CodeAnalysis.*"
+      # From AutoMapper 15, it has become a paid version
+      - dependency-name: "AutoMapper"
     
   - package-ecosystem: "github-actions"
     directory: "/"

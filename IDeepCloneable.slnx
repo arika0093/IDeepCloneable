@@ -13,4 +13,7 @@
     <File Path="tests/Directory.Build.props" />
     <Project Path="tests/IDeepCloneable.Tests/IDeepCloneable.Tests.csproj" />
   </Folder>
+  <Folder Name="/benchmark/">
+    <Project Path="benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj" />
+  </Folder>
 </Solution>
