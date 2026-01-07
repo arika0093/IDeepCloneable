@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using FastCloner.SourceGenerator.Shared;
-using IDeepCloneable;
 using MemoryPack;
 using MessagePack;
 

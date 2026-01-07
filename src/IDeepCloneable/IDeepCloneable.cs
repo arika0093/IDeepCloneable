@@ -1,5 +1,3 @@
-namespace IDeepCloneable;
-
 /// <summary>
 /// Interface for types that support deep cloning.
 /// When implemented on a partial type, the source generator will automatically generate the DeepClone method.

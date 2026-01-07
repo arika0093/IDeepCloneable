@@ -1,5 +1,3 @@
-using IDeepCloneable;
-
 namespace IDeepCloneable.Tests;
 
 /// <summary>

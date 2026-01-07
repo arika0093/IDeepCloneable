@@ -2,8 +2,6 @@ using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
-using IDeepCloneable;
-
 namespace IDeepCloneable.Tests;
 
 /// <summary>
