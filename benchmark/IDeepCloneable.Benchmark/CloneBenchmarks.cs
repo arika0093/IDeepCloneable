@@ -123,8 +123,6 @@ public static class ManualMapper
 {
     public static ComplexModel DeepCopy(ComplexModel source)
     {
-        if (source == null) return null!;
-
         return new ComplexModel
         {
             Id = source.Id,
