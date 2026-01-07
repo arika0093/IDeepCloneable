@@ -565,8 +565,7 @@ public class CloneableGenerator : IIncrementalGenerator
             
             foreach (var property in properties)
             {
-                var expression = GenerateCloneExpression(property, "value");
-                sb.AppendLine($"            clone.{property.Name} = {expression};");
+                GeneratePropertyCloneStatements(sb, property, "value", "clone", "            ");
             }
             
             sb.AppendLine("            return clone;");
@@ -577,6 +576,616 @@ public class CloneableGenerator : IIncrementalGenerator
         sb.AppendLine("}");
         
         return sb.ToString();
+    }
+    
+    private static void GeneratePropertyCloneStatements(StringBuilder sb, IPropertySymbol property, string sourceVar, string targetVar, string indent)
+    {
+        var typeSymbol = property.Type;
+        var propertyName = property.Name;
+        
+        // Value types and immutable types - simple assignment
+        if (IsValueOrImmutableType(typeSymbol))
+        {
+            sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName};");
+            return;
+        }
+        
+        // Arrays
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            GenerateArrayCloneStatements(sb, property, arrayType, sourceVar, targetVar, indent);
+            return;
+        }
+        
+        // Named types
+        if (typeSymbol is INamedTypeSymbol namedType)
+        {
+            // Cloneable types
+            if (IsCloneableType(namedType))
+            {
+                var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+                if (isNullable)
+                {
+                    sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName}?.{DeepCloneMethodName}();");
+                }
+                else
+                {
+                    sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName}.{DeepCloneMethodName}();");
+                }
+                return;
+            }
+            
+            // Dictionaries
+            if (IsDictionaryType(namedType))
+            {
+                GenerateDictionaryCloneStatements(sb, property, namedType, sourceVar, targetVar, indent);
+                return;
+            }
+            
+            // Collections
+            if (IsCollectionType(namedType))
+            {
+                GenerateCollectionCloneStatements(sb, property, namedType, sourceVar, targetVar, indent);
+                return;
+            }
+            
+            // Reference types with properties
+            if (!namedType.IsValueType && namedType.SpecialType != SpecialType.System_String)
+            {
+                var props = GetCloneableProperties(namedType);
+                if (props.Count > 0)
+                {
+                    // Check if this type has [DeepCloneable] attribute - if so, it will have a CloneInternal method
+                    var hasDeepCloneableAttr = HasDeepCloneableAttribute(namedType);
+                    
+                    if (hasDeepCloneableAttr)
+                    {
+                        var safeName = GenerateSafeName(namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                        var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+                        
+                        if (isNullable)
+                        {
+                            sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName} != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({sourceVar}.{propertyName}) : null;");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"{indent}{targetVar}.{propertyName} = IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({sourceVar}.{propertyName});");
+                        }
+                    }
+                    else
+                    {
+                        // Generate inline object initializer for types without [DeepCloneable]
+                        var fullTypeName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                        var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+                        
+                        if (isNullable)
+                        {
+                            sb.AppendLine($"{indent}if ({sourceVar}.{propertyName} != null)");
+                            sb.AppendLine($"{indent}{{");
+                            sb.AppendLine($"{indent}    {targetVar}.{propertyName} = new {fullTypeName}();");
+                            foreach (var prop in props)
+                            {
+                                var nestedExpr = GenerateCloneExpression(prop, $"{sourceVar}.{propertyName}");
+                                sb.AppendLine($"{indent}    {targetVar}.{propertyName}.{prop.Name} = {nestedExpr};");
+                            }
+                            sb.AppendLine($"{indent}}}");
+                            sb.AppendLine($"{indent}else");
+                            sb.AppendLine($"{indent}{{");
+                            sb.AppendLine($"{indent}    {targetVar}.{propertyName} = null;");
+                            sb.AppendLine($"{indent}}}");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"{indent}{targetVar}.{propertyName} = new {fullTypeName}();");
+                            foreach (var prop in props)
+                            {
+                                var nestedExpr = GenerateCloneExpression(prop, $"{sourceVar}.{propertyName}");
+                                sb.AppendLine($"{indent}{targetVar}.{propertyName}.{prop.Name} = {nestedExpr};");
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+        
+        // Default: simple assignment
+        sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName};");
+    }
+    
+    private static void GenerateArrayCloneStatements(StringBuilder sb, IPropertySymbol property, IArrayTypeSymbol arrayType, string sourceVar, string targetVar, string indent)
+    {
+        var elementType = arrayType.ElementType;
+        var propertyName = property.Name;
+        var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+        
+        // Multi-dimensional arrays - use Clone()
+        if (arrayType.Rank > 1)
+        {
+            var rankCommas = new string(',', arrayType.Rank - 1);
+            var arrayTypeName = $"{elementTypeName}[{rankCommas}]";
+            if (isNullable)
+            {
+                sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName} != null ? ({arrayTypeName}){sourceVar}.{propertyName}.Clone() : null;");
+            }
+            else
+            {
+                sb.AppendLine($"{indent}{targetVar}.{propertyName} = ({arrayTypeName}){sourceVar}.{propertyName}.Clone();");
+            }
+            return;
+        }
+        
+        // Cloneable elements - use foreach
+        if (IsCloneableType(elementType))
+        {
+            if (isNullable)
+            {
+                sb.AppendLine($"{indent}if ({sourceVar}.{propertyName} != null)");
+                sb.AppendLine($"{indent}{{");
+                sb.AppendLine($"{indent}    var array = new {elementTypeName}[{sourceVar}.{propertyName}.Length];");
+                sb.AppendLine($"{indent}    for (int i = 0; i < {sourceVar}.{propertyName}.Length; i++)");
+                sb.AppendLine($"{indent}    {{");
+                sb.AppendLine($"{indent}        array[i] = {sourceVar}.{propertyName}[i]?.{DeepCloneMethodName}();");
+                sb.AppendLine($"{indent}    }}");
+                sb.AppendLine($"{indent}    {targetVar}.{propertyName} = array;");
+                sb.AppendLine($"{indent}}}");
+                sb.AppendLine($"{indent}else");
+                sb.AppendLine($"{indent}{{");
+                sb.AppendLine($"{indent}    {targetVar}.{propertyName} = null;");
+                sb.AppendLine($"{indent}}}");
+            }
+            else
+            {
+                sb.AppendLine($"{indent}var array_{propertyName} = new {elementTypeName}[{sourceVar}.{propertyName}.Length];");
+                sb.AppendLine($"{indent}for (int i = 0; i < {sourceVar}.{propertyName}.Length; i++)");
+                sb.AppendLine($"{indent}{{");
+                sb.AppendLine($"{indent}    array_{propertyName}[i] = {sourceVar}.{propertyName}[i]?.{DeepCloneMethodName}();");
+                sb.AppendLine($"{indent}}}");
+                sb.AppendLine($"{indent}{targetVar}.{propertyName} = array_{propertyName};");
+            }
+            return;
+        }
+        
+        // Value types or immutable types - use AsSpan().ToArray()
+        if (IsValueOrImmutableType(elementType))
+        {
+            if (isNullable)
+            {
+                sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName} != null ? {sourceVar}.{propertyName}.AsSpan().ToArray() : null;");
+            }
+            else
+            {
+                sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName}.AsSpan().ToArray();");
+            }
+            return;
+        }
+        
+        // Reference types - use Clone()
+        var arrayTypeFullName = elementTypeName + "[]";
+        if (isNullable)
+        {
+            sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName} != null ? ({arrayTypeFullName}){sourceVar}.{propertyName}.Clone() : null;");
+        }
+        else
+        {
+            sb.AppendLine($"{indent}{targetVar}.{propertyName} = ({arrayTypeFullName}){sourceVar}.{propertyName}.Clone();");
+        }
+    }
+    
+    private static void GenerateCollectionCloneStatements(StringBuilder sb, IPropertySymbol property, INamedTypeSymbol collectionType, string sourceVar, string targetVar, string indent)
+    {
+        if (collectionType.TypeArguments.Length == 0)
+        {
+            sb.AppendLine($"{indent}{targetVar}.{property.Name} = {sourceVar}.{property.Name};");
+            return;
+        }
+        
+        var elementType = collectionType.TypeArguments[0];
+        var propertyName = property.Name;
+        var typeName = collectionType.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+        var isCloneable = IsCloneableType(elementType);
+        
+        // Helper to generate null check wrapper
+        void GenerateWithNullCheck(Action generateBody)
+        {
+            if (isNullable)
+            {
+                sb.AppendLine($"{indent}if ({sourceVar}.{propertyName} != null)");
+                sb.AppendLine($"{indent}{{");
+                generateBody();
+                sb.AppendLine($"{indent}}}");
+                sb.AppendLine($"{indent}else");
+                sb.AppendLine($"{indent}{{");
+                sb.AppendLine($"{indent}    {targetVar}.{propertyName} = null;");
+                sb.AppendLine($"{indent}}}");
+            }
+            else
+            {
+                generateBody();
+            }
+        }
+        
+        string tempIndent = isNullable ? indent + "    " : indent;
+        
+        // Stack
+        if (typeName == "global::System.Collections.Generic.Stack<T>")
+        {
+            GenerateWithNullCheck(() =>
+            {
+                if (isCloneable)
+                {
+                    sb.AppendLine($"{tempIndent}var temp = new System.Collections.Generic.List<{elementTypeName}>();");
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    temp.Add(item?.{DeepCloneMethodName}());");
+                    sb.AppendLine($"{tempIndent}}}");
+                    sb.AppendLine($"{tempIndent}temp.Reverse();");
+                    sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.Stack<{elementTypeName}>(temp);");
+                }
+                else
+                {
+                    sb.AppendLine($"{tempIndent}var temp = new System.Collections.Generic.List<{elementTypeName}>({sourceVar}.{propertyName});");
+                    sb.AppendLine($"{tempIndent}temp.Reverse();");
+                    sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.Stack<{elementTypeName}>(temp);");
+                }
+            });
+            return;
+        }
+        
+        // Queue
+        if (typeName == "global::System.Collections.Generic.Queue<T>")
+        {
+            GenerateWithNullCheck(() =>
+            {
+                sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.Queue<{elementTypeName}>();");
+                if (isCloneable)
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Enqueue(item?.{DeepCloneMethodName}());");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+                else
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Enqueue(item);");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+            });
+            return;
+        }
+        
+        // HashSet
+        if (typeName == "global::System.Collections.Generic.HashSet<T>")
+        {
+            GenerateWithNullCheck(() =>
+            {
+                sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.HashSet<{elementTypeName}>();");
+                if (isCloneable)
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item?.{DeepCloneMethodName}());");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+                else
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item);");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+            });
+            return;
+        }
+        
+        // ReadOnlyCollection - needs special handling
+        if (typeName == "global::System.Collections.ObjectModel.ReadOnlyCollection<T>")
+        {
+            GenerateWithNullCheck(() =>
+            {
+                sb.AppendLine($"{tempIndent}var tempList = new System.Collections.Generic.List<{elementTypeName}>();");
+                if (isCloneable)
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    tempList.Add(item?.{DeepCloneMethodName}());");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+                else
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    tempList.Add(item);");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+                sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.ObjectModel.ReadOnlyCollection<{elementTypeName}>(tempList);");
+            });
+            return;
+        }
+        
+        // SortedSet, ObservableCollection, List, and others - similar pattern
+        string collectionTypeName = null;
+        if (typeName == "global::System.Collections.Generic.SortedSet<T>")
+            collectionTypeName = $"System.Collections.Generic.SortedSet<{elementTypeName}>";
+        else if (typeName == "global::System.Collections.ObjectModel.ObservableCollection<T>")
+            collectionTypeName = $"System.Collections.ObjectModel.ObservableCollection<{elementTypeName}>";
+        else if (typeName.StartsWith("global::System.Collections.Generic.List<"))
+            collectionTypeName = $"System.Collections.Generic.List<{elementTypeName}>";
+        
+        if (collectionTypeName != null)
+        {
+            GenerateWithNullCheck(() =>
+            {
+                sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new {collectionTypeName}();");
+                if (isCloneable)
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item?.{DeepCloneMethodName}());");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+                else if (elementType is INamedTypeSymbol elementNamedType && IsCollectionType(elementNamedType))
+                {
+                    // Nested collection - need to recursively clone
+                    if (elementNamedType.TypeArguments.Length > 0)
+                    {
+                        var nestedElementType = elementNamedType.TypeArguments[0];
+                        var nestedElementTypeName = nestedElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                        var nestedIsCloneable = IsCloneableType(nestedElementType);
+                        
+                        sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                        sb.AppendLine($"{tempIndent}{{");
+                        sb.AppendLine($"{tempIndent}    if (item != null)");
+                        sb.AppendLine($"{tempIndent}    {{");
+                        sb.AppendLine($"{tempIndent}        var nestedClone = new {elementTypeName}();");
+                        
+                        if (nestedIsCloneable)
+                        {
+                            sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                            sb.AppendLine($"{tempIndent}        {{");
+                            sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem?.{DeepCloneMethodName}());");
+                            sb.AppendLine($"{tempIndent}        }}");
+                        }
+                        else if (nestedElementType is INamedTypeSymbol nestedNamedType && IsCollectionType(nestedNamedType))
+                        {
+                            // Triple nested collection
+                            if (nestedNamedType.TypeArguments.Length > 0)
+                            {
+                                var tripleNestedElementType = nestedNamedType.TypeArguments[0];
+                                var tripleNestedElementTypeName = tripleNestedElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                                
+                                sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                                sb.AppendLine($"{tempIndent}        {{");
+                                sb.AppendLine($"{tempIndent}            if (nestedItem != null)");
+                                sb.AppendLine($"{tempIndent}            {{");
+                                sb.AppendLine($"{tempIndent}                var tripleNestedClone = new {nestedElementTypeName}();");
+                                sb.AppendLine($"{tempIndent}                foreach (var tripleNestedItem in nestedItem)");
+                                sb.AppendLine($"{tempIndent}                {{");
+                                sb.AppendLine($"{tempIndent}                    tripleNestedClone.Add(tripleNestedItem);");
+                                sb.AppendLine($"{tempIndent}                }}");
+                                sb.AppendLine($"{tempIndent}                nestedClone.Add(tripleNestedClone);");
+                                sb.AppendLine($"{tempIndent}            }}");
+                                sb.AppendLine($"{tempIndent}            else");
+                                sb.AppendLine($"{tempIndent}            {{");
+                                sb.AppendLine($"{tempIndent}                nestedClone.Add(null);");
+                                sb.AppendLine($"{tempIndent}            }}");
+                                sb.AppendLine($"{tempIndent}        }}");
+                            }
+                            else
+                            {
+                                sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                                sb.AppendLine($"{tempIndent}        {{");
+                                sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem);");
+                                sb.AppendLine($"{tempIndent}        }}");
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                            sb.AppendLine($"{tempIndent}        {{");
+                            sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem);");
+                            sb.AppendLine($"{tempIndent}        }}");
+                        }
+                        
+                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(nestedClone);");
+                        sb.AppendLine($"{tempIndent}    }}");
+                        sb.AppendLine($"{tempIndent}    else");
+                        sb.AppendLine($"{tempIndent}    {{");
+                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(null);");
+                        sb.AppendLine($"{tempIndent}    }}");
+                        sb.AppendLine($"{tempIndent}}}");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                        sb.AppendLine($"{tempIndent}{{");
+                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item);");
+                        sb.AppendLine($"{tempIndent}}}");
+                    }
+                }
+                else if (elementType is INamedTypeSymbol elementRefType && !elementRefType.IsValueType && elementRefType.SpecialType != SpecialType.System_String)
+                {
+                    var props = GetCloneableProperties(elementRefType);
+                    if (props.Count > 0)
+                    {
+                        var hasDeepCloneableAttr = HasDeepCloneableAttribute(elementRefType);
+                        
+                        if (hasDeepCloneableAttr)
+                        {
+                            var safeName = GenerateSafeName(elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                            sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                            sb.AppendLine($"{tempIndent}{{");
+                            sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal(item) : null);");
+                            sb.AppendLine($"{tempIndent}}}");
+                        }
+                        else
+                        {
+                            // Generate inline cloning for types without [DeepCloneable]
+                            var elementFullTypeName = elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                            sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                            sb.AppendLine($"{tempIndent}{{");
+                            sb.AppendLine($"{tempIndent}    if (item != null)");
+                            sb.AppendLine($"{tempIndent}    {{");
+                            sb.AppendLine($"{tempIndent}        var clonedItem = new {elementFullTypeName}();");
+                            foreach (var prop in props)
+                            {
+                                var nestedExpr = GenerateCloneExpression(prop, "item");
+                                sb.AppendLine($"{tempIndent}        clonedItem.{prop.Name} = {nestedExpr};");
+                            }
+                            sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(clonedItem);");
+                            sb.AppendLine($"{tempIndent}    }}");
+                            sb.AppendLine($"{tempIndent}    else");
+                            sb.AppendLine($"{tempIndent}    {{");
+                            sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(null);");
+                            sb.AppendLine($"{tempIndent}    }}");
+                            sb.AppendLine($"{tempIndent}}}");
+                        }
+                    }
+                    else
+                    {
+                        sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                        sb.AppendLine($"{tempIndent}{{");
+                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item);");
+                        sb.AppendLine($"{tempIndent}}}");
+                    }
+                }
+                else
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item);");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+            });
+            return;
+        }
+        
+        // Fallback to simple assignment
+        sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName};");
+    }
+    
+    private static void GenerateDictionaryCloneStatements(StringBuilder sb, IPropertySymbol property, INamedTypeSymbol dictionaryType, string sourceVar, string targetVar, string indent)
+    {
+        if (dictionaryType.TypeArguments.Length < 2)
+        {
+            sb.AppendLine($"{indent}{targetVar}.{property.Name} = {sourceVar}.{property.Name};");
+            return;
+        }
+        
+        var keyType = dictionaryType.TypeArguments[0];
+        var valueType = dictionaryType.TypeArguments[1];
+        var propertyName = property.Name;
+        var keyTypeName = keyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var valueTypeName = valueType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+        var valueIsCloneable = IsCloneableType(valueType);
+        var typeName = dictionaryType.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        
+        // ImmutableDictionary - just assign (immutable)
+        if (typeName.StartsWith("global::System.Collections.Immutable.ImmutableDictionary<"))
+        {
+            if (isNullable || !IsValueOrImmutableType(valueType))
+            {
+                sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName};");
+            }
+            else
+            {
+                sb.AppendLine($"{indent}{targetVar}.{propertyName} = {sourceVar}.{propertyName};");
+            }
+            return;
+        }
+        
+        string tempIndent = isNullable ? indent + "    " : indent;
+        
+        void GenerateWithNullCheck(Action generateBody)
+        {
+            if (isNullable)
+            {
+                sb.AppendLine($"{indent}if ({sourceVar}.{propertyName} != null)");
+                sb.AppendLine($"{indent}{{");
+                generateBody();
+                sb.AppendLine($"{indent}}}");
+                sb.AppendLine($"{indent}else");
+                sb.AppendLine($"{indent}{{");
+                sb.AppendLine($"{indent}    {targetVar}.{propertyName} = null;");
+                sb.AppendLine($"{indent}}}");
+            }
+            else
+            {
+                generateBody();
+            }
+        }
+        
+        GenerateWithNullCheck(() =>
+        {
+            sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}>();");
+            
+            if (valueIsCloneable)
+            {
+                sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
+                sb.AppendLine($"{tempIndent}{{");
+                sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = kvp.Value?.{DeepCloneMethodName}();");
+                sb.AppendLine($"{tempIndent}}}");
+            }
+            else if (valueType is INamedTypeSymbol valueRefType && !valueRefType.IsValueType && valueRefType.SpecialType != SpecialType.System_String)
+            {
+                var props = GetCloneableProperties(valueRefType);
+                if (props.Count > 0)
+                {
+                    var hasDeepCloneableAttr = HasDeepCloneableAttribute(valueRefType);
+                    
+                    if (hasDeepCloneableAttr)
+                    {
+                        var safeName = GenerateSafeName(valueRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                        sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
+                        sb.AppendLine($"{tempIndent}{{");
+                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = kvp.Value != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal(kvp.Value) : null;");
+                        sb.AppendLine($"{tempIndent}}}");
+                    }
+                    else
+                    {
+                        // Generate inline cloning for types without [DeepCloneable]
+                        var valueFullTypeName = valueRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                        sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
+                        sb.AppendLine($"{tempIndent}{{");
+                        sb.AppendLine($"{tempIndent}    if (kvp.Value != null)");
+                        sb.AppendLine($"{tempIndent}    {{");
+                        sb.AppendLine($"{tempIndent}        var clonedValue = new {valueFullTypeName}();");
+                        foreach (var prop in props)
+                        {
+                            var nestedExpr = GenerateCloneExpression(prop, "kvp.Value");
+                            sb.AppendLine($"{tempIndent}        clonedValue.{prop.Name} = {nestedExpr};");
+                        }
+                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}[kvp.Key] = clonedValue;");
+                        sb.AppendLine($"{tempIndent}    }}");
+                        sb.AppendLine($"{tempIndent}    else");
+                        sb.AppendLine($"{tempIndent}    {{");
+                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}[kvp.Key] = null;");
+                        sb.AppendLine($"{tempIndent}    }}");
+                        sb.AppendLine($"{tempIndent}}}");
+                    }
+                }
+                else
+                {
+                    sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
+                    sb.AppendLine($"{tempIndent}{{");
+                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = kvp.Value;");
+                    sb.AppendLine($"{tempIndent}}}");
+                }
+            }
+            else
+            {
+                sb.AppendLine($"{tempIndent}foreach (var kvp in {sourceVar}.{propertyName})");
+                sb.AppendLine($"{tempIndent}{{");
+                sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[kvp.Key] = kvp.Value;");
+                sb.AppendLine($"{tempIndent}}}");
+            }
+        });
     }
     
     private static string GenerateCloneExpression(IPropertySymbol property, string objectName)
@@ -616,18 +1225,46 @@ public class CloneableGenerator : IIncrementalGenerator
                 return GenerateCollectionClone(property, namedType, objectName);
             }
             
-            // Reference types with properties - deep clone them
+            // Reference types with properties
             if (!namedType.IsValueType && namedType.SpecialType != SpecialType.System_String)
             {
                 var props = GetCloneableProperties(namedType);
                 if (props.Count > 0)
                 {
-                    // Generate object initializer
-                    var assignments = props.Select(p => 
-                        $"{p.Name} = {GenerateCloneExpression(p, $"{objectName}.{property.Name}")}"
-                    );
+                    var hasDeepCloneableAttr = HasDeepCloneableAttribute(namedType);
                     var fullTypeName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                    return $"{objectName}.{property.Name} != null ? new {fullTypeName} {{ {string.Join(", ", assignments)} }} : null";
+                    var isNullable = property.NullableAnnotation == NullableAnnotation.Annotated;
+                    
+                    if (hasDeepCloneableAttr)
+                    {
+                        // Call CloneInternal for types with [DeepCloneable]
+                        var safeName = GenerateSafeName(namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+                        
+                        if (isNullable)
+                        {
+                            return $"{objectName}.{property.Name} != null ? IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({objectName}.{property.Name}) : null";
+                        }
+                        else
+                        {
+                            return $"IDeepCloneable.Extensions.DeepCloneExtensions.{safeName}CloneInternal({objectName}.{property.Name})";
+                        }
+                    }
+                    else
+                    {
+                        // Generate inline object initializer for types without [DeepCloneable]
+                        var assignments = props.Select(p => 
+                            $"{p.Name} = {GenerateCloneExpression(p, $"{objectName}.{property.Name}")}"
+                        );
+                        
+                        if (isNullable)
+                        {
+                            return $"{objectName}.{property.Name} != null ? new {fullTypeName} {{ {string.Join(", ", assignments)} }} : null";
+                        }
+                        else
+                        {
+                            return $"new {fullTypeName} {{ {string.Join(", ", assignments)} }}";
+                        }
+                    }
                 }
             }
         }
