@@ -113,14 +113,14 @@ public class CloneableGenerator : IIncrementalGenerator
             .SyntaxProvider.ForAttributeWithMetadataName(
                 DeepCloneableAttributeMetadataName,
                 predicate: static (node, _) => true,
-                transform: static (ctx, _) => GetClassInfo(ctx)
+                transform: static (ctx, _) => (GetClassInfo(ctx), ctx.TargetSymbol as INamedTypeSymbol)
             )
-            .Where(static m => m is not null)
-            .Select(static (m, _) => m!);
+            .Where(static m => m.Item1 is not null && m.Item2 is not null)
+            .Select(static (m, _) => (m.Item1!, m.Item2!));
 
         context.RegisterSourceOutput(
             classDeclarations,
-            static (spc, source) => Execute(source!, spc)
+            static (spc, source) => Execute(source.Item1, source.Item2, spc)
         );
     }
 
@@ -150,6 +150,7 @@ public class CloneableGenerator : IIncrementalGenerator
         }
 
         var baseCloneableType = GetBaseCloneableType(classSymbol);
+        var baseCloneableTypeFullName = baseCloneableType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
         
         // Get full name for the type
         var fullName = classSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
@@ -175,7 +176,6 @@ public class CloneableGenerator : IIncrementalGenerator
             classSymbol.Name,
             GetNamespace(classSymbol),
             fullName,
-            classSymbol,
             new EquatableArray<string>(containedTypes.ToArray()),
             classSymbol.NullableAnnotation == NullableAnnotation.Annotated,
             classSymbol.IsRecord,
@@ -186,7 +186,7 @@ public class CloneableGenerator : IIncrementalGenerator
             classSymbol.IsAbstract,
             typeKeyword,
             GetContainingTypes(classSymbol),
-            baseCloneableType
+            baseCloneableTypeFullName
         );
     }
     
@@ -330,7 +330,7 @@ public class CloneableGenerator : IIncrementalGenerator
         return new EquatableArray<string>(containingTypes);
     }
 
-    private static void Execute(ClassInfo classInfo, SourceProductionContext context)
+    private static void Execute(ClassInfo classInfo, INamedTypeSymbol classSymbol, SourceProductionContext context)
     {
         // Generate the main class with DeepClone method
         var source = GenerateCloneMethod(classInfo);
@@ -349,7 +349,7 @@ public class CloneableGenerator : IIncrementalGenerator
         // Generate CloneInternal extension method
         if (!classInfo.IsAbstract)
         {
-            var extensionSource = GenerateCloneInternalExtension(classInfo);
+            var extensionSource = GenerateCloneInternalExtension(classInfo, classSymbol);
             var extensionHintName = string.Join(".", hintNameParts) + ".CloneInternal.g.cs";
             context.AddSource(extensionHintName, SourceText.From(extensionSource, Encoding.UTF8));
         }
@@ -395,9 +395,10 @@ public class CloneableGenerator : IIncrementalGenerator
 
         // Build interface list
         var interfaces = $"IDeepCloneable<{classInfo.ClassName}>";
-        if (classInfo.BaseCloneableType is not null)
+        if (classInfo.BaseCloneableTypeFullName is not null)
         {
-            var baseTypeName = classInfo.BaseCloneableType.Name;
+            // Extract just the class name from the full name
+            var baseTypeName = classInfo.BaseCloneableTypeFullName.Split('.').Last().Split('<').First();
             interfaces += $", IDeepCloneable<{baseTypeName}>";
         }
 
@@ -478,7 +479,7 @@ public class CloneableGenerator : IIncrementalGenerator
         }
 
         // Determine if we need override keyword
-        var methodModifier = classInfo.BaseCloneableType != null ? "public override" : "public";
+        var methodModifier = classInfo.BaseCloneableTypeFullName != null ? "public override" : "public";
         
         // Generate safe name for the extension method
         var safeName = GenerateSafeName(classInfo.FullName);
@@ -504,9 +505,9 @@ public class CloneableGenerator : IIncrementalGenerator
             .Replace(":", "_");
     }
 
-    private static string GenerateCloneInternalExtension(ClassInfo classInfo)
+    private static string GenerateCloneInternalExtension(ClassInfo classInfo, INamedTypeSymbol classSymbol)
     {
-        var fullTypeName = classInfo.ClassSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var fullTypeName = classSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var safeName = GenerateSafeName(classInfo.FullName);
         
         var sb = new StringBuilder();
@@ -521,7 +522,7 @@ public class CloneableGenerator : IIncrementalGenerator
         sb.AppendLine("        {");
         
         // Generate cloning logic based on type characteristics
-        var properties = GetCloneableProperties(classInfo.ClassSymbol);
+        var properties = GetCloneableProperties(classSymbol);
         
         // If all children are value types or immutable and it's a record/struct
         if (classInfo.AllChildrenAreValueOrImmutable && (classInfo.IsRecord || classInfo.IsValueType))
@@ -2436,7 +2437,6 @@ public class CloneableGenerator : IIncrementalGenerator
         string ClassName,
         string? Namespace,
         string FullName,
-        INamedTypeSymbol ClassSymbol,
         EquatableArray<string> ContainedTypeFullNames,
         bool IsNullable,
         bool IsRecord,
@@ -2447,6 +2447,6 @@ public class CloneableGenerator : IIncrementalGenerator
         bool IsAbstract,
         string TypeKeyword,
         EquatableArray<string> ContainingTypes,
-        INamedTypeSymbol? BaseCloneableType
+        string? BaseCloneableTypeFullName
     );
 }
