@@ -151,31 +151,32 @@ public class CloneableGenerator : IIncrementalGenerator
 
         var baseCloneableType = GetBaseCloneableType(classSymbol);
         
-        // Get full name
-        var fullName = classSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-            .Replace("global::", "");
-
-        // Analyze contained types
-        var containedTypes = GetContainedTypes(classSymbol);
+        // Get full name for the type
+        var fullName = classSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
         
-        // Check if all children are value types or immutable
-        var allChildrenValueOrImmutable = AreAllChildrenValueOrImmutable(classSymbol);
+        // Analyze all properties to collect contained types
+        var properties = GetCloneableProperties(classSymbol);
+        var containedTypes = new HashSet<string>();
+        foreach (var prop in properties)
+        {
+            CollectContainedTypes(prop.Type, containedTypes);
+        }
         
-        // Check if type has collection initializer support
-        var hasCollectionInitializer = HasCollectionInitializer(classSymbol);
+        // Determine if all children are value types or immutable
+        bool allChildrenValueOrImmutable = properties.All(p => IsValueOrImmutableType(p.Type));
         
-        // Determine if we should generate CloneInternal
-        var shouldGenerateCloneInternal = !IsObviouslyImmutableType(classSymbol);
-        
-        // Determine if CloneInternal should be internal or private
-        var isCloneInternalInternal = HasDeepCloneableAttribute(classSymbol) || baseCloneableType != null;
+        // Check if type has collection initializer
+        bool hasCollectionInitializer = classSymbol.AllInterfaces.Any(i =>
+            i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            == "global::System.Collections.Generic.IEnumerable<T>")
+            && classSymbol.GetMembers("Add").Any(m => m is IMethodSymbol);
 
         return new ClassInfo(
             classSymbol.Name,
             GetNamespace(classSymbol),
             fullName,
             classSymbol,
-            containedTypes,
+            new EquatableArray<string>(containedTypes.ToArray()),
             classSymbol.NullableAnnotation == NullableAnnotation.Annotated,
             classSymbol.IsRecord,
             classSymbol.IsValueType,
@@ -183,12 +184,57 @@ public class CloneableGenerator : IIncrementalGenerator
             hasCollectionInitializer,
             !hasDeepClone,
             classSymbol.IsAbstract,
-            shouldGenerateCloneInternal,
-            isCloneInternalInternal,
             typeKeyword,
             GetContainingTypes(classSymbol),
             baseCloneableType
         );
+    }
+    
+    private static void CollectContainedTypes(ITypeSymbol typeSymbol, HashSet<string> containedTypes)
+    {
+        var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+        containedTypes.Add(fullName);
+        
+        // Collect generic type arguments
+        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
+        {
+            foreach (var typeArg in namedType.TypeArguments)
+            {
+                CollectContainedTypes(typeArg, containedTypes);
+            }
+        }
+        
+        // Collect array element types
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            CollectContainedTypes(arrayType.ElementType, containedTypes);
+        }
+    }
+    
+    private static bool IsValueOrImmutableType(ITypeSymbol typeSymbol)
+    {
+        // Primitives and value types
+        if (typeSymbol.IsValueType)
+        {
+            // Check if value type contains reference types
+            if (typeSymbol is INamedTypeSymbol namedValueType)
+            {
+                var props = GetCloneableProperties(namedValueType);
+                return props.All(p => IsValueOrImmutableType(p.Type));
+            }
+            return true;
+        }
+        
+        // String is immutable
+        if (typeSymbol.SpecialType == SpecialType.System_String)
+            return true;
+        
+        // Other known immutable types
+        var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return fullName is "global::System.DateTime" 
+            or "global::System.DateTimeOffset" 
+            or "global::System.TimeSpan"
+            or "global::System.Guid";
     }
 
     private static INamedTypeSymbol? GetBaseCloneableType(INamedTypeSymbol classSymbol)
@@ -284,167 +330,6 @@ public class CloneableGenerator : IIncrementalGenerator
         return new EquatableArray<string>(containingTypes);
     }
 
-    private static EquatableArray<string> GetContainedTypes(INamedTypeSymbol typeSymbol)
-    {
-        var containedTypes = new HashSet<string>();
-        
-        // Get all properties
-        var properties = GetCloneableProperties(typeSymbol);
-        
-        foreach (var property in properties)
-        {
-            CollectContainedTypes(property.Type, containedTypes);
-        }
-        
-        return new EquatableArray<string>(containedTypes.ToArray());
-    }
-    
-    private static void CollectContainedTypes(ITypeSymbol typeSymbol, HashSet<string> containedTypes)
-    {
-        // Add the full name of this type
-        var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-            .Replace("global::", "");
-        containedTypes.Add(fullName);
-        
-        // If it's a generic type, collect type arguments
-        if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
-        {
-            foreach (var typeArg in namedType.TypeArguments)
-            {
-                CollectContainedTypes(typeArg, containedTypes);
-            }
-        }
-        
-        // If it's an array, collect element type
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            CollectContainedTypes(arrayType.ElementType, containedTypes);
-        }
-    }
-    
-    private static bool AreAllChildrenValueOrImmutable(INamedTypeSymbol typeSymbol)
-    {
-        var properties = GetCloneableProperties(typeSymbol);
-        
-        foreach (var property in properties)
-        {
-            if (!IsValueOrImmutableType(property.Type))
-            {
-                return false;
-            }
-        }
-        
-        return true;
-    }
-    
-    private static bool IsValueOrImmutableType(ITypeSymbol typeSymbol)
-    {
-        // Value types are fine
-        if (typeSymbol.IsValueType)
-        {
-            // But check if the value type contains reference types
-            if (typeSymbol is INamedTypeSymbol namedValueType)
-            {
-                var properties = GetCloneableProperties(namedValueType);
-                foreach (var prop in properties)
-                {
-                    if (!IsValueOrImmutableType(prop.Type))
-                    {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-        
-        // String is immutable
-        if (typeSymbol.SpecialType == SpecialType.System_String)
-        {
-            return true;
-        }
-        
-        // Other immutable types
-        var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullName is "global::System.DateTime" 
-            or "global::System.DateTimeOffset" 
-            or "global::System.TimeSpan"
-            or "global::System.Guid")
-        {
-            return true;
-        }
-        
-        return false;
-    }
-    
-    private static bool HasCollectionInitializer(ITypeSymbol typeSymbol)
-    {
-        // Arrays support collection initializers
-        if (typeSymbol is IArrayTypeSymbol)
-        {
-            return true;
-        }
-        
-        // Check if it implements IEnumerable and has Add method
-        if (typeSymbol is INamedTypeSymbol namedType)
-        {
-            var hasEnumerable = namedType.AllInterfaces.Any(i =>
-                i.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                == "global::System.Collections.Generic.IEnumerable<T>");
-                
-            if (!hasEnumerable)
-            {
-                return false;
-            }
-            
-            // Check for Add method
-            var hasAdd = namedType.GetMembers("Add").Any(m => m is IMethodSymbol);
-            
-            return hasAdd;
-        }
-        
-        return false;
-    }
-    
-    private static bool IsObviouslyImmutableType(ITypeSymbol typeSymbol)
-    {
-        // Primitives
-        if (typeSymbol.SpecialType != SpecialType.None)
-        {
-            switch (typeSymbol.SpecialType)
-            {
-                case SpecialType.System_Boolean:
-                case SpecialType.System_Char:
-                case SpecialType.System_SByte:
-                case SpecialType.System_Byte:
-                case SpecialType.System_Int16:
-                case SpecialType.System_UInt16:
-                case SpecialType.System_Int32:
-                case SpecialType.System_UInt32:
-                case SpecialType.System_Int64:
-                case SpecialType.System_UInt64:
-                case SpecialType.System_Single:
-                case SpecialType.System_Double:
-                case SpecialType.System_Decimal:
-                case SpecialType.System_IntPtr:
-                case SpecialType.System_UIntPtr:
-                case SpecialType.System_String:
-                    return true;
-            }
-        }
-        
-        // Other common immutable types
-        var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullName is "global::System.DateTime" 
-            or "global::System.DateTimeOffset" 
-            or "global::System.TimeSpan"
-            or "global::System.Guid")
-        {
-            return true;
-        }
-        
-        return false;
-    }
-
     private static void Execute(ClassInfo classInfo, SourceProductionContext context)
     {
         // Generate the main class with DeepClone method
@@ -461,9 +346,13 @@ public class CloneableGenerator : IIncrementalGenerator
         var hintName = string.Join(".", hintNameParts) + ".g.cs";
         context.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
         
-        // Note: CloneInternal extension generation commented out for now
-        // This would require updating all helper methods to support a customizable object name
-        // For now, we're using the optimizations directly in the DeepClone method
+        // Generate CloneInternal extension method
+        if (!classInfo.IsAbstract)
+        {
+            var extensionSource = GenerateCloneInternalExtension(classInfo);
+            var extensionHintName = string.Join(".", hintNameParts) + ".CloneInternal.g.cs";
+            context.AddSource(extensionHintName, SourceText.From(extensionSource, Encoding.UTF8));
+        }
     }
 
     private static string GenerateCloneMethod(ClassInfo classInfo)
@@ -588,124 +477,26 @@ public class CloneableGenerator : IIncrementalGenerator
                 """;
         }
 
-        var sb = new StringBuilder();
-
         // Determine if we need override keyword
         var methodModifier = classInfo.BaseCloneableType != null ? "public override" : "public";
-
-        var properties = GetCloneableProperties(classInfo.ClassSymbol);
-
-        bool hasInitOnlyProperties = properties.Any(p => p.SetMethod?.IsInitOnly == true);
-        bool needsStatements = properties.Any(p =>
-            p.Type is IArrayTypeSymbol arrayType && arrayType.Rank > 1
-        );
-
-        // If all children are value types or immutable, we can use simpler cloning
-        if (classInfo.AllChildrenAreValueOrImmutable && classInfo.IsRecord)
-        {
-            // For records with only value/immutable types, use simple with syntax
-            sb.AppendLine(
-                $$"""
-                        /// <inheritdoc />
-                        {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
-                        {
-                            return this with { };
-                        }
-                """
-            );
-            return sb.ToString().TrimEnd();
-        }
-
-        // Generate the main DeepClone method that returns the derived type
-        if (needsStatements || hasInitOnlyProperties)
-        {
-            if (classInfo.IsRecord && hasInitOnlyProperties)
-            {
-                var assignments = new List<string>();
-                foreach (var property in properties)
-                {
-                    var expression = GenerateDeepCloneExpression(property);
-                    assignments.Add($"{PropertyIndent}{property.Name} = {expression}");
-                }
-
-                var withAssignments = string.Join(",\n", assignments);
-
-                sb.AppendLine(
-                    $$"""
-                            /// <inheritdoc />
-                            {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
-                            {
-                                return this with
-                                {
-                    {{withAssignments}}
-                                };
-                            }
-                    """
-                );
-            }
-            else
-            {
-                var statements = new List<string>();
-                statements.Add($"{StatementIndent}var clone = new {classInfo.ClassName}();");
-
-                foreach (var property in properties)
-                {
-                    var expression = GenerateDeepCloneExpression(property);
-                    statements.Add($"{StatementIndent}clone.{property.Name} = {expression};");
-                }
-
-                statements.Add($"{StatementIndent}return clone;");
-
-                var methodBody = string.Join("\n", statements);
-
-                sb.AppendLine(
-                    $$"""
-                            /// <inheritdoc />
-                            {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
-                            {
-                    {{methodBody}}
-                            }
-                    """
-                );
-            }
-        }
-        else
-        {
-            var propertyAssignments = string.Join(
-                ",\n",
-                properties.Select(p =>
-                    $"{PropertyIndent}{p.Name} = {GenerateDeepCloneExpression(p)}"
-                )
-            );
-
-            sb.AppendLine(
-                $$"""
-                        /// <inheritdoc />
-                        {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
-                        {
-                            return new {{classInfo.ClassName}}
-                            {
-                {{propertyAssignments}}
-                            };
-                        }
-                """
-            );
-        }
-
-        return sb.ToString().TrimEnd();
+        
+        // Generate safe name for the extension method
+        var safeName = classInfo.FullName.Replace(".", "_").Replace("<", "_").Replace(">", "_").Replace(",", "_").Replace(" ", "").Replace(":","_");
+        
+        // Simply call the CloneInternal extension method
+        return $$"""
+                    /// <inheritdoc />
+                    {{methodModifier}} {{classInfo.ClassName}} {{DeepCloneMethodName}}()
+                    {
+                        return IDeepCloneable.Extensions.DeepCloneExtensions.{{safeName}}CloneInternal(this);
+                    }
+            """;
     }
 
-    // NOTE: This method is commented out for now but kept for future implementation
-    // It would generate CloneInternal extension methods as described in the performance requirements
-    // Currently, we're using inline optimizations instead
-    /*
     private static string GenerateCloneInternalExtension(ClassInfo classInfo)
     {
-        var accessibility = classInfo.IsCloneInternalInternal ? "internal" : "private";
         var fullTypeName = classInfo.ClassSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var safeName = classInfo.FullName.Replace(".", "_").Replace("<", "_").Replace(">", "_").Replace(",", "_").Replace(" ", "");
-        
-        var properties = GetCloneableProperties(classInfo.ClassSymbol);
+        var safeName = classInfo.FullName.Replace(".", "_").Replace("<", "_").Replace(">", "_").Replace(",", "_").Replace(" ", "").Replace(":", "_");
         
         var sb = new StringBuilder();
         
@@ -713,88 +504,61 @@ public class CloneableGenerator : IIncrementalGenerator
         sb.AppendLine(OutputFileHeaderParts);
         sb.AppendLine("namespace IDeepCloneable.Extensions");
         sb.AppendLine("{");
-        sb.AppendLine($"    {accessibility} static class DeepCloneExtensions_{safeName}");
+        sb.AppendLine("    internal static partial class DeepCloneExtensions");
         sb.AppendLine("    {");
-        sb.AppendLine($"        {accessibility} static {fullTypeName} {safeName}CloneInternal(this {fullTypeName} value)");
+        sb.AppendLine($"        internal static {fullTypeName} {safeName}CloneInternal(this {fullTypeName} value)");
         sb.AppendLine("        {");
         
-        // Handle nullable reference types
-        if (!classInfo.IsValueType && classInfo.IsNullable)
-        {
-            sb.AppendLine("            if (value is null)");
-            sb.AppendLine("            {");
-            sb.AppendLine("                return null;");
-            sb.AppendLine("            }");
-        }
+        // Generate cloning logic based on type characteristics
+        var properties = GetCloneableProperties(classInfo.ClassSymbol);
         
-        // If all children are value types or immutable
-        if (classInfo.AllChildrenAreValueOrImmutable)
+        // If all children are value types or immutable and it's a record/struct
+        if (classInfo.AllChildrenAreValueOrImmutable && (classInfo.IsRecord || classInfo.IsValueType))
         {
-            if (classInfo.IsRecord || classInfo.IsValueType)
+            sb.AppendLine("            return value with { };");
+        }
+        // If it has collection initializer and all children are value types
+        else if (classInfo.HasCollectionInitializer && classInfo.AllChildrenAreValueOrImmutable)
+        {
+            sb.AppendLine("            return [.. value];");
+        }
+        // Record with reference type properties
+        else if (classInfo.IsRecord)
+        {
+            var assignments = new List<string>();
+            foreach (var property in properties)
+            {
+                if (!IsValueOrImmutableType(property.Type))
+                {
+                    var expression = GenerateCloneExpression(property, "value");
+                    assignments.Add($"                {property.Name} = {expression}");
+                }
+            }
+            
+            if (assignments.Count > 0)
+            {
+                sb.AppendLine("            return value with");
+                sb.AppendLine("            {");
+                sb.AppendLine(string.Join(",\n", assignments));
+                sb.AppendLine("            };");
+            }
+            else
             {
                 sb.AppendLine("            return value with { };");
             }
-            else if (classInfo.HasCollectionInitializer)
-            {
-                sb.AppendLine("            return [.. value];");
-            }
-            else
-            {
-                // Simple value copy
-                sb.AppendLine("            return value;");
-            }
         }
+        // Regular class or struct with properties
         else
         {
-            // Complex cloning logic
-            if (classInfo.IsRecord)
+            sb.AppendLine($"            var clone = new {fullTypeName}();");
+            
+            foreach (var property in properties)
             {
-                var assignments = new List<string>();
-                foreach (var property in properties)
-                {
-                    if (!IsValueOrImmutableType(property.Type))
-                    {
-                        var expression = GenerateDeepCloneExpression(property, "value");
-                        assignments.Add($"                {property.Name} = {expression}");
-                    }
-                }
-                
-                if (assignments.Count > 0)
-                {
-                    var withAssignments = string.Join(",\n", assignments);
-                    sb.AppendLine("            return value with");
-                    sb.AppendLine("            {");
-                    sb.AppendLine(withAssignments);
-                    sb.AppendLine("            };");
-                }
-                else
-                {
-                    sb.AppendLine("            return value with { };");
-                }
+                var expression = GenerateCloneExpression(property, "value");
+                sb.AppendLine($"            clone.{property.Name} = {expression};");
             }
-            else if (classInfo.HasCollectionInitializer && !classInfo.IsValueType)
-            {
-                // For collections, iterate and clone elements
-                sb.AppendLine($"            var clone = new {fullTypeName}();");
-                sb.AppendLine("            foreach (var item in value)");
-                sb.AppendLine("            {");
-                sb.AppendLine("                clone.Add(item);");
-                sb.AppendLine("            }");
-                sb.AppendLine("            return clone;");
-            }
-            else
-            {
-                // Regular class cloning
-                sb.AppendLine($"            var clone = new {fullTypeName}();");
-                
-                foreach (var property in properties)
-                {
-                    var expression = GenerateDeepCloneExpression(property, "value");
-                    sb.AppendLine($"            clone.{property.Name} = {expression};");
-                }
-                
-                sb.AppendLine("            return clone;");
-            }
+            
+            sb.AppendLine("            return clone;");
         }
         
         sb.AppendLine("        }");
@@ -803,7 +567,366 @@ public class CloneableGenerator : IIncrementalGenerator
         
         return sb.ToString();
     }
-    */
+    
+    private static string GenerateCloneExpression(IPropertySymbol property, string objectName)
+    {
+        var typeSymbol = property.Type;
+        
+        // Value types and immutable types - simple assignment
+        if (IsValueOrImmutableType(typeSymbol))
+        {
+            return $"{objectName}.{property.Name}";
+        }
+        
+        // Arrays
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            return GenerateArrayClone(property, arrayType, objectName);
+        }
+        
+        // Named types (classes, interfaces, etc.)
+        if (typeSymbol is INamedTypeSymbol namedType)
+        {
+            // Check if it's a cloneable type
+            if (IsCloneableType(namedType))
+            {
+                return $"{objectName}.{property.Name}?.{DeepCloneMethodName}()";
+            }
+            
+            // Dictionaries
+            if (IsDictionaryType(namedType))
+            {
+                return GenerateDictionaryClone(property, namedType, objectName);
+            }
+            
+            // Collections
+            if (IsCollectionType(namedType))
+            {
+                return GenerateCollectionClone(property, namedType, objectName);
+            }
+            
+            // Reference types with properties - deep clone them
+            if (!namedType.IsValueType && namedType.SpecialType != SpecialType.System_String)
+            {
+                var props = GetCloneableProperties(namedType);
+                if (props.Count > 0)
+                {
+                    // Generate object initializer
+                    var assignments = props.Select(p => 
+                        $"{p.Name} = {GenerateCloneExpression(p, $"{objectName}.{property.Name}")}"
+                    );
+                    var fullTypeName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    return $"{objectName}.{property.Name} != null ? new {fullTypeName} {{ {string.Join(", ", assignments)} }} : null";
+                }
+            }
+        }
+        
+        // Default: simple assignment
+        return $"{objectName}.{property.Name}";
+    }
+    
+    private static string GenerateArrayClone(IPropertySymbol property, IArrayTypeSymbol arrayType, string objectName)
+    {
+        var elementType = arrayType.ElementType;
+        var propertyName = property.Name;
+        
+        // Multi-dimensional arrays
+        if (arrayType.Rank > 1)
+        {
+            var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var rankCommas = new string(',', arrayType.Rank - 1);
+            var arrayTypeName = $"{elementTypeName}[{rankCommas}]";
+            return $"{objectName}.{propertyName} != null ? ({arrayTypeName}){objectName}.{propertyName}.Clone() : null";
+        }
+        
+        // Cloneable elements
+        if (IsCloneableType(elementType))
+        {
+            return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToArray()";
+        }
+        
+        // Value types or immutable types
+        if (IsValueOrImmutableType(elementType))
+        {
+            return $"{objectName}.{propertyName} != null ? {objectName}.{propertyName}.AsSpan().ToArray() : null";
+        }
+        
+        // Reference types - use Clone()
+        var arrayTypeFullName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) + "[]";
+        return $"{objectName}.{propertyName} != null ? ({arrayTypeFullName}){objectName}.{propertyName}.Clone() : null";
+    }
+    
+    private static string GenerateDictionaryClone(IPropertySymbol property, INamedTypeSymbol dictionaryType, string objectName)
+    {
+        if (dictionaryType.TypeArguments.Length < 2)
+            return $"{objectName}.{property.Name}";
+        
+        var keyType = dictionaryType.TypeArguments[0];
+        var valueType = dictionaryType.TypeArguments[1];
+        var propertyName = property.Name;
+        
+        bool valueIsCloneable = IsCloneableType(valueType);
+        
+        var typeName = dictionaryType.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        
+        // Immutable dictionaries
+        if (typeName.StartsWith("global::System.Collections.Immutable.ImmutableDictionary<"))
+        {
+            if (valueIsCloneable)
+            {
+                return $"{objectName}.{propertyName}?.ToImmutableDictionary(kvp => kvp.Key, kvp => kvp.Value?.{DeepCloneMethodName}())";
+            }
+            return $"{objectName}.{propertyName}";
+        }
+        
+        // Regular dictionaries
+        if (valueIsCloneable)
+        {
+            return $"{objectName}.{propertyName}?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.{DeepCloneMethodName}())";
+        }
+        
+        // Check if value is a reference type with properties
+        if (valueType is INamedTypeSymbol valueRefType && !valueRefType.IsValueType && valueRefType.SpecialType != SpecialType.System_String)
+        {
+            var props = GetCloneableProperties(valueRefType);
+            if (props.Count > 0)
+            {
+                // Generate object initializer for each value
+                var assignments = props.Select(p => 
+                    $"{p.Name} = {GenerateCloneExpression(p, "kvp.Value")}"
+                );
+                var valueTypeFullName = valueRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var keyTypeName = keyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                return $"{objectName}.{propertyName}?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value != null ? new {valueTypeFullName} {{ {string.Join(", ", assignments)} }} : null)";
+            }
+        }
+        
+        var keyTypeNameDefault = keyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var valueTypeNameDefault = valueType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Dictionary<{keyTypeNameDefault}, {valueTypeNameDefault}>({objectName}.{propertyName}) : null";
+    }
+    
+    private static string GenerateCollectionClone(IPropertySymbol property, INamedTypeSymbol collectionType, string objectName)
+    {
+        if (collectionType.TypeArguments.Length == 0)
+            return $"{objectName}.{property.Name}";
+        
+        var elementType = collectionType.TypeArguments[0];
+        var propertyName = property.Name;
+        var typeName = collectionType.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        
+        bool isCloneable = IsCloneableType(elementType);
+        var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        
+        // Stack
+        if (typeName == "global::System.Collections.Generic.Stack<T>")
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Stack<{elementTypeName}>({objectName}.{propertyName}.Reverse().Select(x => x?.{DeepCloneMethodName}())) : null";
+            }
+            return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Stack<{elementTypeName}>({objectName}.{propertyName}.Reverse()) : null";
+        }
+        
+        // Queue
+        if (typeName == "global::System.Collections.Generic.Queue<T>")
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Queue<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+            }
+            return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.Queue<{elementTypeName}>({objectName}.{propertyName}) : null";
+        }
+        
+        // HashSet
+        if (typeName == "global::System.Collections.Generic.HashSet<T>")
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.HashSet<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+            }
+            return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.HashSet<{elementTypeName}>({objectName}.{propertyName}) : null";
+        }
+        
+        // SortedSet
+        if (typeName == "global::System.Collections.Generic.SortedSet<T>")
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.SortedSet<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+            }
+            return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.SortedSet<{elementTypeName}>({objectName}.{propertyName}) : null";
+        }
+        
+        // ObservableCollection
+        if (typeName == "global::System.Collections.ObjectModel.ObservableCollection<T>")
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ObservableCollection<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}())) : null";
+            }
+            return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ObservableCollection<{elementTypeName}>({objectName}.{propertyName}) : null";
+        }
+        
+        // ReadOnlyCollection
+        if (typeName == "global::System.Collections.ObjectModel.ReadOnlyCollection<T>")
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyCollection<{elementTypeName}>({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()).ToList()) : null";
+            }
+            return $"{objectName}.{propertyName} != null ? new System.Collections.ObjectModel.ReadOnlyCollection<{elementTypeName}>({objectName}.{propertyName}.ToList()) : null";
+        }
+        
+        // ImmutableList
+        if (typeName.StartsWith("global::System.Collections.Immutable.ImmutableList<"))
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToImmutableList()";
+            }
+            if (IsValueOrImmutableType(elementType))
+            {
+                return $"{objectName}.{propertyName}";
+            }
+            return $"{objectName}.{propertyName}?.ToImmutableList()";
+        }
+        
+        // ImmutableArray
+        if (typeName.StartsWith("global::System.Collections.Immutable.ImmutableArray<"))
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName}.IsDefault ? default : {objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()).ToImmutableArray()";
+            }
+            if (IsValueOrImmutableType(elementType))
+            {
+                return $"{objectName}.{propertyName}";
+            }
+            return $"{objectName}.{propertyName}.IsDefault ? default : {objectName}.{propertyName}.ToImmutableArray()";
+        }
+        
+        // ImmutableHashSet
+        if (typeName.StartsWith("global::System.Collections.Immutable.ImmutableHashSet<"))
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToImmutableHashSet()";
+            }
+            if (IsValueOrImmutableType(elementType))
+            {
+                return $"{objectName}.{propertyName}";
+            }
+            return $"{objectName}.{propertyName}?.ToImmutableHashSet()";
+        }
+        
+        // ImmutableQueue
+        if (typeName.StartsWith("global::System.Collections.Immutable.ImmutableQueue<"))
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableQueue<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableQueue.CreateRange({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()))";
+            }
+            if (IsValueOrImmutableType(elementType))
+            {
+                return $"{objectName}.{propertyName}";
+            }
+            return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableQueue<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableQueue.CreateRange({objectName}.{propertyName})";
+        }
+        
+        // ImmutableStack
+        if (typeName.StartsWith("global::System.Collections.Immutable.ImmutableStack<"))
+        {
+            if (isCloneable)
+            {
+                return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableStack<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableStack.CreateRange({objectName}.{propertyName}.Select(x => x?.{DeepCloneMethodName}()))";
+            }
+            if (IsValueOrImmutableType(elementType))
+            {
+                return $"{objectName}.{propertyName}";
+            }
+            return $"{objectName}.{propertyName} == null ? System.Collections.Immutable.ImmutableStack<{elementTypeName}>.Empty : System.Collections.Immutable.ImmutableStack.CreateRange({objectName}.{propertyName})";
+        }
+        
+        // Regular collections (List, etc.) - default to List
+        if (isCloneable)
+        {
+            return $"{objectName}.{propertyName}?.Select(x => x?.{DeepCloneMethodName}()).ToList()";
+        }
+        
+        // Check if element is a collection (nested collection scenario)
+        if (elementType is INamedTypeSymbol elementNamedType && IsCollectionType(elementNamedType))
+        {
+            // Generate nested collection clone
+            var nestedClone = GenerateNestedCollectionClone(elementNamedType, "x");
+            return $"{objectName}.{propertyName}?.Select(x => {nestedClone}).ToList()";
+        }
+        
+        // Check if element is a reference type with properties
+        if (elementType is INamedTypeSymbol elementRefType && !elementRefType.IsValueType && elementRefType.SpecialType != SpecialType.System_String)
+        {
+            var props = GetCloneableProperties(elementRefType);
+            if (props.Count > 0)
+            {
+                // Generate object initializer for each element
+                var assignments = props.Select(p => 
+                    $"{p.Name} = {GenerateCloneExpression(p, "x")}"
+                );
+                var fullTypeName = elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                return $"{objectName}.{propertyName}?.Select(x => x != null ? new {fullTypeName} {{ {string.Join(", ", assignments)} }} : null).ToList()";
+            }
+        }
+        
+        return $"{objectName}.{propertyName} != null ? new System.Collections.Generic.List<{elementTypeName}>({objectName}.{propertyName}) : null";
+    }
+    
+    private static string GenerateNestedCollectionClone(INamedTypeSymbol collectionType, string varName)
+    {
+        if (collectionType.TypeArguments.Length == 0)
+            return varName;
+        
+        var elementType = collectionType.TypeArguments[0];
+        var typeName = collectionType.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        
+        // Check if element is cloneable
+        bool isCloneable = IsCloneableType(elementType);
+        
+        if (isCloneable)
+        {
+            return $"{varName}?.Select(item => item?.{DeepCloneMethodName}()).ToList()";
+        }
+        
+        // Check if element is itself a collection
+        if (elementType is INamedTypeSymbol nestedCollectionType && IsCollectionType(nestedCollectionType))
+        {
+            var nestedClone = GenerateNestedCollectionClone(nestedCollectionType, "item");
+            return $"{varName}?.Select(item => {nestedClone}).ToList()";
+        }
+        
+        // Check if element is a reference type with properties
+        if (elementType is INamedTypeSymbol elementRefType && !elementRefType.IsValueType && elementRefType.SpecialType != SpecialType.System_String)
+        {
+            var props = GetCloneableProperties(elementRefType);
+            if (props.Count > 0)
+            {
+                // Generate object initializer for each element
+                var assignments = props.Select(p => 
+                    $"{p.Name} = {GenerateCloneExpression(p, "item")}"
+                );
+                var fullTypeName = elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                return $"{varName}?.Select(item => item != null ? new {fullTypeName} {{ {string.Join(", ", assignments)} }} : null).ToList()";
+            }
+        }
+        
+        // For value types and immutable types
+        if (IsValueOrImmutableType(elementType))
+        {
+            return $"{varName} != null ? new System.Collections.Generic.List<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({varName}) : null";
+        }
+        
+        // Default
+        return $"{varName} != null ? new System.Collections.Generic.List<{elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({varName}) : null";
+    }
 
     private static string GenerateDeepCloneExpression(IPropertySymbol property)
     {
@@ -1674,8 +1797,6 @@ public class CloneableGenerator : IIncrementalGenerator
         bool HasCollectionInitializer,
         bool ShouldGenerateDeepClone,
         bool IsAbstract,
-        bool ShouldGenerateCloneInternal,
-        bool IsCloneInternalInternal,
         string TypeKeyword,
         EquatableArray<string> ContainingTypes,
         INamedTypeSymbol? BaseCloneableType
