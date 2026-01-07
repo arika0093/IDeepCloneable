@@ -1,10 +1,96 @@
 # IDeepCloneable
 [![NuGet Version](https://img.shields.io/nuget/v/IDeepCloneable?style=flat-square&logo=NuGet&color=0080CC)](https://www.nuget.org/packages/IDeepCloneable/) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/arika0093/IDeepCloneable/test.yaml?branch=main&label=Test&style=flat-square) 
 
-Automatic implementation of the `IDeepCloneable<T>` interface via source generators. For library authors.
+Automatic implementation of the `IDeepCloneable<T>` interface via source generators. Suitable for both library authors and users.
 
 ## Overview
 Provides automatic generation of the `DeepClone()` method and `IDeepCloneable<T>` implementation for partial types marked with `[DeepCloneable]`.
+
+### Quick Start (for users)
+Install the NuGet package [IDeepCloneable](https://www.nuget.org/packages/IDeepCloneable/) to your project.
+
+```bash
+dotnet add package IDeepCloneable
+```
+
+Then mark a partial type with the `[DeepCloneable]` attribute.
+
+```csharp
+[DeepCloneable] // <- add this attribute
+public partial class Person // <- make it partial
+{
+    public string Name { get; set; }
+    public int Age { get; set; }
+}
+```
+
+That's it! The `DeepClone()` method will be automatically generated and the generated partial type will implement `IDeepCloneable<Person>`.
+
+```csharp
+// generated code (sample)
+partial class Person : IDeepCloneable<Person>
+{
+    public Person DeepClone()
+    {
+        return new Person
+        {
+            Name = this.Name,
+            Age = this.Age,
+        };
+    }
+}
+```
+
+And you can use it like this:
+
+```csharp
+var person1 = new Person { Name = "Alice", Age = 30 };
+var person2 = person1.DeepClone();
+```
+
+### Usage for library authors
+Library authors can use the `IDeepCloneable<T>` interface to perform `DeepClone()` without reflection.
+
+First, install the NuGet package [IDeepCloneable](https://www.nuget.org/packages/IDeepCloneable/) to your project.
+
+```bash
+dotnet add package IDeepCloneable
+```
+
+Then, you can check if a type implements `IDeepCloneable<T>` and call the `DeepClone()` method accordingly.
+
+```csharp
+using IDeepCloneable;
+
+public void RegisterCloneMethod<T>()
+{
+    Func<T, T> cloneFunc = null;
+
+    if(typeof(IDeepCloneable<T>).IsAssignableFrom(typeof(T))) {
+        cloneFunc = value => ((IDeepCloneable<T>)value).DeepClone();
+    }
+    else {
+        // fallback implementation
+    }
+}
+
+// or using generic constraints
+public void RegisterCloneMethod<T>() where T : IDeepCloneable<T>
+{
+    Func<T, T> cloneFunc = value => value.DeepClone();
+}
+```
+
+This completes the setup. Library users do not need to introduce `IDeepCloneable`; they only need to apply `[DeepCloneable]`.
+
+```csharp
+// user side
+[DeepCloneable]
+public partial class MyModel { /* ... */ }
+
+// call library method
+library.RegisterCloneMethod<MyModel>();
+```
 
 ### What is DeepClone?
 DeepClone (also commonly referred to as DeepCopy) refers to the operation of creating a complete copy of an object.
@@ -94,77 +180,11 @@ By doing this:
 * Library authors can use `DeepClone()` without reflection (NativeAOT friendly)
 * Users are relieved of the burden of manual implementation
 
-```csharp
-// 3rd-party library side
-public void RegisterCloneMethod<T>()
-{
-    Func<T, T> cloneFunc = null;
 
-    if(typeof(IDeepCloneable<T>).IsAssignableFrom(typeof(T))) {
-        cloneFunc = value => ((IDeepCloneable<T>)value).DeepClone();
-    }
-    else {
-        // fallback implementation
-    }
-}
-
-// user side
-[DeepCloneable]
-public partial class MyModel { /* ... */ }
-```
-
-## How to use
-### Basic Usage
-Install the NuGet package [IDeepCloneable](https://www.nuget.org/packages/IDeepCloneable/) to your project.
-
-```bash
-dotnet add package IDeepCloneable
-```
-
-Then mark a partial type with the `[DeepCloneable]` attribute.
-
-```csharp
-using IDeepCloneable;
-
-[DeepCloneable]
-public partial class Person
-{
-    public string Name { get; set; }
-    public int Age { get; set; }
-}
-```
-
-That's it! The `DeepClone()` method will be automatically generated and the generated partial type will implement `IDeepCloneable<Person>`.
-
-```csharp
-// generated code (sample)
-partial class Person : IDeepCloneable<Person>
-{
-    public Person DeepClone()
-    {
-        return new Person
-        {
-            Name = this.Name,
-            Age = this.Age,
-        };
-    }
-}
-```
-
-And you can use it like this:
-
-```csharp
-var person1 = new Person { Name = "Alice", Age = 30 };
-var person2 = person1.DeepClone();
-person2.ShouldNotBeSameAs(person1);
-```
-
-### Customize
+## Customize
 As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.
 
 ```csharp
-using IDeepCloneable;
-
 public class Person : IDeepCloneable<Person>
 {
     public string Name { get; set; }
@@ -177,14 +197,14 @@ public class Person : IDeepCloneable<Person>
 }
 ```
 
-### Library Structure
+## Library Structure
 This consists of two libraries.
 
 ### IDeepCloneable
-This is the library that defines the `IDeepCloneable<T>` interface and the `[DeepCloneable]` marker attribute.
+This is the library that defines the `IDeepCloneable<T>` interface and the `[DeepCloneable]` marker attribute.  
+To allow users of third-party libraries to use it without worrying about `IDeepCloneable`, it is defined directly under the global namespace.
 
 ```csharp
-namespace IDeepCloneable;
 public sealed class DeepCloneableAttribute : Attribute;
 public interface IDeepCloneable<T>
 {
