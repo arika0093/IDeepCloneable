@@ -1,5 +1,3 @@
-using IDeepCloneable;
-
 [DeepCloneable]
 internal partial class SampleClass
 {

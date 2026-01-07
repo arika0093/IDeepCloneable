@@ -1,7 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using IDeepCloneable;
-
 namespace IDeepCloneable.Tests;
 
 /// <summary>

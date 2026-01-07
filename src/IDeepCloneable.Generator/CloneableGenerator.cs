@@ -100,9 +100,9 @@ public class CloneableGenerator : IIncrementalGenerator
 {
     private const string DeepCloneMethodName = "DeepClone";
     private const string DeepCloneableAttributeMetadataName =
-        "IDeepCloneable.DeepCloneableAttribute";
+        "DeepCloneableAttribute";
     private const string DeepCloneableAttributeFullName =
-        "global::IDeepCloneable.DeepCloneableAttribute";
+        "global::DeepCloneableAttribute";
 
     // Indentation constants for generated code
     // These represent the final indentation after raw string literal baseline removal (12 spaces)
@@ -195,7 +195,7 @@ public class CloneableGenerator : IIncrementalGenerator
     {
         return interfaceSymbol
             .OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-            .StartsWith("global::IDeepCloneable.IDeepCloneable<");
+            .StartsWith("global::IDeepCloneable<");
     }
 
     private static bool HasDeepCloneableAttribute(INamedTypeSymbol typeSymbol)
@@ -222,7 +222,7 @@ public class CloneableGenerator : IIncrementalGenerator
 
             if (
                 attributeClass.Name == "DeepCloneableAttribute"
-                && attributeClass.ContainingNamespace.ToDisplayString() == "IDeepCloneable"
+                && attributeClass.ContainingNamespace.IsGlobalNamespace
             )
             {
                 return true;
@@ -318,11 +318,11 @@ public class CloneableGenerator : IIncrementalGenerator
         var currentIndent = indent;
 
         // Build interface list
-        var interfaces = $"IDeepCloneable.IDeepCloneable<{classInfo.ClassName}>";
+        var interfaces = $"IDeepCloneable<{classInfo.ClassName}>";
         if (classInfo.BaseCloneableType is not null)
         {
             var baseTypeName = classInfo.BaseCloneableType.Name;
-            interfaces += $", IDeepCloneable.IDeepCloneable<{baseTypeName}>";
+            interfaces += $", IDeepCloneable<{baseTypeName}>";
         }
 
         if (classInfo.ContainingTypes.Count == 0)

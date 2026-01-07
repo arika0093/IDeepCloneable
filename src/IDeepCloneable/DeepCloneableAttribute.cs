@@ -1,7 +1,5 @@
 using System;
 
-namespace IDeepCloneable;
-
 /// <summary>
 /// Marks a partial type for DeepClone() source generation.
 /// </summary>
