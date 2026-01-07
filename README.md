@@ -44,7 +44,8 @@ person4.Address.City = "Different City";
 // person1.Address.City remains unchanged
 ```
 
-Writing this every time is tedious. Instead, you can use the `DeepClone()` method to easily create a complete copy of an object.
+Writing this every time is tedious. Instead, you can use the `DeepClone()` method.
+
 ```csharp
 public class Person
 {
@@ -100,7 +101,7 @@ public void RegisterCloneMethod<T>()
     Func<T, T> cloneFunc = null;
 
     if(typeof(IDeepCloneable<T>).IsAssignableFrom(typeof(T))) {
-        cloneFunc = obj => obj.DeepClone();
+        cloneFunc = value => ((IDeepCloneable<T>)value).DeepClone();
     }
     else {
         // fallback implementation
