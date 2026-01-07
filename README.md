@@ -66,7 +66,8 @@ public void RegisterCloneMethod<T>()
 {
     Func<T, T> cloneFunc = null;
 
-    if(typeof(IDeepCloneable<T>).IsAssignableFrom(typeof(T))) {
+    bool isDeepCloneable = typeof(IDeepCloneable<T>).IsAssignableFrom(typeof(T));
+    if(isDeepCloneable) {
         cloneFunc = value => ((IDeepCloneable<T>)value).DeepClone();
     }
     else {
@@ -180,6 +181,13 @@ By doing this:
 * Library authors can use `DeepClone()` without reflection (NativeAOT friendly)
 * Users are relieved of the burden of manual implementation
 
+### Why not use `ICloneable`?
+This library implements its own `IDeepCloneable<T>` interface instead of the standard `System.ICloneable` for the following reasons:
+
+* The behavior of `ICloneable.Clone()` is ambiguous—it is unclear whether it performs a shallow or deep copy.
+* `ICloneable.Clone()` is non-generic, so you must cast the return value.
+
+For these reasons, even as early as 2004, the use of `ICloneable` was not recommended. [Reference](https://learn.microsoft.com/en-us/archive/blogs/brada/should-we-obsolete-icloneable-the-slar-on-system-icloneable)
 
 ## Customize
 As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.
