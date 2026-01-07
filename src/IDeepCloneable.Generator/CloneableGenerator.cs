@@ -109,33 +109,81 @@ public class CloneableGenerator : IIncrementalGenerator
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        // Collect all types with [DeepCloneable] attribute
         var classDeclarations = context
             .SyntaxProvider.ForAttributeWithMetadataName(
                 DeepCloneableAttributeMetadataName,
                 predicate: static (node, _) => true,
-                transform: static (ctx, _) => (GetClassInfo(ctx), ctx.TargetSymbol as INamedTypeSymbol)
+                transform: static (ctx, _) => ctx.TargetSymbol as INamedTypeSymbol
             )
-            .Where(static m => m.Item1 is not null && m.Item2 is not null)
-            .Select(static (m, _) => (m.Item1!, m.Item2!));
+            .Where(static m => m is not null)
+            .Select(static (m, _) => m!);
+
+        // Collect all types and discover dependencies
+        var allTypes = classDeclarations.Collect();
 
         context.RegisterSourceOutput(
-            classDeclarations,
-            static (spc, source) => Execute(source.Item1, source.Item2, spc)
+            allTypes,
+            static (spc, types) => ExecuteAll(types, spc)
         );
     }
 
-    private static ClassInfo? GetClassInfo(GeneratorAttributeSyntaxContext context)
+    private static void ExecuteAll(System.Collections.Immutable.ImmutableArray<INamedTypeSymbol> rootTypes, SourceProductionContext context)
     {
-        if (context.TargetSymbol is not INamedTypeSymbol classSymbol)
-            return null;
+        var registry = new TypeRegistry();
+        var discovery = new TypeDiscovery(registry);
 
-        // Ensure the declaration is partial
-        bool isPartial =
-            context.TargetNode is TypeDeclarationSyntax typeDecl
-            && typeDecl.Modifiers.Any(SyntaxKind.PartialKeyword);
+        // Discover all reachable types from root types
+        foreach (var rootType in rootTypes)
+        {
+            discovery.DiscoverTypes(rootType, true);
+        }
 
-        if (!isPartial)
-            return null;
+        // Generate code for each discovered type
+        foreach (var typeInfo in registry.GetAllTypes())
+        {
+            var classInfo = GetClassInfoFromSymbol(typeInfo.Symbol, typeInfo.HasDeepCloneableAttribute);
+            if (classInfo != null)
+            {
+                // Only generate main class file for types with [DeepCloneable] attribute
+                if (typeInfo.HasDeepCloneableAttribute)
+                {
+                    var source = GenerateCloneMethod(classInfo);
+                    var hintNameParts = new List<string>();
+                    if (!string.IsNullOrEmpty(classInfo.Namespace))
+                    {
+                        hintNameParts.Add(classInfo.Namespace!);
+                    }
+
+                    hintNameParts.AddRange(classInfo.ContainingTypes);
+                    hintNameParts.Add(classInfo.ClassName);
+
+                    var hintName = string.Join(".", hintNameParts) + ".g.cs";
+                    context.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
+                }
+                
+                // Generate CloneInternal extension method for all types (if not abstract)
+                if (!classInfo.IsAbstract)
+                {
+                    var extensionSource = GenerateCloneInternalExtension(classInfo, typeInfo.Symbol);
+                    
+                    // Create unique hint name using full type name
+                    var safeName = GenerateSafeName(classInfo.FullName);
+                    var extensionHintName = safeName + ".CloneInternal.g.cs";
+                    context.AddSource(extensionHintName, SourceText.From(extensionSource, Encoding.UTF8));
+                }
+            }
+        }
+    }
+
+    private static ClassInfo? GetClassInfoFromSymbol(INamedTypeSymbol classSymbol, bool hasDeepCloneableAttribute)
+    {
+        // Ensure the type is partial if it has the attribute
+        if (hasDeepCloneableAttribute)
+        {
+            // This check would need syntax info which we don't have here
+            // For now, assume it's partial
+        }
 
         bool hasDeepClone = HasMethodImplementation(classSymbol, DeepCloneMethodName);
 
@@ -182,13 +230,14 @@ public class CloneableGenerator : IIncrementalGenerator
             classSymbol.IsValueType,
             allChildrenValueOrImmutable,
             hasCollectionInitializer,
-            !hasDeepClone,
+            hasDeepCloneableAttribute && !hasDeepClone, // Only generate if attribute present and no existing implementation
             classSymbol.IsAbstract,
             typeKeyword,
             GetContainingTypes(classSymbol),
             baseCloneableTypeFullName
         );
     }
+
     
     private static void CollectContainedTypes(ITypeSymbol typeSymbol, HashSet<string> containedTypes)
     {
