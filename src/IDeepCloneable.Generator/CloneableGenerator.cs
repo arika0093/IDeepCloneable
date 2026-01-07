@@ -481,7 +481,7 @@ public class CloneableGenerator : IIncrementalGenerator
         var methodModifier = classInfo.BaseCloneableType != null ? "public override" : "public";
         
         // Generate safe name for the extension method
-        var safeName = classInfo.FullName.Replace(".", "_").Replace("<", "_").Replace(">", "_").Replace(",", "_").Replace(" ", "").Replace(":","_");
+        var safeName = GenerateSafeName(classInfo.FullName);
         
         // Simply call the CloneInternal extension method
         return $$"""
@@ -492,11 +492,22 @@ public class CloneableGenerator : IIncrementalGenerator
                     }
             """;
     }
+    
+    private static string GenerateSafeName(string fullName)
+    {
+        return fullName
+            .Replace(".", "_")
+            .Replace("<", "_")
+            .Replace(">", "_")
+            .Replace(",", "_")
+            .Replace(" ", "")
+            .Replace(":", "_");
+    }
 
     private static string GenerateCloneInternalExtension(ClassInfo classInfo)
     {
         var fullTypeName = classInfo.ClassSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var safeName = classInfo.FullName.Replace(".", "_").Replace("<", "_").Replace(">", "_").Replace(",", "_").Replace(" ", "").Replace(":", "_");
+        var safeName = GenerateSafeName(classInfo.FullName);
         
         var sb = new StringBuilder();
         
