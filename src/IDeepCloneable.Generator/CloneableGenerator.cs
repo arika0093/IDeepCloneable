@@ -215,11 +215,6 @@ public class CloneableGenerator : IIncrementalGenerator
                 return true;
             }
 
-            if (fullName == "IDeepCloneable.DeepCloneableAttribute")
-            {
-                return true;
-            }
-
             if (
                 attributeClass.Name == "DeepCloneableAttribute"
                 && attributeClass.ContainingNamespace.IsGlobalNamespace
