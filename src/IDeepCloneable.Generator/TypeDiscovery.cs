@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace IDeepCloneable.Generator;
 
@@ -85,7 +86,10 @@ internal class TypeDiscovery
                 var properties = GetCloneableProperties(namedType);
                 if (properties.Count > 0)
                 {
-                    DiscoverTypes(namedType, false);
+                    // Check if the type actually has [DeepCloneable] attribute
+                    bool hasAttribute = namedType.GetAttributes().Any(attr => 
+                        attr.AttributeClass?.Name == "DeepCloneableAttribute");
+                    DiscoverTypes(namedType, hasAttribute);
                 }
             }
 

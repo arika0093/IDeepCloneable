@@ -141,7 +141,8 @@ public class CloneableGenerator : IIncrementalGenerator
     /// </summary>
     private static string GetItemCloneStatement(ITypeSymbol elementType, string itemExpression)
     {
-        var elementIsNullable = elementType.NullableAnnotation == NullableAnnotation.Annotated;
+        // For reference types, we should always handle null unless explicitly marked as non-nullable
+        var elementIsNullable = !elementType.IsValueType || elementType.NullableAnnotation == NullableAnnotation.Annotated;
         var cloneExpr = GetCloneExpression(elementType, itemExpression, elementIsNullable);
         return cloneExpr ?? itemExpression;
     }
