@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 using AutoMapper;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
-using FastCloner;
 using MemoryPack;
 using MessagePack;
 using Newtonsoft.Json;
@@ -65,7 +64,7 @@ public class CloneBenchmarks
     [Benchmark]
     public ComplexModel FastCloner_DeepClone()
     {
-        return _model.DeepClone();
+        return FastCloner.FastCloner.DeepClone(_model)!;
     }
 
     [Benchmark]
