@@ -26,12 +26,12 @@ public class CloneBenchmarks
     private IMapper _autoMapper = null!;
     private JsonSerializerOptions _systemTextJsonOptions = null!;
     private JsonSerializerOptions _systemTextJsonSourceGenOptions = null!;
-    
+
     [GlobalSetup]
     public void Setup()
     {
         _model = TestDataGenerator.CreateSampleModel();
-        
+
         // Setup AutoMapper
         var config = new MapperConfiguration(cfg =>
         {
@@ -44,13 +44,10 @@ public class CloneBenchmarks
             cfg.CreateMap<AdvancedSettings, AdvancedSettings>();
         });
         _autoMapper = config.CreateMapper();
-        
+
         // Setup System.Text.Json options
-        _systemTextJsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-        };
-        
+        _systemTextJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
         // Setup System.Text.Json with source generation
         _systemTextJsonSourceGenOptions = new JsonSerializerOptions
         {
@@ -113,14 +110,23 @@ public class CloneBenchmarks
     public ComplexModel SystemTextJson_Reflection()
     {
         var json = System.Text.Json.JsonSerializer.Serialize(_model, _systemTextJsonOptions);
-        return System.Text.Json.JsonSerializer.Deserialize<ComplexModel>(json, _systemTextJsonOptions)!;
+        return System.Text.Json.JsonSerializer.Deserialize<ComplexModel>(
+            json,
+            _systemTextJsonOptions
+        )!;
     }
 
     [Benchmark]
     public ComplexModel SystemTextJson_SourceGen()
     {
-        var json = System.Text.Json.JsonSerializer.Serialize(_model, BenchmarkJsonContext.Default.ComplexModel);
-        return System.Text.Json.JsonSerializer.Deserialize(json, BenchmarkJsonContext.Default.ComplexModel)!;
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            _model,
+            BenchmarkJsonContext.Default.ComplexModel
+        );
+        return System.Text.Json.JsonSerializer.Deserialize(
+            json,
+            BenchmarkJsonContext.Default.ComplexModel
+        )!;
     }
 
     [Benchmark]
@@ -146,7 +152,8 @@ public static partial class ComplexModelMapper
 /// </summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
-    WriteIndented = false)]
+    WriteIndented = false
+)]
 [JsonSerializable(typeof(ComplexModel))]
 [JsonSerializable(typeof(UserInfo))]
 [JsonSerializable(typeof(ContactInfo))]
@@ -155,6 +162,4 @@ public static partial class ComplexModelMapper
 [JsonSerializable(typeof(Settings))]
 [JsonSerializable(typeof(AdvancedSettings))]
 [JsonSerializable(typeof(UserRole))]
-public partial class BenchmarkJsonContext : JsonSerializerContext
-{
-}
+public partial class BenchmarkJsonContext : JsonSerializerContext { }

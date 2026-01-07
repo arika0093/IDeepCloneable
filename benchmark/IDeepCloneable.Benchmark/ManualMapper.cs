@@ -18,15 +18,11 @@ public static class ManualMapper
             CreatedAt = source.CreatedAt,
             UpdatedAt = source.UpdatedAt,
             Owner = source.Owner != null ? DeepCopy(source.Owner) : null,
-            Contributors = source.Contributors != null
-                ? source.Contributors.ConvertAll(DeepCopy)
-                : null,
-            Metadata = source.Metadata != null
-                ? new Dictionary<string, string>(source.Metadata)
-                : null,
-            Items = source.Items != null
-                ? source.Items.ConvertAll(DeepCopy)
-                : null,
+            Contributors =
+                source.Contributors != null ? source.Contributors.ConvertAll(DeepCopy) : null,
+            Metadata =
+                source.Metadata != null ? new Dictionary<string, string>(source.Metadata) : null,
+            Items = source.Items != null ? source.Items.ConvertAll(DeepCopy) : null,
             Settings = source.Settings != null ? DeepCopy(source.Settings) : null,
         };
     }
@@ -63,12 +59,11 @@ public static class ManualMapper
             Description = source.Description,
             Value = source.Value,
             Tags = source.Tags != null ? new List<string>(source.Tags) : null,
-            SubItems = source.SubItems != null
-                ? source.SubItems.ConvertAll(DeepCopy)
-                : null,
-            Properties = source.Properties != null
-                ? new Dictionary<string, string>(source.Properties)
-                : null,
+            SubItems = source.SubItems != null ? source.SubItems.ConvertAll(DeepCopy) : null,
+            Properties =
+                source.Properties != null
+                    ? new Dictionary<string, string>(source.Properties)
+                    : null,
         };
     }
 
@@ -90,12 +85,9 @@ public static class ManualMapper
             IsEnabled = source.IsEnabled,
             MaxItems = source.MaxItems,
             Timeout = source.Timeout,
-            AllowedDomains = source.AllowedDomains != null
-                ? new List<string>(source.AllowedDomains)
-                : null,
-            Limits = source.Limits != null
-                ? new Dictionary<string, int>(source.Limits)
-                : null,
+            AllowedDomains =
+                source.AllowedDomains != null ? new List<string>(source.AllowedDomains) : null,
+            Limits = source.Limits != null ? new Dictionary<string, int>(source.Limits) : null,
             Advanced = source.Advanced != null ? DeepCopy(source.Advanced) : null,
         };
     }
@@ -107,9 +99,7 @@ public static class ManualMapper
             CacheSize = source.CacheSize,
             UseCompression = source.UseCompression,
             CompressionLevel = source.CompressionLevel,
-            Features = source.Features != null
-                ? new List<string>(source.Features)
-                : null,
+            Features = source.Features != null ? new List<string>(source.Features) : null,
         };
     }
 }
