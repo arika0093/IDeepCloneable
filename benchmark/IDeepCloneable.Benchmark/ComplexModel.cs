@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using IDeepCloneable;
+using FastCloner.SourceGenerator.Shared;
 using MemoryPack;
 using MessagePack;
 
@@ -11,6 +12,7 @@ namespace IDeepCloneable.Benchmark;
 /// This model represents a realistic scenario with nested objects, collections, and various data types.
 /// </summary>
 [DeepCloneable]
+[FastClonerClonable]
 [MemoryPackable]
 [MessagePackObject]
 public partial class ComplexModel

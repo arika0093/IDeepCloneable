@@ -72,9 +72,15 @@ public class CloneBenchmarks
     }
 
     [Benchmark]
-    public ComplexModel FastCloner_Clone()
+    public ComplexModel FastCloner_Reflection()
     {
         return FastCloner.FastCloner.DeepClone(_model)!;
+    }
+
+    [Benchmark]
+    public ComplexModel FastCloner_SourceGen()
+    {
+        return _model.FastDeepClone();
     }
 
     [Benchmark]
