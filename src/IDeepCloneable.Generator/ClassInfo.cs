@@ -16,6 +16,9 @@ internal record ClassInfo : IEquatable<ClassInfo>
     /// <summary>Namespace of the class.</summary>
     public required string Namespace { get; init; }
     
+    /// <summary>Containing type names for nested classes (empty for non-nested).</summary>
+    public required EquatableArray<string> ContainingTypeNames { get; init; }
+    
     /// <summary>List of child property/field type names (full names). Only direct children, not grandchildren.</summary>
     public required EquatableArray<PropertyInfo> Properties { get; init; }
     
@@ -45,4 +48,7 @@ internal record ClassInfo : IEquatable<ClassInfo>
     
     /// <summary>Whether the base type has DeepClone method.</summary>
     public required bool BaseHasDeepClone { get; init; }
+    
+    /// <summary>Whether this type already has a DeepClone method defined (manually or generated).</summary>
+    public required bool AlreadyHasDeepClone { get; init; }
 }

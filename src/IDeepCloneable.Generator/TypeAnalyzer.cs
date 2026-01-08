@@ -160,15 +160,32 @@ internal static class TypeAnalyzer
         var hasDeepCloneableAttribute = typeSymbol.GetAttributes()
             .Any(attr => attr.AttributeClass?.Name == DeepCloneableAttributeMetadataName);
 
+        // Check if this type already has a DeepClone method
+        var alreadyHasDeepClone = typeSymbol.GetMembers("DeepClone")
+            .OfType<IMethodSymbol>()
+            .Any(m => m.Parameters.Length == 0 && m.ReturnType.Equals(typeSymbol, SymbolEqualityComparer.Default));
+
+        // Check if base class has DeepClone method (either via attribute or manual implementation)
         var baseHasDeepClone = false;
         var current = typeSymbol.BaseType;
         while (current != null && current.SpecialType != SpecialType.System_Object)
         {
+            // Check for [DeepCloneable] attribute
             if (current.GetAttributes().Any(attr => attr.AttributeClass?.Name == DeepCloneableAttributeMetadataName))
             {
                 baseHasDeepClone = true;
                 break;
             }
+            
+            // Check for manual DeepClone method implementation
+            if (current.GetMembers("DeepClone")
+                .OfType<IMethodSymbol>()
+                .Any(m => m.Parameters.Length == 0))
+            {
+                baseHasDeepClone = true;
+                break;
+            }
+            
             current = current.BaseType;
         }
 
@@ -177,6 +194,7 @@ internal static class TypeAnalyzer
             ClassName = typeSymbol.Name,
             FullClassName = fullName,
             Namespace = GetNamespace(typeSymbol),
+            ContainingTypeNames = new EquatableArray<string>(GetContainingTypeNames(typeSymbol)),
             Properties = new EquatableArray<PropertyInfo>(properties),
             IsNullable = typeSymbol.NullableAnnotation == NullableAnnotation.Annotated,
             IsRecord = typeSymbol.IsRecord,
@@ -186,7 +204,8 @@ internal static class TypeAnalyzer
             NeedsDeepCloneMethod = hasDeepCloneableAttribute || baseHasDeepClone,
             IsAbstract = typeSymbol.IsAbstract,
             IsSealed = typeSymbol.IsSealed,
-            BaseHasDeepClone = baseHasDeepClone
+            BaseHasDeepClone = baseHasDeepClone,
+            AlreadyHasDeepClone = alreadyHasDeepClone
         };
     }
 
@@ -273,7 +292,20 @@ internal static class TypeAnalyzer
 
     private static string GetNamespace(INamedTypeSymbol typeSymbol)
     {
+        // Return only the actual namespace, not containing types
         return typeSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+    }
+    
+    private static List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
+    {
+        var containingTypes = new List<string>();
+        var containingType = typeSymbol.ContainingType;
+        while (containingType != null)
+        {
+            containingTypes.Insert(0, containingType.Name);
+            containingType = containingType.ContainingType;
+        }
+        return containingTypes;
     }
 
     private static bool IsImmutableType(ITypeSymbol typeSymbol)
