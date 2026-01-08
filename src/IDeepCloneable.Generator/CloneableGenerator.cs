@@ -1152,12 +1152,22 @@ public class CloneableGenerator : IIncrementalGenerator
                         var fullName = elementRefType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
                         var hasCloneInternal = s_currentNameGenerator?.HasCloneInternal(fullName) ?? false;
                         
+                        // Check if element type is nullable
+                        var elementIsNullable = elementRefType.NullableAnnotation == NullableAnnotation.Annotated;
+                        
                         if (hasCloneInternal)
                         {
                             var cloneInternalName = s_currentNameGenerator!.GetCloneInternalName(fullName);
                             sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                             sb.AppendLine($"{tempIndent}{{");
-                            sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item != null ? {cloneInternalName}(item) : null);");
+                            if (elementIsNullable)
+                            {
+                                sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item != null ? {cloneInternalName}(item) : null);");
+                            }
+                            else
+                            {
+                                sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add({cloneInternalName}(item));");
+                            }
                             sb.AppendLine($"{tempIndent}}}");
                         }
                         else
