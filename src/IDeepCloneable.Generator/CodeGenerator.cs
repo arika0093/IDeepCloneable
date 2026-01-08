@@ -98,11 +98,13 @@ internal static class CodeGenerator
         builder = GenerateFileHeader(builder);
         builder.AppendLine("namespace IDeepCloneable.Generator");
         builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
         builder.AppendLine(
-            "    [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+            "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
         );
-        builder.AppendLine("    internal static partial class DeepCloneExtensions");
-        builder.AppendLine("    {");
+        builder.AppendLine("internal static partial class DeepCloneExtensions");
+        builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
 
         // Generate CloneInternal methods for each class
         // Even if all properties are immutable, we still need to clone reference types (classes)
@@ -138,7 +140,9 @@ internal static class CodeGenerator
         // Generate special collection clone methods
         builder = GenerateCollectionCloneMethods(classInfos, builder);
 
-        builder.AppendLine("    }");
+        builder = builder.DecreaseIndent();
+        builder.AppendLine("}");
+        builder = builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder.ToString();
@@ -166,63 +170,67 @@ internal static class CodeGenerator
             CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
 
         builder.AppendLine("");
-        builder.AppendLine($"        {AggressiveInliningAttribute}");
-        builder.AppendLine($"        {EditorBrowsableAttribute}");
+        builder.AppendLine($"{AggressiveInliningAttribute}");
+        builder.AppendLine($"{EditorBrowsableAttribute}");
         builder.AppendLine(
-            $"        {visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
+            $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
         );
-        builder.AppendLine("        {");
+        builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
 
         if (!classInfo.IsValueType)
         {
-            builder.AppendLine("            if (original == null) return null;");
+            builder.AppendLine("if (original == null) return null;");
         }
 
         if (classInfo.IsRecord || classInfo.IsValueType)
         {
             if (ShouldUseWithSyntax(classInfo))
             {
-                builder.AppendLine("            return original with");
-                builder.AppendLine("            {");
+                builder.AppendLine("return original with");
+                builder.AppendLine("{");
+                builder = builder.IncreaseIndent();
 
                 foreach (var prop in classInfo.Properties)
                 {
                     if (prop.NeedsDeepClone)
                     {
                         var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
-                        builder.AppendLine($"                {prop.Name} = {cloneCall},");
+                        builder.AppendLine($"{prop.Name} = {cloneCall},");
                     }
                 }
 
-                builder.AppendLine("            };");
+                builder = builder.DecreaseIndent();
+                builder.AppendLine("};");
             }
             else
             {
                 // Only return original for immutable value types
-                builder.AppendLine("            return original;");
+                builder.AppendLine("return original;");
             }
         }
         else
         {
-            builder.AppendLine($"            var clone = new {classInfo.FullClassName}();");
+            builder.AppendLine($"var clone = new {classInfo.FullClassName}();");
 
             foreach (var prop in classInfo.Properties)
             {
                 if (prop.IsImmutable)
                 {
-                    builder.AppendLine($"            clone.{prop.Name} = original.{prop.Name};");
+                    builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
                 }
                 else
                 {
                     var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
-                    builder.AppendLine($"            clone.{prop.Name} = {cloneCall};");
+                    builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
                 }
             }
 
-            builder.AppendLine("            return clone;");
+            builder.AppendLine("return clone;");
         }
 
-        builder.AppendLine("        }");
+        builder = builder.DecreaseIndent();
+        builder.AppendLine("}");
 
         return builder;
     }
@@ -349,16 +357,15 @@ internal static class CodeGenerator
         {
             builder.AppendLine($"namespace {classInfo.Namespace}");
             builder.AppendLine("{");
+            builder = builder.IncreaseIndent();
         }
-
-        var currentIndent = string.IsNullOrEmpty(classInfo.Namespace) ? "" : "    ";
 
         // Generate containing type declarations for nested classes
         foreach (var containingTypeName in classInfo.ContainingTypeNames)
         {
-            builder.AppendLine($"{currentIndent}partial class {containingTypeName}");
-            builder.AppendLine($"{currentIndent}{{");
-            currentIndent += "    ";
+            builder.AppendLine($"partial class {containingTypeName}");
+            builder.AppendLine("{");
+            builder = builder.IncreaseIndent();
         }
 
         var typeKeyword = classInfo.IsRecord
@@ -366,10 +373,11 @@ internal static class CodeGenerator
             : (classInfo.IsValueType ? "struct" : "class");
 
         builder.AppendLine(
-            $"{currentIndent}partial {typeKeyword} {classInfo.ClassName} : global::IDeepCloneable<{classInfo.FullClassName}>"
+            $"partial {typeKeyword} {classInfo.ClassName} : global::IDeepCloneable<{classInfo.FullClassName}>"
         );
-        builder.AppendLine($"{currentIndent}{{");
-        builder.AppendLine($"{currentIndent}    /// <inheritdoc />");
+        builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
+        builder.AppendLine("/// <inheritdoc />");
         
         var modifiers = "public";
         if (!classInfo.IsSealed && !classInfo.IsValueType)
@@ -387,35 +395,37 @@ internal static class CodeGenerator
         if (classInfo.IsAbstract)
         {
             // Abstract classes have abstract DeepClone method without implementation
-            builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone();");
+            builder.AppendLine($"{modifiers} {classInfo.FullClassName} DeepClone();");
         }
         else if (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection)
         {
             // Immutable value types can just return themselves
-            builder.AppendLine($"{currentIndent}    {AggressiveInliningAttribute}");
-            builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()");
-            builder.AppendLine($"{currentIndent}        => this;");
+            builder.AppendLine($"{AggressiveInliningAttribute}");
+            builder.AppendLine($"{modifiers} {classInfo.FullClassName} DeepClone()");
+            builder.AppendLine("    => this;");
         }
         else
         {
             // Concrete classes have MethodImpl attribute and call CloneInternal
-            builder.AppendLine($"{currentIndent}    {AggressiveInliningAttribute}");
-            builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()");
-            builder.AppendLine($"{currentIndent}        => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
+            builder.AppendLine($"{AggressiveInliningAttribute}");
+            builder.AppendLine($"{modifiers} {classInfo.FullClassName} DeepClone()");
+            builder.AppendLine($"    => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
         }
         
-        builder.AppendLine($"{currentIndent}}}");
+        builder = builder.DecreaseIndent();
+        builder.AppendLine("}");
 
         // Close containing type declarations
         for (int i = 0; i < classInfo.ContainingTypeNames.Count; i++)
         {
-            currentIndent = currentIndent.Substring(0, currentIndent.Length - 4);
-            builder.AppendLine($"{currentIndent}}}");
+            builder = builder.DecreaseIndent();
+            builder.AppendLine("}");
         }
 
         // Close namespace if present
         if (!string.IsNullOrEmpty(classInfo.Namespace))
         {
+            builder = builder.DecreaseIndent();
             builder.AppendLine("}");
         }
 

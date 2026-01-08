@@ -26,40 +26,44 @@ internal class StackTypeInfo : SpecialTypeInfo
 
         builder.AppendLine("");
         builder.AppendLine(
-            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+            $"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
         );
         builder.AppendLine(
-            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+            $"[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
         );
         builder.AppendLine(
-            $"        private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
-        builder.AppendLine("        {");
-        builder.AppendLine("            if (original == null) return null;");
+        builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
+        builder.AppendLine("if (original == null) return null;");
 
         // Stack needs to preserve order, so we use ToArray() then pass to constructor
         // ToArray() returns items in the order they would be popped (LIFO)
         // The Stack constructor pushes items in the order they appear in the enumerable
         // So we need to reverse to maintain the original order
-        builder.AppendLine($"            var array = original.ToArray();");
-        builder.AppendLine($"            global::System.Array.Reverse(array);");
+        builder.AppendLine($"var array = original.ToArray();");
+        builder.AppendLine($"global::System.Array.Reverse(array);");
         
         if (isImmutable)
         {
-            builder.AppendLine($"            return new {typeFullName}(array);");
+            builder.AppendLine($"return new {typeFullName}(array);");
         }
         else
         {
-            builder.AppendLine($"            var stack = new {typeFullName}(array.Length);");
-            builder.AppendLine("            for (int i = 0; i < array.Length; i++)");
-            builder.AppendLine("            {");
+            builder.AppendLine($"var stack = new {typeFullName}(array.Length);");
+            builder.AppendLine("for (int i = 0; i < array.Length; i++)");
+            builder.AppendLine("{");
+            builder = builder.IncreaseIndent();
             var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "array[i]", allClassInfos);
-            builder.AppendLine($"                stack.Push({cloneCall});");
-            builder.AppendLine("            }");
-            builder.AppendLine("            return stack;");
+            builder.AppendLine($"stack.Push({cloneCall});");
+            builder = builder.DecreaseIndent();
+            builder.AppendLine("}");
+            builder.AppendLine("return stack;");
         }
 
-        builder.AppendLine("        }");
+        builder = builder.DecreaseIndent();
+        builder.AppendLine("}");
 
         return builder;
     }
