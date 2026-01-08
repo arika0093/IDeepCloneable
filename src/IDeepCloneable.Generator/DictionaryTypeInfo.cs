@@ -8,56 +8,67 @@ namespace IDeepCloneable.Generator;
 internal class DictionaryTypeInfo : SpecialTypeInfo
 {
     public override string TargetTypeStartWith => "global::System.Collections.Generic.Dictionary<";
-    
+
     public override string GetMethodName(string typeFullName)
     {
         return "CloneDictionary_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
-    
+
     public override IndentedStringBuilder GenerateCloneMethod(
-        string typeFullName, 
-        string methodName, 
-        EquatableArray<ClassInfo> allClassInfos, 
-        IndentedStringBuilder builder)
+        string typeFullName,
+        string methodName,
+        EquatableArray<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
     {
         var genericArgs = CodeGenerationUtility.ExtractGenericType(typeFullName);
         var parts = CodeGenerationUtility.SplitGenericArgs(genericArgs);
-        
+
         if (parts.Count != 2)
             return builder;
-            
+
         var keyType = parts[0];
         var valueType = parts[1];
-        
+
         var keyIsImmutable = CodeGenerationUtility.IsTypeImmutable(keyType);
         var valueIsImmutable = CodeGenerationUtility.IsTypeImmutable(valueType);
 
-        builder.Append("");
-        builder.Append($"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
-        builder.Append($"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
-        builder.Append($"        private static {typeFullName} {methodName}(this {typeFullName} original)");
-        builder.Append("        {");
-        builder.Append("            if (original == null) return null;");
-        
+        builder.AppendLine("");
+        builder.AppendLine(
+            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+        );
+        builder.AppendLine(
+            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+        );
+        builder.AppendLine(
+            $"        private static {typeFullName} {methodName}(this {typeFullName} original)"
+        );
+        builder.AppendLine("        {");
+        builder.AppendLine("            if (original == null) return null;");
+
         if (keyIsImmutable && valueIsImmutable)
         {
-            builder.Append($"            return new {typeFullName}(original);");
+            builder.AppendLine($"            return new {typeFullName}(original);");
         }
         else
         {
-            builder.Append($"            var dict = new {typeFullName}(original.Count);");
-            builder.Append("            foreach (var kvp in original)");
-            builder.Append("            {");
-            
-            var keyClone = keyIsImmutable ? "kvp.Key" : CodeGenerator.GenerateTypeCloneCall(keyType, "kvp.Key", allClassInfos);
-            var valueClone = valueIsImmutable ? "kvp.Value" : CodeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
-            
-            builder.Append($"                dict.Add({keyClone}, {valueClone});");
-            builder.Append("            }");
-            builder.Append("            return dict;");
+            builder.AppendLine($"            var dict = new {typeFullName}(original.Count);");
+            builder.AppendLine("            foreach (var kvp in original)");
+            builder.AppendLine("            {");
+
+            var keyClone = keyIsImmutable
+                ? "kvp.Key"
+                : CodeGenerator.GenerateTypeCloneCall(keyType, "kvp.Key", allClassInfos);
+            var valueClone = valueIsImmutable
+                ? "kvp.Value"
+                : CodeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
+
+            builder.AppendLine($"                dict.Add({keyClone}, {valueClone});");
+            builder.AppendLine("            }");
+            builder.AppendLine("            return dict;");
         }
-        
-        builder.Append("        }");
+
+        builder.AppendLine("        }");
 
         return builder;
     }

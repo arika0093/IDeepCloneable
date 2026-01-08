@@ -10,31 +10,27 @@ public class ArrayCloneTests
     [Fact]
     public void DeepClone_IntArray_ClonesArray()
     {
-        var original = new ClassWithIntArray { Name = "Test", Numbers = new[] { 1, 2, 3, 4, 5 } };
+        var original = new ClassWithIntArray { Name = "Test", Numbers = [1, 2, 3, 4, 5] };
 
         var clone = original.DeepClone();
 
         clone.ShouldNotBeSameAs(original);
         clone.Numbers.ShouldNotBeNull();
         clone.Numbers.ShouldNotBeSameAs(original.Numbers);
-        clone.Numbers.ShouldBe(new[] { 1, 2, 3, 4, 5 });
+        clone.Numbers.ShouldBe([1, 2, 3, 4, 5]);
     }
 
     [Fact]
     public void DeepClone_StringArray_ClonesArray()
     {
-        var original = new ClassWithStringArray
-        {
-            Name = "Test",
-            Items = new[] { "one", "two", "three" },
-        };
+        var original = new ClassWithStringArray { Name = "Test", Items = ["one", "two", "three"] };
 
         var clone = original.DeepClone();
 
         clone.ShouldNotBeSameAs(original);
         clone.Items.ShouldNotBeNull();
         clone.Items.ShouldNotBeSameAs(original.Items);
-        clone.Items.ShouldBe(new[] { "one", "two", "three" });
+        clone.Items.ShouldBe(["one", "two", "three"]);
     }
 
     [Fact]
@@ -43,11 +39,11 @@ public class ArrayCloneTests
         var original = new ClassWithCloneableArray
         {
             Name = "Parent",
-            Items = new[]
-            {
+            Items =
+            [
                 new SimpleClass { Name = "Item1", Age = 1 },
                 new SimpleClass { Name = "Item2", Age = 2 },
-            },
+            ],
         };
 
         var clone = original.DeepClone();
@@ -71,10 +67,7 @@ public class ArrayCloneTests
         var original = new ClassWithCloneableArray
         {
             Name = "Parent",
-            Items = new[]
-            {
-                new SimpleClass { Name = "Original", Age = 10 },
-            },
+            Items = [new SimpleClass { Name = "Original", Age = 10 }],
         };
 
         var clone = original.DeepClone();

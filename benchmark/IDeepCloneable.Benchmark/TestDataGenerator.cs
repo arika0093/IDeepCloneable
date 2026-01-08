@@ -33,7 +33,7 @@ public static class TestDataGenerator
             },
             Contributors = new List<UserInfo>
             {
-                new UserInfo
+                new()
                 {
                     UserId = "user-002",
                     UserName = "jane.smith",
@@ -47,7 +47,7 @@ public static class TestDataGenerator
                         Country = "USA",
                     },
                 },
-                new UserInfo
+                new()
                 {
                     UserId = "user-003",
                     UserName = "bob.wilson",
@@ -61,7 +61,7 @@ public static class TestDataGenerator
                         Country = "USA",
                     },
                 },
-                new UserInfo
+                new()
                 {
                     UserId = "user-004",
                     UserName = "alice.johnson",
@@ -75,7 +75,7 @@ public static class TestDataGenerator
                         Country = "USA",
                     },
                 },
-                new UserInfo
+                new()
                 {
                     UserId = "user-005",
                     UserName = "charlie.brown",
@@ -102,7 +102,7 @@ public static class TestDataGenerator
             },
             Items = new List<DataItem>
             {
-                new DataItem
+                new()
                 {
                     ItemId = "item-001",
                     Title = "First Item",
@@ -111,21 +111,21 @@ public static class TestDataGenerator
                     Tags = new List<string> { "tag1", "tag2", "tag3", "important", "featured" },
                     SubItems = new List<SubItem>
                     {
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-001",
                             Label = "Sub Item 1",
                             Quantity = 10,
                             Price = 19.99m,
                         },
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-002",
                             Label = "Sub Item 2",
                             Quantity = 5,
                             Price = 29.99m,
                         },
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-003",
                             Label = "Sub Item 3",
@@ -142,7 +142,7 @@ public static class TestDataGenerator
                         { "manufacturer", "ACME Corp" },
                     },
                 },
-                new DataItem
+                new()
                 {
                     ItemId = "item-002",
                     Title = "Second Item",
@@ -151,14 +151,14 @@ public static class TestDataGenerator
                     Tags = new List<string> { "tag4", "tag5", "premium" },
                     SubItems = new List<SubItem>
                     {
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-004",
                             Label = "Sub Item 4",
                             Quantity = 15,
                             Price = 39.99m,
                         },
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-005",
                             Label = "Sub Item 5",
@@ -173,7 +173,7 @@ public static class TestDataGenerator
                         { "warranty", "2 years" },
                     },
                 },
-                new DataItem
+                new()
                 {
                     ItemId = "item-003",
                     Title = "Third Item",
@@ -182,7 +182,7 @@ public static class TestDataGenerator
                     Tags = new List<string> { "tag6", "tag7", "tag8" },
                     SubItems = new List<SubItem>
                     {
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-006",
                             Label = "Sub Item 6",
@@ -196,7 +196,7 @@ public static class TestDataGenerator
                         { "size", "small" },
                     },
                 },
-                new DataItem
+                new()
                 {
                     ItemId = "item-004",
                     Title = "Fourth Item",
@@ -205,21 +205,21 @@ public static class TestDataGenerator
                     Tags = new List<string> { "tag9", "tag10", "exclusive", "limited" },
                     SubItems = new List<SubItem>
                     {
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-007",
                             Label = "Sub Item 7",
                             Quantity = 3,
                             Price = 59.99m,
                         },
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-008",
                             Label = "Sub Item 8",
                             Quantity = 7,
                             Price = 34.99m,
                         },
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-009",
                             Label = "Sub Item 9",
@@ -235,7 +235,7 @@ public static class TestDataGenerator
                         { "material", "aluminum" },
                     },
                 },
-                new DataItem
+                new()
                 {
                     ItemId = "item-005",
                     Title = "Fifth Item",
@@ -244,14 +244,14 @@ public static class TestDataGenerator
                     Tags = new List<string> { "tag11", "tag12" },
                     SubItems = new List<SubItem>
                     {
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-010",
                             Label = "Sub Item 10",
                             Quantity = 25,
                             Price = 14.99m,
                         },
-                        new SubItem
+                        new()
                         {
                             SubId = "sub-011",
                             Label = "Sub Item 11",
