@@ -20,13 +20,8 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
         EquatableArray<ClassInfo> allClassInfos, 
         IndentedStringBuilder builder)
     {
-        var startIndex = typeFullName.IndexOf('<');
-        var endIndex = typeFullName.LastIndexOf('>');
-        if (startIndex < 0 || endIndex <= startIndex)
-            return builder;
-            
-        var typeArgs = typeFullName.Substring(startIndex + 1, endIndex - startIndex - 1);
-        var parts = CodeGenerationUtility.SplitGenericArgs(typeArgs);
+        var genericArgs = CodeGenerationUtility.ExtractGenericType(typeFullName);
+        var parts = CodeGenerationUtility.SplitGenericArgs(genericArgs);
         
         if (parts.Count != 2)
             return builder;

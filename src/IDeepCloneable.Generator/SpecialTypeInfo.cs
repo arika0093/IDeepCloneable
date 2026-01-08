@@ -1,3 +1,4 @@
+using System;
 using Microsoft.CodeAnalysis;
 
 namespace IDeepCloneable.Generator;
@@ -11,7 +12,7 @@ internal abstract class SpecialTypeInfo
     public abstract string TargetTypeStartWith { get; }
     
     /// <summary>Checks if the given type matches this special type.</summary>
-    public bool IsMatch(string typeFullName) => typeFullName.StartsWith(TargetTypeStartWith);
+    public bool IsMatch(string typeFullName) => typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
     
     /// <summary>Generates the method name for cloning this special type.</summary>
     public abstract string GetMethodName(string typeFullName);
