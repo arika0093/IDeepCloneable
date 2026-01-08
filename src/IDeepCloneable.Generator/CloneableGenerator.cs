@@ -15,9 +15,7 @@ namespace IDeepCloneable.Generator;
 [Generator]
 public class CloneableGenerator : IIncrementalGenerator
 {
-    private const string DeepCloneMethodName = "DeepClone";
     private const string DeepCloneableAttributeMetadataName = "DeepCloneableAttribute";
-    private const string DeepCloneableAttributeFullName = "global::DeepCloneableAttribute";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {

@@ -69,40 +69,6 @@ internal static class TypeAnalyzer
         }
     }
     
-    private static string ExtractBaseTypeName(string typeFullName)
-    {
-        // Remove nullable marker if present
-        var cleanTypeName = typeFullName.TrimEnd('?');
-        
-        if (cleanTypeName.Contains("System.Collections.Generic.List<"))
-        {
-            return ExtractGenericArgument(cleanTypeName, 0);
-        }
-        
-        if (cleanTypeName.Contains("System.Collections.Generic.Dictionary<"))
-        {
-            // For dictionary, extract the value type (index 1)
-            return ExtractGenericArgument(cleanTypeName, 1);
-        }
-        
-        if (cleanTypeName.EndsWith("[]"))
-        {
-            return cleanTypeName.Substring(0, cleanTypeName.Length - 2);
-        }
-        
-        return cleanTypeName;
-    }
-    
-    private static string ExtractDictionaryKeyType(string typeFullName)
-    {
-        var cleanTypeName = typeFullName.TrimEnd('?');
-        if (cleanTypeName.Contains("System.Collections.Generic.Dictionary<"))
-        {
-            return ExtractGenericArgument(cleanTypeName, 0);
-        }
-        return cleanTypeName;
-    }
-    
     private static string ExtractGenericArgument(string typeFullName, int index)
     {
         var startIndex = typeFullName.IndexOf('<');
@@ -431,38 +397,5 @@ internal static class TypeAnalyzer
                fullName.Contains("System.Collections.Immutable.ImmutableHashSet<") ||
                fullName.Contains("System.Collections.Immutable.ImmutableDictionary<") ||
                fullName.Contains("[]");
-    }
-
-    private static INamedTypeSymbol? FindTypeByFullName(Compilation compilation, string fullTypeName)
-    {
-        var typeName = fullTypeName.Replace("global::", "").TrimEnd('?');
-        
-        var type = compilation.GetTypeByMetadataName(typeName);
-        if (type != null)
-            return type;
-        
-        foreach (var tree in compilation.SyntaxTrees)
-        {
-            var model = compilation.GetSemanticModel(tree);
-            var root = tree.GetRoot();
-            
-            var classDeclarations = root.DescendantNodes()
-                .OfType<BaseTypeDeclarationSyntax>();
-            
-            foreach (var classDecl in classDeclarations)
-            {
-                var symbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
-                if (symbol != null)
-                {
-                    var symbolFullName = GetFullTypeName(symbol).Replace("global::", "").TrimEnd('?');
-                    if (symbolFullName == typeName)
-                    {
-                        return symbol;
-                    }
-                }
-            }
-        }
-        
-        return null;
     }
 }
