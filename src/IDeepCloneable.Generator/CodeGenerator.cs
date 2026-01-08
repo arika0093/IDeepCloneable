@@ -89,11 +89,14 @@ internal static class CodeGenerator
         // Generate CloneInternal methods for each class
         // Even if all properties are immutable, we still need to clone reference types (classes)
         // Only skip truly immutable types (value types with immutable fields, strings, etc.)
+        // Also skip abstract classes (they can't be instantiated with 'new')
         foreach (var classInfo in classInfos)
         {
             // Skip only if it's a value type AND all properties are immutable
             // Or if it's a collection (handled separately)
-            var skipGeneration = classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection;
+            // Or if it's an abstract class (can't instantiate)
+            var skipGeneration = (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection) 
+                               || classInfo.IsAbstract;
             
             if (!skipGeneration)
             {

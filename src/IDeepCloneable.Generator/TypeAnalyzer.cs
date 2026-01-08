@@ -221,6 +221,18 @@ internal static class TypeAnalyzer
 
             if (member is IPropertySymbol propSymbol && !propSymbol.IsStatic)
             {
+                // Skip indexers (this[])
+                if (propSymbol.IsIndexer)
+                    continue;
+                    
+                // Skip explicitly implemented interface properties (have dots in MetadataName)
+                if (propSymbol.MetadataName.Contains("."))
+                    continue;
+                    
+                // Skip properties without a setter (can't be cloned into)
+                if (propSymbol.SetMethod == null)
+                    continue;
+                    
                 memberType = propSymbol.Type;
                 memberName = propSymbol.Name;
             }
@@ -287,13 +299,49 @@ internal static class TypeAnalyzer
 
     private static string GetFullTypeName(ITypeSymbol typeSymbol)
     {
-        return "global::" + typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted));
+        // Handle array types specially
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var elementTypeName = GetFullTypeName(arrayType.ElementType);
+            return $"{elementTypeName}[]";
+        }
+        
+        // For primitive types, use the CLR type name instead of the C# keyword
+        // because global::int is invalid (must be global::System.Int32)
+        var displayString = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted));
+        
+        // Map C# keywords to CLR type names for use with global::
+        displayString = displayString switch
+        {
+            "bool" => "System.Boolean",
+            "byte" => "System.Byte",
+            "sbyte" => "System.SByte",
+            "char" => "System.Char",
+            "decimal" => "System.Decimal",
+            "double" => "System.Double",
+            "float" => "System.Single",
+            "int" => "System.Int32",
+            "uint" => "System.UInt32",
+            "long" => "System.Int64",
+            "ulong" => "System.UInt64",
+            "short" => "System.Int16",
+            "ushort" => "System.UInt16",
+            "object" => "System.Object",
+            "string" => "System.String",
+            _ => displayString
+        };
+        
+        return "global::" + displayString;
     }
 
     private static string GetNamespace(INamedTypeSymbol typeSymbol)
     {
         // Return only the actual namespace, not containing types
-        return typeSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+        // Return empty string for global namespace
+        if (typeSymbol.ContainingNamespace == null || typeSymbol.ContainingNamespace.IsGlobalNamespace)
+            return string.Empty;
+            
+        return typeSymbol.ContainingNamespace.ToDisplayString();
     }
     
     private static List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
