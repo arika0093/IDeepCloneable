@@ -1,84 +1,27 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace IDeepCloneable.Generator;
 
-public partial class CloneableGenerator
+/// <summary>
+/// Analyzes types and extracts metadata needed for deep clone generation.
+/// </summary>
+internal static class TypeAnalyzer
 {
-    /// <summary>
-    /// Represents metadata about a class that needs deep cloning support.
-    /// </summary>
-    private record ClassInfo : IEquatable<ClassInfo>
-    {
-        /// <summary>Simple class name without namespace.</summary>
-        public required string ClassName { get; init; }
-        
-        /// <summary>Fully qualified class name starting with global::.</summary>
-        public required string FullClassName { get; init; }
-        
-        /// <summary>Namespace of the class.</summary>
-        public required string Namespace { get; init; }
-        
-        /// <summary>List of child property/field type names (full names). Only direct children, not grandchildren.</summary>
-        public required EquatableArray<PropertyInfo> Properties { get; init; }
-        
-        /// <summary>Whether the type is nullable.</summary>
-        public required bool IsNullable { get; init; }
-        
-        /// <summary>Whether the type is a record.</summary>
-        public required bool IsRecord { get; init; }
-        
-        /// <summary>Whether the type is a value type.</summary>
-        public required bool IsValueType { get; init; }
-        
-        /// <summary>Whether all nested types are value types or immutable types (like string).</summary>
-        public required bool IsAllImmutable { get; init; }
-        
-        /// <summary>Whether the type is a collection (has collection initializer).</summary>
-        public required bool IsCollection { get; init; }
-        
-        /// <summary>Whether the type has [DeepCloneable] attribute or inherits from a [DeepCloneable] class.</summary>
-        public required bool NeedsDeepCloneMethod { get; init; }
-        
-        /// <summary>Whether the type is abstract.</summary>
-        public required bool IsAbstract { get; init; }
-        
-        /// <summary>Whether the type is sealed.</summary>
-        public required bool IsSealed { get; init; }
-        
-        /// <summary>Whether the base type has DeepClone method.</summary>
-        public required bool BaseHasDeepClone { get; init; }
-    }
+    private const string DeepCloneableAttributeMetadataName = "DeepCloneableAttribute";
 
-    /// <summary>
-    /// Represents metadata about a property or field.
-    /// </summary>
-    private record PropertyInfo : IEquatable<PropertyInfo>
+    public static EquatableArray<ClassInfo>? GetRelationalAllClassInfo(GeneratorAttributeSyntaxContext context)
     {
-        /// <summary>Name of the property/field.</summary>
-        public required string Name { get; init; }
+        // Extracts information from types marked with [DeepCloneable] and all reachable types.
+        // "Reachable" is defined as:
+        //   * The class itself marked with [DeepCloneable] (A)
+        //   * All classes that inherit from A
+        //   * All classes referenced by properties/fields of A (recursively)
         
-        /// <summary>Fully qualified type name.</summary>
-        public required string TypeFullName { get; init; }
-        
-        /// <summary>Whether the property/field is nullable.</summary>
-        public required bool IsNullable { get; init; }
-        
-        /// <summary>Whether the type needs deep cloning.</summary>
-        public required bool NeedsDeepClone { get; init; }
-        
-        /// <summary>Whether this is a value type or immutable type.</summary>
-        public required bool IsImmutable { get; init; }
-    }
-
-    private static EquatableArray<ClassInfo>? GetRelationalAllClassInfo(GeneratorAttributeSyntaxContext context)
-    {
         try
         {
             var targetSymbol = context.TargetSymbol as INamedTypeSymbol;
@@ -106,12 +49,10 @@ public partial class CloneableGenerator
                 {
                     classInfoList.Add(classInfo);
                     
-                    // Enqueue child types for processing
                     foreach (var prop in classInfo.Properties)
                     {
                         if (prop.NeedsDeepClone && !prop.IsImmutable)
                         {
-                            // Extract the actual type name from collections
                             var typeName = ExtractBaseTypeName(prop.TypeFullName);
                             var childType = FindTypeByFullName(context.SemanticModel.Compilation, typeName);
                             if (childType != null && !processedTypes.Contains(GetFullTypeName(childType)))
@@ -133,7 +74,6 @@ public partial class CloneableGenerator
     
     private static string ExtractBaseTypeName(string typeFullName)
     {
-        // Extract inner type from List<T>, Dictionary<TKey, TValue>, arrays, etc.
         if (typeFullName.Contains("System.Collections.Generic.List<"))
         {
             return ExtractGenericArgument(typeFullName, 0);
@@ -141,7 +81,6 @@ public partial class CloneableGenerator
         
         if (typeFullName.Contains("System.Collections.Generic.Dictionary<"))
         {
-            // For dictionary, we care about both types but focus on value type for cloning
             return ExtractGenericArgument(typeFullName, 1);
         }
         
@@ -223,7 +162,6 @@ public partial class CloneableGenerator
             }
             else if (member is IFieldSymbol fieldSymbol && !fieldSymbol.IsStatic && !fieldSymbol.IsConst && !fieldSymbol.IsImplicitlyDeclared)
             {
-                // Only include explicitly declared fields, not compiler-generated backing fields
                 memberType = fieldSymbol.Type;
                 memberName = fieldSymbol.Name;
             }
@@ -259,19 +197,15 @@ public partial class CloneableGenerator
 
     private static bool IsImmutableType(ITypeSymbol typeSymbol)
     {
-        // Enums are immutable
         if (typeSymbol.TypeKind == TypeKind.Enum)
             return true;
 
-        // Value types are immutable by default (excluding structs with mutable fields)
         if (typeSymbol.IsValueType && typeSymbol.SpecialType != SpecialType.None)
             return true;
 
-        // String is immutable
         if (typeSymbol.SpecialType == SpecialType.System_String)
             return true;
 
-        // Check for primitive types
         switch (typeSymbol.SpecialType)
         {
             case SpecialType.System_Boolean:
@@ -291,7 +225,6 @@ public partial class CloneableGenerator
                 return true;
         }
 
-        // Check for known immutable types
         var fullName = GetFullTypeName(typeSymbol);
         if (fullName.StartsWith("global::System.DateTimeOffset") ||
             fullName.StartsWith("global::System.TimeSpan") ||
@@ -314,22 +247,19 @@ public partial class CloneableGenerator
 
     private static INamedTypeSymbol? FindTypeByFullName(Compilation compilation, string fullTypeName)
     {
-        // Remove global:: prefix
         var typeName = fullTypeName.Replace("global::", "");
         
-        // Try to get the type by metadata name
         var type = compilation.GetTypeByMetadataName(typeName);
         if (type != null)
             return type;
         
-        // For types in the current assembly, search through all syntax trees
         foreach (var tree in compilation.SyntaxTrees)
         {
             var model = compilation.GetSemanticModel(tree);
             var root = tree.GetRoot();
             
             var classDeclarations = root.DescendantNodes()
-                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.BaseTypeDeclarationSyntax>();
+                .OfType<BaseTypeDeclarationSyntax>();
             
             foreach (var classDecl in classDeclarations)
             {
