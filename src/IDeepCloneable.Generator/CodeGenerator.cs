@@ -7,10 +7,51 @@ using Microsoft.CodeAnalysis;
 namespace IDeepCloneable.Generator;
 
 /// <summary>
+/// Information about special collection types that require custom clone methods.
+/// </summary>
+internal record SpecialTypeInfo
+{
+    /// <summary>Target type prefix to match against.</summary>
+    public required string TargetTypeStartWith { get; init; }
+    
+    /// <summary>Checks if the given type matches this special type.</summary>
+    public bool IsMatch(string typeFullName) => typeFullName.StartsWith(TargetTypeStartWith);
+    
+    /// <summary>Generates the method name for cloning this special type.</summary>
+    public required Func<string, string> GetMethodName { get; init; }
+    
+    /// <summary>Generates the clone method for this special type.</summary>
+    public required Func<string, string, EquatableArray<ClassInfo>, IndentedStringBuilder, string> GenerateCloneMethod { get; init; }
+}
+
+/// <summary>
 /// Generates source code for deep cloning functionality.
 /// </summary>
 internal static class CodeGenerator
 {
+    private static readonly List<SpecialTypeInfo> SpecialTypeInfos = new()
+    {
+        // List<T>
+        new SpecialTypeInfo
+        {
+            TargetTypeStartWith = "global::System.Collections.Generic.List<",
+            GetMethodName = typeFullName => "CloneList_" + SanitizeTypeName(ExtractGenericType(typeFullName)),
+            GenerateCloneMethod = (typeFullName, methodName, allClassInfos, builder) =>
+            {
+                var innerType = ExtractGenericType(typeFullName);
+                return GenerateListCloneMethod(typeFullName, innerType, methodName, allClassInfos, builder);
+            }
+        },
+        // Dictionary<TKey, TValue>
+        new SpecialTypeInfo
+        {
+            TargetTypeStartWith = "global::System.Collections.Generic.Dictionary<",
+            GetMethodName = typeFullName => "CloneDictionary_" + SanitizeTypeName(typeFullName),
+            GenerateCloneMethod = (typeFullName, methodName, allClassInfos, builder) =>
+                GenerateDictionaryCloneMethod(typeFullName, methodName, allClassInfos, builder)
+        }
+    };
+
     /// <summary>
     /// Generates source code for deep cloning.
     /// 
@@ -93,8 +134,8 @@ internal static class CodeGenerator
         var methodName = SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
 
         builder.Append("");
-        builder.Append($"        [MethodImpl(MethodImplOptions.AggressiveInlining)]");
-        builder.Append($"        [EditorBrowsable(EditorBrowsableState.Never)]");
+        builder.Append($"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        builder.Append($"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
         builder.Append($"        {visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)");
         builder.Append("        {");
 
@@ -173,19 +214,17 @@ internal static class CodeGenerator
             return valueExpression;
         }
 
-        if (typeFullName.Contains("System.Collections.Generic.List<"))
+        // Check special types using SpecialTypeInfo
+        foreach (var specialTypeInfo in SpecialTypeInfos)
         {
-            var innerType = ExtractGenericType(typeFullName);
-            var methodName = "CloneList_" + SanitizeTypeName(innerType);
-            return $"{methodName}({valueExpression})";
+            if (specialTypeInfo.IsMatch(typeFullName))
+            {
+                var methodName = specialTypeInfo.GetMethodName(typeFullName);
+                return $"{methodName}({valueExpression})";
+            }
         }
 
-        if (typeFullName.Contains("System.Collections.Generic.Dictionary<"))
-        {
-            var methodName = "CloneDictionary_" + SanitizeTypeName(typeFullName);
-            return $"{methodName}({valueExpression})";
-        }
-
+        // Handle arrays
         if (typeFullName.EndsWith("[]"))
         {
             var elementType = typeFullName.Substring(0, typeFullName.Length - 2);
@@ -193,6 +232,7 @@ internal static class CodeGenerator
             return $"{methodName}({valueExpression})";
         }
 
+        // Regular type
         var sanitizedName = SanitizeTypeName(typeFullName);
         return $"{sanitizedName}_CloneInternal({valueExpression})";
     }
@@ -207,29 +247,23 @@ internal static class CodeGenerator
             {
                 var typeFullName = prop.TypeFullName;
 
-                if (typeFullName.Contains("System.Collections.Generic.List<"))
+                // Check special types using SpecialTypeInfo
+                foreach (var specialTypeInfo in SpecialTypeInfos)
                 {
-                    var innerType = ExtractGenericType(typeFullName);
-                    var methodName = "CloneList_" + SanitizeTypeName(innerType);
-                    
-                    if (!generatedMethods.Contains(methodName))
+                    if (specialTypeInfo.IsMatch(typeFullName))
                     {
-                        generatedMethods.Add(methodName);
-                        GenerateListCloneMethod(typeFullName, innerType, methodName, classInfos, builder);
+                        var methodName = specialTypeInfo.GetMethodName(typeFullName);
+                        
+                        if (!generatedMethods.Contains(methodName))
+                        {
+                            generatedMethods.Add(methodName);
+                            specialTypeInfo.GenerateCloneMethod(typeFullName, methodName, classInfos, builder);
+                        }
+                        break;
                     }
                 }
 
-                if (typeFullName.Contains("System.Collections.Generic.Dictionary<"))
-                {
-                    var methodName = "CloneDictionary_" + SanitizeTypeName(typeFullName);
-                    
-                    if (!generatedMethods.Contains(methodName))
-                    {
-                        generatedMethods.Add(methodName);
-                        GenerateDictionaryCloneMethod(typeFullName, methodName, classInfos, builder);
-                    }
-                }
-
+                // Handle arrays
                 if (typeFullName.EndsWith("[]"))
                 {
                     var elementType = typeFullName.Substring(0, typeFullName.Length - 2);
@@ -245,13 +279,13 @@ internal static class CodeGenerator
         }
     }
 
-    private static void GenerateListCloneMethod(string listType, string innerType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
+    private static string GenerateListCloneMethod(string listType, string innerType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
     {
         var isImmutable = IsTypeImmutable(innerType);
 
         builder.Append("");
-        builder.Append($"        [MethodImpl(MethodImplOptions.AggressiveInlining)]");
-        builder.Append($"        [EditorBrowsable(EditorBrowsableState.Never)]");
+        builder.Append($"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        builder.Append($"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
         builder.Append($"        private static {listType} {methodName}(this {listType} original)");
         builder.Append("        {");
         builder.Append("            if (original == null) return null;");
@@ -281,20 +315,22 @@ internal static class CodeGenerator
         }
         
         builder.Append("        }");
+        
+        return string.Empty; // Return value not used
     }
 
-    private static void GenerateDictionaryCloneMethod(string dictType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
+    private static string GenerateDictionaryCloneMethod(string dictType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
     {
         var startIndex = dictType.IndexOf('<');
         var endIndex = dictType.LastIndexOf('>');
         if (startIndex < 0 || endIndex <= startIndex)
-            return;
+            return string.Empty;
             
         var typeArgs = dictType.Substring(startIndex + 1, endIndex - startIndex - 1);
         var parts = SplitGenericArgs(typeArgs);
         
         if (parts.Count != 2)
-            return;
+            return string.Empty;
             
         var keyType = parts[0];
         var valueType = parts[1];
@@ -303,8 +339,8 @@ internal static class CodeGenerator
         var valueIsImmutable = IsTypeImmutable(valueType);
 
         builder.Append("");
-        builder.Append($"        [MethodImpl(MethodImplOptions.AggressiveInlining)]");
-        builder.Append($"        [EditorBrowsable(EditorBrowsableState.Never)]");
+        builder.Append($"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        builder.Append($"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
         builder.Append($"        private static {dictType} {methodName}(this {dictType} original)");
         builder.Append("        {");
         builder.Append("            if (original == null) return null;");
@@ -328,6 +364,8 @@ internal static class CodeGenerator
         }
         
         builder.Append("        }");
+
+        return string.Empty; // Return value not used
     }
 
     private static List<string> SplitGenericArgs(string args)
@@ -373,8 +411,8 @@ internal static class CodeGenerator
         var arrayType = $"{elementType}[]";
 
         builder.Append("");
-        builder.Append($"        [MethodImpl(MethodImplOptions.AggressiveInlining)]");
-        builder.Append($"        [EditorBrowsable(EditorBrowsableState.Never)]");
+        builder.Append($"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        builder.Append($"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
         builder.Append($"        private static {arrayType} {methodName}(this {arrayType} original)");
         builder.Append("        {");
         builder.Append("            if (original == null) return null;");
@@ -414,7 +452,7 @@ internal static class CodeGenerator
         builder.Append($"{indent}partial {typeKeyword} {classInfo.ClassName} : global::IDeepCloneable<{classInfo.FullClassName}>");
         builder.Append($"{indent}{{");
         builder.Append($"{indent}    /// <inheritdoc />");
-        builder.Append($"{indent}    [MethodImpl(MethodImplOptions.AggressiveInlining)]");
+        builder.Append($"{indent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
 
         var modifiers = "public";
         if (!classInfo.IsSealed && !classInfo.IsValueType)
