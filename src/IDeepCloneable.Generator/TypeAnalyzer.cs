@@ -421,6 +421,15 @@ internal static class TypeAnalyzer
         return fullName.Contains("System.Collections.Generic.List<") ||
                fullName.Contains("System.Collections.Generic.Dictionary<") ||
                fullName.Contains("System.Collections.Generic.HashSet<") ||
+               fullName.Contains("System.Collections.Generic.SortedSet<") ||
+               fullName.Contains("System.Collections.Generic.Stack<") ||
+               fullName.Contains("System.Collections.Generic.Queue<") ||
+               fullName.Contains("System.Collections.ObjectModel.ObservableCollection<") ||
+               fullName.Contains("System.Collections.ObjectModel.ReadOnlyCollection<") ||
+               fullName.Contains("System.Collections.Immutable.ImmutableList<") ||
+               fullName.Contains("System.Collections.Immutable.ImmutableArray<") ||
+               fullName.Contains("System.Collections.Immutable.ImmutableHashSet<") ||
+               fullName.Contains("System.Collections.Immutable.ImmutableDictionary<") ||
                fullName.Contains("[]");
     }
 
