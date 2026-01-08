@@ -144,7 +144,30 @@ public class CloneableGenerator : IIncrementalGenerator
         // For reference types, we should always handle null unless explicitly marked as non-nullable
         var elementIsNullable = !elementType.IsValueType || elementType.NullableAnnotation == NullableAnnotation.Annotated;
         var cloneExpr = GetCloneExpression(elementType, itemExpression, elementIsNullable);
-        return cloneExpr ?? itemExpression;
+        if (cloneExpr != null)
+        {
+            return cloneExpr;
+        }
+        
+        // If no CloneInternal and it's a collection of value types, create a shallow copy
+        if (elementType is INamedTypeSymbol namedElementType)
+        {
+            var originalTypeName = namedElementType.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            if (originalTypeName == "global::System.Collections.Generic.List<T>")
+            {
+                if (elementIsNullable)
+                {
+                    return $"{itemExpression} != null ? new {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}({itemExpression}) : null";
+                }
+                else
+                {
+                    return $"new {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}({itemExpression})";
+                }
+            }
+            // Add more collection types as needed
+        }
+        
+        return itemExpression;
     }
 
 
@@ -707,18 +730,24 @@ public class CloneableGenerator : IIncrementalGenerator
             var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             
             sb.AppendLine($"            var temp = new {fullTypeName}();");
-            sb.AppendLine($"""
-            #if NET8_0_OR_GREATER
-                        System.Runtime.InteropServices.CollectionsMarshal.SetCount(temp, value.Count);
-            #endif
-            """);
+            sb.AppendLine("#if NET8_0_OR_GREATER");
+            sb.AppendLine("            System.Runtime.InteropServices.CollectionsMarshal.SetCount(temp, value.Count);");
+            sb.AppendLine("            for (int i = 0; i < value.Count; i++)");
+            sb.AppendLine("            {");
+            sb.AppendLine("                var item = value[i];");
+            
+            var cloneStmt = GetItemCloneStatement(elementType, "item");
+            sb.AppendLine($"                temp[i] = {cloneStmt};");
+            
+            sb.AppendLine("            }");
+            sb.AppendLine("#else");
             sb.AppendLine("            foreach (var item in value)");
             sb.AppendLine("            {");
             
-            var cloneStmt = GetItemCloneStatement(elementType, "item");
             sb.AppendLine($"                temp.Add({cloneStmt});");
             
             sb.AppendLine("            }");
+            sb.AppendLine("#endif");
             sb.AppendLine("            return temp;");
         }
         // Dictionary<TKey, TValue>
@@ -1212,69 +1241,19 @@ public class CloneableGenerator : IIncrementalGenerator
                 }
                 else if (elementType is INamedTypeSymbol elementNamedType && IsCollectionType(elementNamedType))
                 {
-                    // Nested collection - need to recursively clone
-                    if (elementNamedType.TypeArguments.Length > 0)
+                    // Nested collection - check if we have a CloneInternal helper for it
+                    var elementFullName = elementNamedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+                    var hasHelper = s_currentNameGenerator?.HasCloneInternal(elementFullName) ?? false;
+                    
+                    if (hasHelper)
                     {
-                        var nestedElementType = elementNamedType.TypeArguments[0];
-                        var nestedElementTypeName = nestedElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                        var nestedIsCloneable = IsCloneableType(nestedElementType);
-                        
+                        // Use the collection helper method
+                        var helperName = s_currentNameGenerator!.GetCloneInternalName(elementFullName);
                         sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                         sb.AppendLine($"{tempIndent}{{");
                         sb.AppendLine($"{tempIndent}    if (item != null)");
                         sb.AppendLine($"{tempIndent}    {{");
-                        sb.AppendLine($"{tempIndent}        var nestedClone = new {elementTypeName}();");
-                        
-                        if (nestedIsCloneable)
-                        {
-                            sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
-                            sb.AppendLine($"{tempIndent}        {{");
-                            var nestedCloneStmt = GetItemCloneStatement(nestedElementType, "nestedItem");
-                            sb.AppendLine($"{tempIndent}            nestedClone.Add({nestedCloneStmt});");
-                            sb.AppendLine($"{tempIndent}        }}");
-                        }
-                        else if (nestedElementType is INamedTypeSymbol nestedNamedType && IsCollectionType(nestedNamedType))
-                        {
-                            // Triple nested collection
-                            if (nestedNamedType.TypeArguments.Length > 0)
-                            {
-                                var tripleNestedElementType = nestedNamedType.TypeArguments[0];
-                                var tripleNestedElementTypeName = tripleNestedElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                                
-                                sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
-                                sb.AppendLine($"{tempIndent}        {{");
-                                sb.AppendLine($"{tempIndent}            if (nestedItem != null)");
-                                sb.AppendLine($"{tempIndent}            {{");
-                                sb.AppendLine($"{tempIndent}                var tripleNestedClone = new {nestedElementTypeName}();");
-                                sb.AppendLine($"{tempIndent}                foreach (var tripleNestedItem in nestedItem)");
-                                sb.AppendLine($"{tempIndent}                {{");
-                                sb.AppendLine($"{tempIndent}                    tripleNestedClone.Add(tripleNestedItem);");
-                                sb.AppendLine($"{tempIndent}                }}");
-                                sb.AppendLine($"{tempIndent}                nestedClone.Add(tripleNestedClone);");
-                                sb.AppendLine($"{tempIndent}            }}");
-                                sb.AppendLine($"{tempIndent}            else");
-                                sb.AppendLine($"{tempIndent}            {{");
-                                sb.AppendLine($"{tempIndent}                nestedClone.Add(null);");
-                                sb.AppendLine($"{tempIndent}            }}");
-                                sb.AppendLine($"{tempIndent}        }}");
-                            }
-                            else
-                            {
-                                sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
-                                sb.AppendLine($"{tempIndent}        {{");
-                                sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem);");
-                                sb.AppendLine($"{tempIndent}        }}");
-                            }
-                        }
-                        else
-                        {
-                            sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
-                            sb.AppendLine($"{tempIndent}        {{");
-                            sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem);");
-                            sb.AppendLine($"{tempIndent}        }}");
-                        }
-                        
-                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(nestedClone);");
+                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add({helperName}(item));");
                         sb.AppendLine($"{tempIndent}    }}");
                         sb.AppendLine($"{tempIndent}    else");
                         sb.AppendLine($"{tempIndent}    {{");
@@ -1284,10 +1263,84 @@ public class CloneableGenerator : IIncrementalGenerator
                     }
                     else
                     {
-                        sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
-                        sb.AppendLine($"{tempIndent}{{");
-                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item);");
+                        // Fallback to inline generation for collections without helpers
+                        // Nested collection - need to recursively clone
+                        if (elementNamedType.TypeArguments.Length > 0)
+                        {
+                            var nestedElementType = elementNamedType.TypeArguments[0];
+                            var nestedElementTypeName = nestedElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                            var nestedIsCloneable = IsCloneableType(nestedElementType);
+                            
+                            sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                            sb.AppendLine($"{tempIndent}{{");
+                            sb.AppendLine($"{tempIndent}    if (item != null)");
+                            sb.AppendLine($"{tempIndent}    {{");
+                            sb.AppendLine($"{tempIndent}        var nestedClone = new {elementTypeName}();");
+                            
+                            if (nestedIsCloneable)
+                            {
+                                sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                                sb.AppendLine($"{tempIndent}        {{");
+                                var nestedCloneStmt = GetItemCloneStatement(nestedElementType, "nestedItem");
+                                sb.AppendLine($"{tempIndent}            nestedClone.Add({nestedCloneStmt});");
+                                sb.AppendLine($"{tempIndent}        }}");
+                            }
+                            else if (nestedElementType is INamedTypeSymbol nestedNamedType && IsCollectionType(nestedNamedType))
+                            {
+                                // Triple nested collection
+                                if (nestedNamedType.TypeArguments.Length > 0)
+                                {
+                                    var tripleNestedElementType = nestedNamedType.TypeArguments[0];
+                                    var tripleNestedElementTypeName = tripleNestedElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                                    
+                                    sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                                    sb.AppendLine($"{tempIndent}        {{");
+                                    sb.AppendLine($"{tempIndent}            if (nestedItem != null)");
+                                    sb.AppendLine($"{tempIndent}            {{");
+                                    sb.AppendLine($"{tempIndent}                var tripleNestedClone = new {nestedElementTypeName}();");
+                                    sb.AppendLine($"{tempIndent}                foreach (var tripleNestedItem in nestedItem)");
+                                    sb.AppendLine($"{tempIndent}                {{");
+                                    sb.AppendLine($"{tempIndent}                    tripleNestedClone.Add(tripleNestedItem);");
+                                    sb.AppendLine($"{tempIndent}                }}");
+                                    sb.AppendLine($"{tempIndent}                nestedClone.Add(tripleNestedClone);");
+                                    sb.AppendLine($"{tempIndent}            }}");
+                                    sb.AppendLine($"{tempIndent}            else");
+                                    sb.AppendLine($"{tempIndent}            {{");
+                                    sb.AppendLine($"{tempIndent}                nestedClone.Add(null);");
+                                    sb.AppendLine($"{tempIndent}            }}");
+                                    sb.AppendLine($"{tempIndent}        }}");
+                                }
+                                else
+                                {
+                                    sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                                    sb.AppendLine($"{tempIndent}        {{");
+                                    sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem);");
+                                    sb.AppendLine($"{tempIndent}        }}");
+                                }
+                            }
+                            else
+                            {
+                                sb.AppendLine($"{tempIndent}        foreach (var nestedItem in item)");
+                                sb.AppendLine($"{tempIndent}        {{");
+                                sb.AppendLine($"{tempIndent}            nestedClone.Add(nestedItem);");
+                                sb.AppendLine($"{tempIndent}        }}");
+                            }
+                            
+                            sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(nestedClone);");
+                            sb.AppendLine($"{tempIndent}    }}");
+                            sb.AppendLine($"{tempIndent}    else");
+                            sb.AppendLine($"{tempIndent}    {{");
+                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(null);");
+                        sb.AppendLine($"{tempIndent}    }}");
                         sb.AppendLine($"{tempIndent}}}");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                            sb.AppendLine($"{tempIndent}{{");
+                            sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add(item);");
+                            sb.AppendLine($"{tempIndent}}}");
+                        }
                     }
                 }
                 else if (elementType is INamedTypeSymbol elementRefType && !elementRefType.IsValueType && elementRefType.SpecialType != SpecialType.System_String)
