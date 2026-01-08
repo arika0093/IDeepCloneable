@@ -278,6 +278,10 @@ internal static class TypeAnalyzer
 
     private static bool IsImmutableType(ITypeSymbol typeSymbol)
     {
+        // System.Object cannot be cloned (it's the base type)
+        if (typeSymbol.SpecialType == SpecialType.System_Object)
+            return true;
+            
         if (typeSymbol.TypeKind == TypeKind.Enum)
             return true;
 

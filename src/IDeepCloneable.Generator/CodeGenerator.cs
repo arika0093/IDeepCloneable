@@ -70,11 +70,20 @@ internal static class CodeGenerator
         context.AddSource("DeepCloneExtensions.g.cs", extensionsCode);
 
         // Generate partial class implementations for each type that needs DeepClone method
+        // Use full class name to avoid collisions when classes have the same simple name in different namespaces
+        var generatedFiles = new HashSet<string>();
         foreach (var classInfo in classInfos.Where(c => c.NeedsDeepCloneMethod))
         {
             var partialClassCode = GeneratePartialClass(classInfo);
-            var fileName = $"{classInfo.ClassName}.DeepClone.g.cs";
-            context.AddSource(fileName, partialClassCode);
+            // Use sanitized full class name to ensure uniqueness
+            var fileName = $"{SanitizeTypeName(classInfo.FullClassName)}.DeepClone.g.cs";
+            
+            // Additional safety check to avoid duplicate file names
+            if (!generatedFiles.Contains(fileName))
+            {
+                generatedFiles.Add(fileName);
+                context.AddSource(fileName, partialClassCode);
+            }
         }
     }
 
@@ -443,7 +452,9 @@ internal static class CodeGenerator
             builder.Append("{");
         }
 
-        var typeKeyword = classInfo.IsRecord ? "record" : (classInfo.IsValueType ? "struct" : "class");
+        var typeKeyword = classInfo.IsRecord 
+            ? (classInfo.IsValueType ? "record struct" : "record")
+            : (classInfo.IsValueType ? "struct" : "class");
         var indent = string.IsNullOrEmpty(classInfo.Namespace) ? "" : "    ";
         
         builder.Append($"{indent}partial {typeKeyword} {classInfo.ClassName} : global::IDeepCloneable<{classInfo.FullClassName}>");
