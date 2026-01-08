@@ -10,12 +10,6 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal static class CodeGenerator
 {
-    // Frequently used attributes
-    internal const string AggressiveInliningAttribute = 
-        "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]";
-    internal const string EditorBrowsableAttribute = 
-        "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]";
-
     private static readonly List<SpecialTypeInfo> SpecialTypeInfos = new()
     {
         new ArrayTypeInfo(),
@@ -170,8 +164,8 @@ internal static class CodeGenerator
             CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
 
         builder.AppendLine("");
-        builder.AppendLine($"{AggressiveInliningAttribute}");
-        builder.AppendLine($"{EditorBrowsableAttribute}");
+        builder.AppendLine($"{CodeTemplateContents.AggressiveInliningAttribute}");
+        builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
         builder.AppendLine(
             $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
         );
@@ -400,14 +394,14 @@ internal static class CodeGenerator
         else if (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection)
         {
             // Immutable value types can just return themselves
-            builder.AppendLine($"{AggressiveInliningAttribute}");
+            builder.AppendLine($"{CodeTemplateContents.AggressiveInliningAttribute}");
             builder.AppendLine($"{modifiers} {classInfo.FullClassName} DeepClone()");
             builder.AppendLine("    => this;");
         }
         else
         {
             // Concrete classes have MethodImpl attribute and call CloneInternal
-            builder.AppendLine($"{AggressiveInliningAttribute}");
+            builder.AppendLine($"{CodeTemplateContents.AggressiveInliningAttribute}");
             builder.AppendLine($"{modifiers} {classInfo.FullClassName} DeepClone()");
             builder.AppendLine($"    => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
         }
