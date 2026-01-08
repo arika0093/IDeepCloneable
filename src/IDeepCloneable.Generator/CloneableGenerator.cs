@@ -928,9 +928,14 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             GenerateWithNullCheck(() =>
             {
+                sb.AppendLine($"{tempIndent}var temp = new System.Collections.Generic.List<{elementTypeName}>();");
+                sb.AppendLine($"""
+                #if NET8_0_OR_GREATER
+                {tempIndent}System.Runtime.InteropServices.CollectionsMarshal.SetCount(temp, {sourceVar}.{propertyName}.Count);
+                #endif
+                """);
                 if (isCloneable)
                 {
-                    sb.AppendLine($"{tempIndent}var temp = new System.Collections.Generic.List<{elementTypeName}>();");
                     sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
                     sb.AppendLine($"{tempIndent}{{");
                     var cloneStmt = GetItemCloneStatement(elementType, "item");
@@ -941,7 +946,6 @@ public class CloneableGenerator : IIncrementalGenerator
                 }
                 else
                 {
-                    sb.AppendLine($"{tempIndent}var temp = new System.Collections.Generic.List<{elementTypeName}>({sourceVar}.{propertyName});");
                     sb.AppendLine($"{tempIndent}temp.Reverse();");
                     sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.Stack<{elementTypeName}>(temp);");
                 }
@@ -1005,6 +1009,11 @@ public class CloneableGenerator : IIncrementalGenerator
             GenerateWithNullCheck(() =>
             {
                 sb.AppendLine($"{tempIndent}var tempList = new System.Collections.Generic.List<{elementTypeName}>();");
+                sb.AppendLine($"""
+                #if NET8_0_OR_GREATER
+                {tempIndent}System.Runtime.InteropServices.CollectionsMarshal.SetCount(tempList, {sourceVar}.{propertyName}.Count);
+                #endif
+                """);
                 if (isCloneable)
                 {
                     sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
@@ -1048,7 +1057,11 @@ public class CloneableGenerator : IIncrementalGenerator
                     // For List, use CollectionsMarshal.SetCount for performance
                     if (isList)
                     {
-                        sb.AppendLine($"{tempIndent}System.Runtime.InteropServices.CollectionsMarshal.SetCount({targetVar}.{propertyName}, {sourceVar}.{propertyName}.Count);");
+                        sb.AppendLine($"""
+                        #if NET8_0_OR_GREATER
+                        {tempIndent}System.Runtime.InteropServices.CollectionsMarshal.SetCount({targetVar}.{propertyName}, {sourceVar}.{propertyName}.Count);
+                        #endif
+                        """);
                         sb.AppendLine($"{tempIndent}for (int i = 0; i < {sourceVar}.{propertyName}.Count; i++)");
                         sb.AppendLine($"{tempIndent}{{");
                         var cloneStmt = GetItemCloneStatement(elementType, $"{sourceVar}.{propertyName}[i]");
