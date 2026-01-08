@@ -26,34 +26,38 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
 
         builder.AppendLine("");
         builder.AppendLine(
-            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+            $"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
         );
         builder.AppendLine(
-            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+            $"[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
         );
         builder.AppendLine(
-            $"        private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
-        builder.AppendLine("        {");
-        builder.AppendLine("            if (original == null) return null;");
+        builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
+        builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
         {
             // ImmutableHashSet is immutable, and if elements are immutable too, we can return the same instance
-            builder.AppendLine("            return original;");
+            builder.AppendLine("return original;");
         }
         else
         {
-            builder.AppendLine($"            var builder = global::System.Collections.Immutable.ImmutableHashSet.CreateBuilder<{innerType}>();");
-            builder.AppendLine("            foreach (var item in original)");
-            builder.AppendLine("            {");
+            builder.AppendLine($"var builder = global::System.Collections.Immutable.ImmutableHashSet.CreateBuilder<{innerType}>();");
+            builder.AppendLine("foreach (var item in original)");
+            builder.AppendLine("{");
+            builder = builder.IncreaseIndent();
             var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
-            builder.AppendLine($"                builder.Add({cloneCall});");
-            builder.AppendLine("            }");
-            builder.AppendLine("            return builder.ToImmutable();");
+            builder.AppendLine($"builder.Add({cloneCall});");
+            builder = builder.DecreaseIndent();
+            builder.AppendLine("}");
+            builder.AppendLine("return builder.ToImmutable();");
         }
 
-        builder.AppendLine("        }");
+        builder = builder.DecreaseIndent();
+        builder.AppendLine("}");
 
         return builder;
     }

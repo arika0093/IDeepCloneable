@@ -35,26 +35,28 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
 
         builder.AppendLine("");
         builder.AppendLine(
-            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+            $"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
         );
         builder.AppendLine(
-            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+            $"[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
         );
         builder.AppendLine(
-            $"        private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
-        builder.AppendLine("        {");
-        builder.AppendLine("            if (original == null) return null;");
+        builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
+        builder.AppendLine("if (original == null) return null;");
 
         if (keyIsImmutable && valueIsImmutable)
         {
-            builder.AppendLine($"            return new {typeFullName}(original);");
+            builder.AppendLine($"return new {typeFullName}(original);");
         }
         else
         {
-            builder.AppendLine($"            var dict = new {typeFullName}(original.Count);");
-            builder.AppendLine("            foreach (var kvp in original)");
-            builder.AppendLine("            {");
+            builder.AppendLine($"var dict = new {typeFullName}(original.Count);");
+            builder.AppendLine("foreach (var kvp in original)");
+            builder.AppendLine("{");
+            builder = builder.IncreaseIndent();
 
             var keyClone = keyIsImmutable
                 ? "kvp.Key"
@@ -63,12 +65,14 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
                 ? "kvp.Value"
                 : CodeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
 
-            builder.AppendLine($"                dict.Add({keyClone}, {valueClone});");
-            builder.AppendLine("            }");
-            builder.AppendLine("            return dict;");
+            builder.AppendLine($"dict.Add({keyClone}, {valueClone});");
+            builder = builder.DecreaseIndent();
+            builder.AppendLine("}");
+            builder.AppendLine("return dict;");
         }
 
-        builder.AppendLine("        }");
+        builder = builder.DecreaseIndent();
+        builder.AppendLine("}");
 
         return builder;
     }

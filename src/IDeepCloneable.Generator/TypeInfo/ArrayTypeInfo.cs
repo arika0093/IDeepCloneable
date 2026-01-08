@@ -33,19 +33,20 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
 
         builder.AppendLine("");
-        builder.AppendLine($"        {CodeGenerator.AggressiveInliningAttribute}");
-        builder.AppendLine($"        {CodeGenerator.EditorBrowsableAttribute}");
+        builder.AppendLine($"{CodeGenerator.AggressiveInliningAttribute}");
+        builder.AppendLine($"{CodeGenerator.EditorBrowsableAttribute}");
         builder.AppendLine(
-            $"        private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
-        builder.AppendLine("        {");
-        builder.AppendLine("            if (original == null) return null;");
+        builder.AppendLine("{");
+        builder = builder.IncreaseIndent();
+        builder.AppendLine("if (original == null) return null;");
 
         // For immutable element types or value types, we can use Array.Clone()
         if (isImmutable)
         {
             builder.AppendLine(
-                $"            return (original.Clone() as {typeFullName});"
+                $"return (original.Clone() as {typeFullName});"
             );
         }
         else
@@ -58,26 +59,29 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                 // For now, this limitation is documented - multi-dimensional arrays with mutable elements
                 // will be shallow copied. This is an edge case that can be improved in the future.
                 builder.AppendLine(
-                    $"            // WARNING: Multi-dimensional arrays with mutable elements are shallow copied"
+                    $"// WARNING: Multi-dimensional arrays with mutable elements are shallow copied"
                 );
                 builder.AppendLine(
-                    $"            return (original.Clone() as {typeFullName});"
+                    $"return (original.Clone() as {typeFullName});"
                 );
             }
             else
             {
                 // Single-dimensional array
-                builder.AppendLine($"            var array = new {elementType}[original.Length];");
-                builder.AppendLine("            for (int i = 0; i < original.Length; i++)");
-                builder.AppendLine("            {");
+                builder.AppendLine($"var array = new {elementType}[original.Length];");
+                builder.AppendLine("for (int i = 0; i < original.Length; i++)");
+                builder.AppendLine("{");
+                builder = builder.IncreaseIndent();
                 var cloneCall = CodeGenerator.GenerateTypeCloneCall(elementType, "original[i]", allClassInfos);
-                builder.AppendLine($"                array[i] = {cloneCall};");
-                builder.AppendLine("            }");
-                builder.AppendLine("            return array;");
+                builder.AppendLine($"array[i] = {cloneCall};");
+                builder = builder.DecreaseIndent();
+                builder.AppendLine("}");
+                builder.AppendLine("return array;");
             }
         }
 
-        builder.AppendLine("        }");
+        builder = builder.DecreaseIndent();
+        builder.AppendLine("}");
 
         return builder;
     }
