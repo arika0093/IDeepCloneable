@@ -11,8 +11,7 @@ internal class ImmutableArrayTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneImmutableArray_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneImmutableArray_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(

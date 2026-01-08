@@ -11,8 +11,7 @@ internal class ImmutableListTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneImmutableList_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneImmutableList_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(

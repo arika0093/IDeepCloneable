@@ -11,8 +11,7 @@ internal class SortedSetTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneSortedSet_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneSortedSet_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(

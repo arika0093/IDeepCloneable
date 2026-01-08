@@ -11,8 +11,7 @@ internal class QueueTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneQueue_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneQueue_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(
