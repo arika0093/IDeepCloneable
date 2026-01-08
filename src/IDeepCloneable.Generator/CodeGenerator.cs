@@ -137,6 +137,17 @@ internal static class CodeGenerator
         return builder.ToString();
     }
 
+    /// <summary>
+    /// Determines whether to use 'with' syntax for cloning a record or value type.
+    /// </summary>
+    private static bool ShouldUseWithSyntax(ClassInfo classInfo)
+    {
+        // Always use 'with' for reference type records to create a new instance
+        // For value types, only use 'with' if there are mutable properties
+        var hasNonImmutableProps = classInfo.Properties.Any(p => p.NeedsDeepClone);
+        return hasNonImmutableProps || (classInfo.IsRecord && !classInfo.IsValueType);
+    }
+
     private static IndentedStringBuilder GenerateCloneInternalMethod(
         ClassInfo classInfo,
         EquatableArray<ClassInfo> allClassInfos,
@@ -166,12 +177,8 @@ internal static class CodeGenerator
 
         if (classInfo.IsRecord || classInfo.IsValueType)
         {
-            var hasNonImmutableProps = classInfo.Properties.Any(p => p.NeedsDeepClone);
-
-            if (hasNonImmutableProps || (classInfo.IsRecord && !classInfo.IsValueType))
+            if (ShouldUseWithSyntax(classInfo))
             {
-                // For records, always use 'with' to create a new instance
-                // For value types, only use 'with' if there are non-immutable properties
                 builder.AppendLine("            return original with");
                 builder.AppendLine("            {");
 
@@ -389,11 +396,15 @@ internal static class CodeGenerator
         else
         {
             // For mutable element types, we need to deep clone each element
-            // Multi-dimensional arrays are more complex, for now we'll use Clone() and note this limitation
-            // TODO: Implement proper deep cloning for multi-dimensional arrays with mutable elements
             if (arrayType.Contains(","))
             {
-                // Multi-dimensional array - for now just use Clone (shallow copy)
+                // Multi-dimensional array with mutable elements
+                // TODO: Implement proper deep cloning for multi-dimensional arrays with mutable elements
+                // For now, this limitation is documented - multi-dimensional arrays with mutable elements
+                // will be shallow copied. This is an edge case that can be improved in the future.
+                builder.AppendLine(
+                    $"            // WARNING: Multi-dimensional arrays with mutable elements are shallow copied"
+                );
                 builder.AppendLine(
                     $"            return (original.Clone() as {arrayType});"
                 );
