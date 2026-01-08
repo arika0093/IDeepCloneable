@@ -14,6 +14,16 @@ internal static class CodeGenerator
     {
         new ListTypeInfo(),
         new DictionaryTypeInfo(),
+        new HashSetTypeInfo(),
+        new SortedSetTypeInfo(),
+        new StackTypeInfo(),
+        new QueueTypeInfo(),
+        new ObservableCollectionTypeInfo(),
+        new ReadOnlyCollectionTypeInfo(),
+        new ImmutableListTypeInfo(),
+        new ImmutableArrayTypeInfo(),
+        new ImmutableHashSetTypeInfo(),
+        new ImmutableDictionaryTypeInfo(),
     };
 
     /// <summary>
@@ -329,7 +339,7 @@ internal static class CodeGenerator
         if (isImmutable)
         {
             builder.AppendLine(
-                $"            return (global::System.Array.Clone(original) as {arrayType});"
+                $"            return (original.Clone() as {arrayType});"
             );
         }
         else
@@ -379,26 +389,44 @@ internal static class CodeGenerator
         );
         builder.AppendLine($"{currentIndent}{{");
         builder.AppendLine($"{currentIndent}    /// <inheritdoc />");
-        builder.AppendLine(
-            $"{currentIndent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
-        );
-
+        
         var modifiers = "public";
         if (!classInfo.IsSealed && !classInfo.IsValueType)
         {
-            if (classInfo.BaseHasDeepClone)
+            if (classInfo.IsAbstract)
+                modifiers += " abstract";
+            else if (classInfo.BaseHasDeepClone)
                 modifiers += " override";
             else
                 modifiers += " virtual";
         }
 
         var sanitizedName = CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName);
-        builder.AppendLine(
-            $"""
-            {currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()
-            {currentIndent}        => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);"
-            """
-        );
+        
+        if (classInfo.IsAbstract)
+        {
+            // Abstract classes have abstract DeepClone method without implementation
+            builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone();");
+        }
+        else if (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection)
+        {
+            // Immutable value types can just return themselves
+            builder.AppendLine(
+                $"{currentIndent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+            );
+            builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()");
+            builder.AppendLine($"{currentIndent}        => this;");
+        }
+        else
+        {
+            // Concrete classes have MethodImpl attribute and call CloneInternal
+            builder.AppendLine(
+                $"{currentIndent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+            );
+            builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()");
+            builder.AppendLine($"{currentIndent}        => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
+        }
+        
         builder.AppendLine($"{currentIndent}}}");
 
         // Close containing type declarations

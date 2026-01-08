@@ -1,0 +1,60 @@
+using Microsoft.CodeAnalysis;
+
+namespace IDeepCloneable.Generator;
+
+/// <summary>
+/// Special type handler for HashSet&lt;T&gt; collections.
+/// </summary>
+internal class HashSetTypeInfo : SpecialTypeInfo
+{
+    public override string TargetTypeStartWith => "global::System.Collections.Generic.HashSet<";
+
+    public override string GetMethodName(string typeFullName)
+    {
+        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+        return "CloneHashSet_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+    }
+
+    public override IndentedStringBuilder GenerateCloneMethod(
+        string typeFullName,
+        string methodName,
+        EquatableArray<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
+    {
+        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+        var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
+
+        builder.AppendLine("");
+        builder.AppendLine(
+            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+        );
+        builder.AppendLine(
+            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+        );
+        builder.AppendLine(
+            $"        private static {typeFullName} {methodName}(this {typeFullName} original)"
+        );
+        builder.AppendLine("        {");
+        builder.AppendLine("            if (original == null) return null;");
+
+        if (isImmutable)
+        {
+            builder.AppendLine($"            return new {typeFullName}(original);");
+        }
+        else
+        {
+            builder.AppendLine($"            var hashSet = new {typeFullName}(original.Count);");
+            builder.AppendLine("            foreach (var item in original)");
+            builder.AppendLine("            {");
+            var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
+            builder.AppendLine($"                hashSet.Add({cloneCall});");
+            builder.AppendLine("            }");
+            builder.AppendLine("            return hashSet;");
+        }
+
+        builder.AppendLine("        }");
+
+        return builder;
+    }
+}
