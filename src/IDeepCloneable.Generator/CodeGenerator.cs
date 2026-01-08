@@ -21,7 +21,7 @@ internal record SpecialTypeInfo
     public required Func<string, string> GetMethodName { get; init; }
     
     /// <summary>Generates the clone method for this special type.</summary>
-    public required Func<string, string, EquatableArray<ClassInfo>, IndentedStringBuilder, string> GenerateCloneMethod { get; init; }
+    public required Action<string, string, EquatableArray<ClassInfo>, IndentedStringBuilder> GenerateCloneMethod { get; init; }
 }
 
 /// <summary>
@@ -39,7 +39,7 @@ internal static class CodeGenerator
             GenerateCloneMethod = (typeFullName, methodName, allClassInfos, builder) =>
             {
                 var innerType = ExtractGenericType(typeFullName);
-                return GenerateListCloneMethod(typeFullName, innerType, methodName, allClassInfos, builder);
+                GenerateListCloneMethod(typeFullName, innerType, methodName, allClassInfos, builder);
             }
         },
         // Dictionary<TKey, TValue>
@@ -294,7 +294,7 @@ internal static class CodeGenerator
         }
     }
 
-    private static string GenerateListCloneMethod(string listType, string innerType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
+    private static void GenerateListCloneMethod(string listType, string innerType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
     {
         var isImmutable = IsTypeImmutable(innerType);
 
@@ -321,22 +321,20 @@ internal static class CodeGenerator
         }
         
         builder.Append("        }");
-        
-        return string.Empty; // Return value not used
     }
 
-    private static string GenerateDictionaryCloneMethod(string dictType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
+    private static void GenerateDictionaryCloneMethod(string dictType, string methodName, EquatableArray<ClassInfo> allClassInfos, IndentedStringBuilder builder)
     {
         var startIndex = dictType.IndexOf('<');
         var endIndex = dictType.LastIndexOf('>');
         if (startIndex < 0 || endIndex <= startIndex)
-            return string.Empty;
+            return;
             
         var typeArgs = dictType.Substring(startIndex + 1, endIndex - startIndex - 1);
         var parts = SplitGenericArgs(typeArgs);
         
         if (parts.Count != 2)
-            return string.Empty;
+            return;
             
         var keyType = parts[0];
         var valueType = parts[1];
@@ -370,8 +368,6 @@ internal static class CodeGenerator
         }
         
         builder.Append("        }");
-
-        return string.Empty; // Return value not used
     }
 
     private static List<string> SplitGenericArgs(string args)
