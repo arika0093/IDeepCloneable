@@ -60,17 +60,30 @@ internal class TypeDiscovery
             if (_visitedTypes.Contains(fullName))
                 return;
 
-            // Skip system collection types - we don't generate CloneInternal for them
+            // Handle system collection types
             if (IsSystemCollectionType(fullName))
             {
-                // For collections, discover the element types
+                // Check if this collection contains reference types that need deep cloning
+                bool needsCollectionHelper = false;
                 if (namedType.TypeArguments.Length > 0)
                 {
                     foreach (var typeArg in namedType.TypeArguments)
                     {
+                        if (!IsValueOrImmutableType(typeArg))
+                        {
+                            needsCollectionHelper = true;
+                        }
                         DiscoverTypesFromSymbol(typeArg);
                     }
                 }
+                
+                // Register concrete collection type if it needs deep cloning
+                if (needsCollectionHelper)
+                {
+                    _visitedTypes.Add(fullName);
+                    _registry.RegisterType(namedType, false, true); // Mark as collection helper
+                }
+                
                 return;
             }
 

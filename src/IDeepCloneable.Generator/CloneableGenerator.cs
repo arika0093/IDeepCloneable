@@ -206,6 +206,17 @@ public class CloneableGenerator : IIncrementalGenerator
             // Generate code for each discovered type
             foreach (var typeInfo in registry.GetAllTypes())
             {
+                // Generate CloneInternal for collection helpers
+                if (typeInfo.IsCollectionHelper)
+                {
+                    var extensionMethod = GenerateCollectionCloneInternalHelper(typeInfo.Symbol, nameGenerator);
+                    if (extensionMethod != null)
+                    {
+                        extensionsSb.AppendLine(extensionMethod);
+                    }
+                    continue;
+                }
+                
                 var classInfo = GetClassInfoFromSymbol(typeInfo.Symbol, typeInfo.HasDeepCloneableAttribute);
                 if (classInfo != null)
                 {
@@ -661,6 +672,128 @@ public class CloneableGenerator : IIncrementalGenerator
             }
             
             sb.AppendLine("            return clone;");
+        }
+        
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        
+        return sb.ToString();
+    }
+    
+    /// <summary>
+    /// Generates a CloneInternal helper method for concrete collection types (e.g., List&lt;Dictionary&lt;string, SampleClass&gt;&gt;)
+    /// </summary>
+    private static string? GenerateCollectionCloneInternalHelper(INamedTypeSymbol collectionType, CloneInternalNameGenerator nameGenerator)
+    {
+        var fullTypeName = collectionType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var safeName = nameGenerator.GetSafeName(collectionType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", ""));
+        
+        var sb = new StringBuilder();
+        
+        // Add attributes
+        sb.AppendLine("        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        sb.AppendLine("        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
+        
+        // Always private for collection helpers
+        sb.AppendLine($"        private static {fullTypeName} {safeName}CloneInternal(this {fullTypeName} value)");
+        sb.AppendLine("        {");
+        
+        var originalTypeName = collectionType.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        
+        // List<T>
+        if (originalTypeName == "global::System.Collections.Generic.List<T>")
+        {
+            var elementType = collectionType.TypeArguments[0];
+            var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            
+            sb.AppendLine($"            var temp = new {fullTypeName}();");
+            sb.AppendLine($"""
+            #if NET8_0_OR_GREATER
+                        System.Runtime.InteropServices.CollectionsMarshal.SetCount(temp, value.Count);
+            #endif
+            """);
+            sb.AppendLine("            foreach (var item in value)");
+            sb.AppendLine("            {");
+            
+            var cloneStmt = GetItemCloneStatement(elementType, "item");
+            sb.AppendLine($"                temp.Add({cloneStmt});");
+            
+            sb.AppendLine("            }");
+            sb.AppendLine("            return temp;");
+        }
+        // Dictionary<TKey, TValue>
+        else if (originalTypeName == "global::System.Collections.Generic.Dictionary<TKey, TValue>")
+        {
+            var keyType = collectionType.TypeArguments[0];
+            var valueType = collectionType.TypeArguments[1];
+            var valueTypeName = valueType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            
+            sb.AppendLine($"            var temp = new {fullTypeName}();");
+            sb.AppendLine("            foreach (var kvp in value)");
+            sb.AppendLine("            {");
+            
+            var valueCloneStmt = GetItemCloneStatement(valueType, "kvp.Value");
+            sb.AppendLine($"                temp[kvp.Key] = {valueCloneStmt};");
+            
+            sb.AppendLine("            }");
+            sb.AppendLine("            return temp;");
+        }
+        // HashSet<T>
+        else if (originalTypeName == "global::System.Collections.Generic.HashSet<T>")
+        {
+            var elementType = collectionType.TypeArguments[0];
+            
+            sb.AppendLine($"            var temp = new {fullTypeName}();");
+            sb.AppendLine("            foreach (var item in value)");
+            sb.AppendLine("            {");
+            
+            var cloneStmt = GetItemCloneStatement(elementType, "item");
+            sb.AppendLine($"                temp.Add({cloneStmt});");
+            
+            sb.AppendLine("            }");
+            sb.AppendLine("            return temp;");
+        }
+        // Stack<T>
+        else if (originalTypeName == "global::System.Collections.Generic.Stack<T>")
+        {
+            var elementType = collectionType.TypeArguments[0];
+            var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            
+            sb.AppendLine($"            var tempList = new System.Collections.Generic.List<{elementTypeName}>();");
+            sb.AppendLine($"""
+            #if NET8_0_OR_GREATER
+                        System.Runtime.InteropServices.CollectionsMarshal.SetCount(tempList, value.Count);
+            #endif
+            """);
+            sb.AppendLine("            foreach (var item in value)");
+            sb.AppendLine("            {");
+            
+            var cloneStmt = GetItemCloneStatement(elementType, "item");
+            sb.AppendLine($"                tempList.Add({cloneStmt});");
+            
+            sb.AppendLine("            }");
+            sb.AppendLine("            tempList.Reverse();");
+            sb.AppendLine($"            return new {fullTypeName}(tempList);");
+        }
+        // Queue<T>
+        else if (originalTypeName == "global::System.Collections.Generic.Queue<T>")
+        {
+            var elementType = collectionType.TypeArguments[0];
+            
+            sb.AppendLine($"            var temp = new {fullTypeName}();");
+            sb.AppendLine("            foreach (var item in value)");
+            sb.AppendLine("            {");
+            
+            var cloneStmt = GetItemCloneStatement(elementType, "item");
+            sb.AppendLine($"                temp.Enqueue({cloneStmt});");
+            
+            sb.AppendLine("            }");
+            sb.AppendLine("            return temp;");
+        }
+        else
+        {
+            // Unsupported collection type, don't generate
+            return null;
         }
         
         sb.AppendLine("        }");

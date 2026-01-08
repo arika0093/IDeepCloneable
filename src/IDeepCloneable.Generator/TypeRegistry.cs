@@ -11,13 +11,13 @@ internal class TypeRegistry
 {
     private readonly Dictionary<string, TypeInfo> _types = new Dictionary<string, TypeInfo>();
 
-    public void RegisterType(INamedTypeSymbol typeSymbol, bool hasDeepCloneableAttribute)
+    public void RegisterType(INamedTypeSymbol typeSymbol, bool hasDeepCloneableAttribute, bool isCollectionHelper = false)
     {
         var fullName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
         
         if (!_types.ContainsKey(fullName))
         {
-            _types[fullName] = new TypeInfo(fullName, typeSymbol, hasDeepCloneableAttribute);
+            _types[fullName] = new TypeInfo(fullName, typeSymbol, hasDeepCloneableAttribute, isCollectionHelper);
         }
     }
 
@@ -40,5 +40,6 @@ internal class TypeRegistry
 internal record TypeInfo(
     string FullName,
     INamedTypeSymbol Symbol,
-    bool HasDeepCloneableAttribute
+    bool HasDeepCloneableAttribute,
+    bool IsCollectionHelper = false
 );
