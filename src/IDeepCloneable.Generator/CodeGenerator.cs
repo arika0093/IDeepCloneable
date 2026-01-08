@@ -100,13 +100,27 @@ internal static class CodeGenerator
         // Generate CloneInternal methods for each class
         // Even if all properties are immutable, we still need to clone reference types (classes)
         // Only skip truly immutable types (value types with immutable fields, strings, etc.)
-        // Also skip abstract classes (they can't be instantiated with 'new')
+        // Also skip abstract classes (they can't be instantiated)
+        // Also skip types that are handled by special type handlers
         foreach (var classInfo in classInfos)
         {
+            // Check if this type is handled by a special type handler
+            bool isSpecialType = false;
+            foreach (var specialTypeInfo in SpecialTypeInfos)
+            {
+                if (specialTypeInfo.IsMatch(classInfo.FullClassName))
+                {
+                    isSpecialType = true;
+                    break;
+                }
+            }
+            
             // Skip only if it's a value type AND all properties are immutable
             // Or if it's an abstract class (can't instantiate)
+            // Or if it's a special type (handled by special type handlers)
             var skipGeneration = (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection) 
-                               || classInfo.IsAbstract;
+                               || classInfo.IsAbstract
+                               || isSpecialType;
             
             if (!skipGeneration)
             {
@@ -154,8 +168,10 @@ internal static class CodeGenerator
         {
             var hasNonImmutableProps = classInfo.Properties.Any(p => p.NeedsDeepClone);
 
-            if (hasNonImmutableProps)
+            if (hasNonImmutableProps || (classInfo.IsRecord && !classInfo.IsValueType))
             {
+                // For records, always use 'with' to create a new instance
+                // For value types, only use 'with' if there are non-immutable properties
                 builder.AppendLine("            return original with");
                 builder.AppendLine("            {");
 
@@ -172,6 +188,7 @@ internal static class CodeGenerator
             }
             else
             {
+                // Only return original for immutable value types
                 builder.AppendLine("            return original;");
             }
         }

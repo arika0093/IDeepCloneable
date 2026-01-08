@@ -11,8 +11,7 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneImmutableHashSet_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneImmutableHashSet_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(

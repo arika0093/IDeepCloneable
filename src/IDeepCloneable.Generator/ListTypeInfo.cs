@@ -11,8 +11,8 @@ internal class ListTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneList_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        // Use the full type name for the method name, not just the inner type
+        return "CloneList_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(

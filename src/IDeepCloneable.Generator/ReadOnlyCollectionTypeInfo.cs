@@ -11,8 +11,7 @@ internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneReadOnlyCollection_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneReadOnlyCollection_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(

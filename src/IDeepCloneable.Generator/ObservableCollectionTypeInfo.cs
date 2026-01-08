@@ -11,8 +11,7 @@ internal class ObservableCollectionTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneObservableCollection_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneObservableCollection_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(

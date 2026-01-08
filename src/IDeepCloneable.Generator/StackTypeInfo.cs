@@ -11,8 +11,7 @@ internal class StackTypeInfo : SpecialTypeInfo
 
     public override string GetMethodName(string typeFullName)
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        return "CloneStack_" + CodeGenerationUtility.SanitizeTypeName(innerType);
+        return "CloneStack_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(
@@ -38,14 +37,19 @@ internal class StackTypeInfo : SpecialTypeInfo
         builder.AppendLine("        {");
         builder.AppendLine("            if (original == null) return null;");
 
+        // Stack needs to preserve order, so we use ToArray() then pass to constructor
+        // ToArray() returns items in the order they would be popped (LIFO)
+        // The Stack constructor pushes items in the order they appear in the enumerable
+        // So we need to reverse to maintain the original order
+        builder.AppendLine($"            var array = original.ToArray();");
+        builder.AppendLine($"            global::System.Array.Reverse(array);");
+        
         if (isImmutable)
         {
-            builder.AppendLine($"            return new {typeFullName}(original);");
+            builder.AppendLine($"            return new {typeFullName}(array);");
         }
         else
         {
-            // Stack needs to preserve order, so we need to reverse or use an intermediate array
-            builder.AppendLine($"            var array = original.ToArray();");
             builder.AppendLine($"            var stack = new {typeFullName}(array.Length);");
             builder.AppendLine("            for (int i = 0; i < array.Length; i++)");
             builder.AppendLine("            {");

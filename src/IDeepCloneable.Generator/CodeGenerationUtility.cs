@@ -108,7 +108,19 @@ internal static class CodeGenerationUtility
         if (startIndex < 0 || endIndex <= startIndex)
             return fullTypeName;
         
-        return fullTypeName.Substring(startIndex + 1, endIndex - startIndex - 1);
+        var innerType = fullTypeName.Substring(startIndex + 1, endIndex - startIndex - 1);
+        
+        // If the inner type is a known type that should have the global:: prefix, add it
+        if (innerType.StartsWith("System.Collections", StringComparison.Ordinal) ||
+            innerType.StartsWith("System.Linq", StringComparison.Ordinal))
+        {
+            if (!innerType.StartsWith("global::", StringComparison.Ordinal))
+            {
+                innerType = "global::" + innerType;
+            }
+        }
+        
+        return innerType;
     }
 
     /// <summary>
