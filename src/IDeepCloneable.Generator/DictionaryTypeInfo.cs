@@ -1,0 +1,69 @@
+using Microsoft.CodeAnalysis;
+
+namespace IDeepCloneable.Generator;
+
+/// <summary>
+/// Special type handler for Dictionary&lt;TKey, TValue&gt; collections.
+/// </summary>
+internal class DictionaryTypeInfo : SpecialTypeInfo
+{
+    public override string TargetTypeStartWith => "global::System.Collections.Generic.Dictionary<";
+    
+    public override string GetMethodName(string typeFullName)
+    {
+        return "CloneDictionary_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
+    }
+    
+    public override IndentedStringBuilder GenerateCloneMethod(
+        string typeFullName, 
+        string methodName, 
+        EquatableArray<ClassInfo> allClassInfos, 
+        IndentedStringBuilder builder)
+    {
+        var startIndex = typeFullName.IndexOf('<');
+        var endIndex = typeFullName.LastIndexOf('>');
+        if (startIndex < 0 || endIndex <= startIndex)
+            return builder;
+            
+        var typeArgs = typeFullName.Substring(startIndex + 1, endIndex - startIndex - 1);
+        var parts = CodeGenerationUtility.SplitGenericArgs(typeArgs);
+        
+        if (parts.Count != 2)
+            return builder;
+            
+        var keyType = parts[0];
+        var valueType = parts[1];
+        
+        var keyIsImmutable = CodeGenerationUtility.IsTypeImmutable(keyType);
+        var valueIsImmutable = CodeGenerationUtility.IsTypeImmutable(valueType);
+
+        builder.Append("");
+        builder.Append($"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        builder.Append($"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
+        builder.Append($"        private static {typeFullName} {methodName}(this {typeFullName} original)");
+        builder.Append("        {");
+        builder.Append("            if (original == null) return null;");
+        
+        if (keyIsImmutable && valueIsImmutable)
+        {
+            builder.Append($"            return new {typeFullName}(original);");
+        }
+        else
+        {
+            builder.Append($"            var dict = new {typeFullName}(original.Count);");
+            builder.Append("            foreach (var kvp in original)");
+            builder.Append("            {");
+            
+            var keyClone = keyIsImmutable ? "kvp.Key" : CodeGenerator.GenerateTypeCloneCall(keyType, "kvp.Key", allClassInfos);
+            var valueClone = valueIsImmutable ? "kvp.Value" : CodeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
+            
+            builder.Append($"                dict.Add({keyClone}, {valueClone});");
+            builder.Append("            }");
+            builder.Append("            return dict;");
+        }
+        
+        builder.Append("        }");
+
+        return builder;
+    }
+}
