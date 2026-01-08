@@ -1,24 +1,32 @@
 using System;
+using System.Text;
 
 /// <summary>
 /// Utility class for efficiently building indented strings.
 /// </summary>
 /// <param name="IndentLevel">Initial indent level (0 or greater).</param>
-public class IndentedStringBuilder(int IndentLevel = 0)
+/// <remarks>Initializes a new instance of the <see cref="IndentedStringBuilder"/> class with an existing StringBuilder.</remarks>
+public class IndentedStringBuilder(StringBuilder stringBuilder, int indentLevel = 0)
 {
-    private readonly System.Text.StringBuilder _builder = new();
+    /// <summary>Initializes a new instance of the <see cref="IndentedStringBuilder"/> class.</summary>
+    public IndentedStringBuilder(int indentLevel = 0) : this(new StringBuilder(), indentLevel)
+    {
+    }
 
     /// <summary>Number of spaces per indent level.</summary>
     public const int IndentSize = 4;
+
+    /// <summary>Current indent level (0 or greater).</summary>
+    public int IndentLevel { get; init; } = indentLevel;
 
     /// <summary>Returns a string of spaces representing the current indent.</summary>
     public string Indent => new(' ', IndentLevel * IndentSize);
 
     /// <summary>Returns a new builder with the indent level increased by one.</summary>
-    public IndentedStringBuilder IncreaseIndent() => new(IndentLevel + 1);
+    public IndentedStringBuilder IncreaseIndent() => new(stringBuilder, IndentLevel + 1);
 
     /// <summary>Returns a new builder with the indent level decreased by one (not below zero).</summary>
-    public IndentedStringBuilder DecreaseIndent() => new(Math.Max(0, IndentLevel - 1));
+    public IndentedStringBuilder DecreaseIndent() => new(stringBuilder, Math.Max(0, IndentLevel - 1));
 
     /// <summary>
     /// Appends the specified text with the current indent. Newlines in the text are handled per line.
@@ -29,7 +37,7 @@ public class IndentedStringBuilder(int IndentLevel = 0)
         var lines = text.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
         foreach (var line in lines)
         {
-            _builder.AppendLine(Indent + line);
+            stringBuilder.AppendLine(Indent + line);
         }
     }
 
@@ -38,5 +46,5 @@ public class IndentedStringBuilder(int IndentLevel = 0)
     public void AppendLine(IndentedStringBuilder builder) => AppendLine(builder.ToString());
 
     /// <summary>Returns the current contents of the builder as a string.</summary>
-    public override string ToString() => _builder.ToString();
+    public override string ToString() => stringBuilder.ToString();
 }
