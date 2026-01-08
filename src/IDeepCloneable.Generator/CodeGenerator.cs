@@ -106,7 +106,7 @@ internal static class CodeGenerator
         builder.Append(GenerateFileHeader());
         builder.Append("namespace IDeepCloneable.Generator");
         builder.Append("{");
-        builder.Append("    [EditorBrowsable(EditorBrowsableState.Never)]");
+        builder.Append("    [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
         builder.Append("    internal static partial class DeepCloneExtensions");
         builder.Append("    {");
         
@@ -297,20 +297,11 @@ internal static class CodeGenerator
         else
         {
             builder.Append($"            var list = new {listType}(original.Count);");
-            builder.Append("#if NET8_0_OR_GREATER");
-            builder.Append("            global::System.Runtime.InteropServices.CollectionMarshal.SetCount(list, original.Count);");
-            builder.Append("            for (int i = 0; i < original.Count; i++)");
-            builder.Append("            {");
-            var cloneCall = GenerateTypeCloneCall(innerType, "original[i]", allClassInfos);
-            builder.Append($"                list[i] = {cloneCall};");
-            builder.Append("            }");
-            builder.Append("#else");
             builder.Append("            foreach (var item in original)");
             builder.Append("            {");
-            cloneCall = GenerateTypeCloneCall(innerType, "item", allClassInfos);
+            var cloneCall = GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.Append($"                list.Add({cloneCall});");
             builder.Append("            }");
-            builder.Append("#endif");
             builder.Append("            return list;");
         }
         
