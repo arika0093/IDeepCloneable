@@ -238,15 +238,10 @@ internal static class TypeAnalyzer
     
     private static void ExtractChildTypes(ITypeSymbol typeSymbol, List<INamedTypeSymbol> childTypes)
     {
-        // Handle nullable reference types (T?)
-        var actualType = typeSymbol.NullableAnnotation == NullableAnnotation.Annotated && typeSymbol is INamedTypeSymbol
-            ? typeSymbol
-            : typeSymbol;
-        
         // Handle generic types (List<T>, Dictionary<TKey, TValue>, etc.)
-        if (actualType is INamedTypeSymbol namedType && namedType.IsGenericType)
+        if (typeSymbol is INamedTypeSymbol namedType && namedType.IsGenericType)
         {
-            // Add type arguments
+            // Add all type arguments
             foreach (var typeArg in namedType.TypeArguments)
             {
                 if (typeArg is INamedTypeSymbol argNamedType && !IsImmutableType(typeArg))
@@ -256,7 +251,7 @@ internal static class TypeAnalyzer
             }
         }
         // Handle arrays
-        else if (actualType is IArrayTypeSymbol arrayType)
+        else if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             if (arrayType.ElementType is INamedTypeSymbol elementType && !IsImmutableType(arrayType.ElementType))
             {
@@ -264,7 +259,8 @@ internal static class TypeAnalyzer
             }
         }
         // Handle regular types (including nullable reference types)
-        else if (actualType is INamedTypeSymbol regularType && !IsImmutableType(actualType))
+        // For nullable reference types (ContactInfo?), the type symbol is still ContactInfo
+        else if (typeSymbol is INamedTypeSymbol regularType && !IsImmutableType(typeSymbol))
         {
             childTypes.Add(regularType);
         }
