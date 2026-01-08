@@ -192,6 +192,17 @@ public class CloneableGenerator : IIncrementalGenerator
 
         try
         {
+            // Build single file for all CloneInternal extensions
+            var extensionsSb = new StringBuilder();
+            extensionsSb.AppendLine(OutputFileHeaderParts);
+            extensionsSb.AppendLine("using System.Runtime.InteropServices;");
+            extensionsSb.AppendLine();
+            extensionsSb.AppendLine("namespace IDeepCloneable.Extensions");
+            extensionsSb.AppendLine("{");
+            extensionsSb.AppendLine("    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
+            extensionsSb.AppendLine("    internal static partial class DeepCloneExtensions");
+            extensionsSb.AppendLine("    {");
+            
             // Generate code for each discovered type
             foreach (var typeInfo in registry.GetAllTypes())
             {
@@ -218,15 +229,18 @@ public class CloneableGenerator : IIncrementalGenerator
                     // Generate CloneInternal extension method for all types (if not abstract)
                     if (!classInfo.IsAbstract)
                     {
-                        var extensionSource = GenerateCloneInternalExtension(classInfo, typeInfo.Symbol, nameGenerator);
-                        
-                        // Create unique hint name using full type name
-                        var safeName = nameGenerator.GetSafeName(classInfo.FullName);
-                        var extensionHintName = safeName + ".CloneInternal.g.cs";
-                        context.AddSource(extensionHintName, SourceText.From(extensionSource, Encoding.UTF8));
+                        var extensionMethod = GenerateCloneInternalExtensionMethod(classInfo, typeInfo.Symbol, nameGenerator, typeInfo.HasDeepCloneableAttribute);
+                        extensionsSb.AppendLine(extensionMethod);
                     }
                 }
             }
+            
+            // Close the class and namespace
+            extensionsSb.AppendLine("    }");
+            extensionsSb.AppendLine("}");
+            
+            // Add single file with all extensions
+            context.AddSource("DeepCloneExtensions.g.cs", SourceText.From(extensionsSb.ToString(), Encoding.UTF8));
         }
         finally
         {
@@ -582,20 +596,20 @@ public class CloneableGenerator : IIncrementalGenerator
             .Replace(":", "_");
     }
 
-    private static string GenerateCloneInternalExtension(ClassInfo classInfo, INamedTypeSymbol classSymbol, CloneInternalNameGenerator nameGenerator)
+    private static string GenerateCloneInternalExtensionMethod(ClassInfo classInfo, INamedTypeSymbol classSymbol, CloneInternalNameGenerator nameGenerator, bool hasDeepCloneableAttribute)
     {
         var fullTypeName = classSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var safeName = GenerateSafeName(classInfo.FullName);
         
         var sb = new StringBuilder();
         
-        // Header
-        sb.AppendLine(OutputFileHeaderParts);
-        sb.AppendLine("namespace IDeepCloneable.Extensions");
-        sb.AppendLine("{");
-        sb.AppendLine("    internal static partial class DeepCloneExtensions");
-        sb.AppendLine("    {");
-        sb.AppendLine($"        internal static {fullTypeName} {safeName}CloneInternal(this {fullTypeName} value)");
+        // Add attributes
+        sb.AppendLine("        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        sb.AppendLine("        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
+        
+        // Internal if called from DeepClone, otherwise private
+        var accessibility = hasDeepCloneableAttribute ? "internal" : "private";
+        sb.AppendLine($"        {accessibility} static {fullTypeName} {safeName}CloneInternal(this {fullTypeName} value)");
         sb.AppendLine("        {");
         
         // Generate cloning logic based on type characteristics
@@ -650,8 +664,7 @@ public class CloneableGenerator : IIncrementalGenerator
         }
         
         sb.AppendLine("        }");
-        sb.AppendLine("    }");
-        sb.AppendLine("}");
+        sb.AppendLine();
         
         return sb.ToString();
     }
@@ -1014,12 +1027,16 @@ public class CloneableGenerator : IIncrementalGenerator
         
         // SortedSet, ObservableCollection, List, and others - similar pattern
         string collectionTypeName = null;
+        bool isList = false;
         if (typeName == "global::System.Collections.Generic.SortedSet<T>")
             collectionTypeName = $"System.Collections.Generic.SortedSet<{elementTypeName}>";
         else if (typeName == "global::System.Collections.ObjectModel.ObservableCollection<T>")
             collectionTypeName = $"System.Collections.ObjectModel.ObservableCollection<{elementTypeName}>";
         else if (typeName.StartsWith("global::System.Collections.Generic.List<"))
+        {
             collectionTypeName = $"System.Collections.Generic.List<{elementTypeName}>";
+            isList = true;
+        }
         
         if (collectionTypeName != null)
         {
@@ -1028,11 +1045,24 @@ public class CloneableGenerator : IIncrementalGenerator
                 sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new {collectionTypeName}();");
                 if (isCloneable)
                 {
-                    sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
-                    sb.AppendLine($"{tempIndent}{{");
-                    var cloneStmt = GetItemCloneStatement(elementType, "item");
-                    sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add({cloneStmt});");
-                    sb.AppendLine($"{tempIndent}}}");
+                    // For List, use CollectionsMarshal.SetCount for performance
+                    if (isList)
+                    {
+                        sb.AppendLine($"{tempIndent}System.Runtime.InteropServices.CollectionsMarshal.SetCount({targetVar}.{propertyName}, {sourceVar}.{propertyName}.Count);");
+                        sb.AppendLine($"{tempIndent}for (int i = 0; i < {sourceVar}.{propertyName}.Count; i++)");
+                        sb.AppendLine($"{tempIndent}{{");
+                        var cloneStmt = GetItemCloneStatement(elementType, $"{sourceVar}.{propertyName}[i]");
+                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}[i] = {cloneStmt};");
+                        sb.AppendLine($"{tempIndent}}}");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"{tempIndent}foreach (var item in {sourceVar}.{propertyName})");
+                        sb.AppendLine($"{tempIndent}{{");
+                        var cloneStmt = GetItemCloneStatement(elementType, "item");
+                        sb.AppendLine($"{tempIndent}    {targetVar}.{propertyName}.Add({cloneStmt});");
+                        sb.AppendLine($"{tempIndent}}}");
+                    }
                 }
                 else if (elementType is INamedTypeSymbol elementNamedType && IsCollectionType(elementNamedType))
                 {
