@@ -177,10 +177,13 @@ internal static class TypeAnalyzer
                 break;
             }
             
-            // Check for manual DeepClone method implementation
+            // Check for manual DeepClone method implementation  
+            // Must have no parameters and return a compatible type
             if (current.GetMembers("DeepClone")
                 .OfType<IMethodSymbol>()
-                .Any(m => m.Parameters.Length == 0))
+                .Any(m => m.Parameters.Length == 0 && 
+                         (m.ReturnType.Equals(current, SymbolEqualityComparer.Default) || 
+                          SymbolEqualityComparer.Default.Equals(m.ReturnType.OriginalDefinition, current.OriginalDefinition))))
             {
                 baseHasDeepClone = true;
                 break;
@@ -299,11 +302,22 @@ internal static class TypeAnalyzer
 
     private static string GetFullTypeName(ITypeSymbol typeSymbol)
     {
-        // Handle array types specially
+        // Handle array types specially (including multi-dimensional and jagged)
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementTypeName = GetFullTypeName(arrayType.ElementType);
-            return $"{elementTypeName}[]";
+            
+            // Handle multi-dimensional arrays
+            if (arrayType.Rank == 1)
+            {
+                return $"{elementTypeName}[]";
+            }
+            else
+            {
+                // For multi-dimensional arrays like int[,] or int[,,]
+                var commas = new string(',', arrayType.Rank - 1);
+                return $"{elementTypeName}[{commas}]";
+            }
         }
         
         // For primitive types, use the CLR type name instead of the C# keyword
