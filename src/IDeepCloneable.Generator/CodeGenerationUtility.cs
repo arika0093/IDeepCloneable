@@ -17,12 +17,14 @@ internal static class CodeGenerationUtility
         var result = typeName;
         if (result.Contains("[,"))
         {
-            // Count the number of dimensions
-            var match = System.Text.RegularExpressions.Regex.Match(result, @"\[(,*)\]");
-            if (match.Success)
+            // Count dimensions by counting commas and adding 1
+            var bracketStart = result.IndexOf('[');
+            var bracketEnd = result.IndexOf(']', bracketStart);
+            if (bracketStart >= 0 && bracketEnd > bracketStart)
             {
-                var dimensions = match.Groups[1].Value.Length + 1;
-                result = result.Replace(match.Value, $"_Array{dimensions}D");
+                var bracketContent = result.Substring(bracketStart + 1, bracketEnd - bracketStart - 1);
+                var dimensions = bracketContent.Count(c => c == ',') + 1;
+                result = result.Substring(0, bracketStart) + $"_Array{dimensions}D" + result.Substring(bracketEnd + 1);
             }
         }
         
