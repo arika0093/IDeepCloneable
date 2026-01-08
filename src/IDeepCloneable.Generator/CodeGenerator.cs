@@ -394,7 +394,10 @@ internal static class CodeGenerator
 
         var sanitizedName = CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName);
         builder.AppendLine(
-            $"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone() => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);"
+            $"""
+            {currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()
+            {currentIndent}        => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);"
+            """
         );
         builder.AppendLine($"{currentIndent}}}");
 
