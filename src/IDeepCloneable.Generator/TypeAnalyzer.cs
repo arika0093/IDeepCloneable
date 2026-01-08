@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -59,6 +60,17 @@ internal static class TypeAnalyzer
                             {
                                 typesToProcess.Enqueue(childType);
                             }
+                            
+                            // For Dictionary types, also process the key type
+                            if (prop.TypeFullName.Contains("System.Collections.Generic.Dictionary<"))
+                            {
+                                var keyTypeName = ExtractDictionaryKeyType(prop.TypeFullName);
+                                var keyType = FindTypeByFullName(context.SemanticModel.Compilation, keyTypeName);
+                                if (keyType != null && !processedTypes.Contains(GetFullTypeName(keyType)))
+                                {
+                                    typesToProcess.Enqueue(keyType);
+                                }
+                            }
                         }
                     }
                 }
@@ -74,22 +86,36 @@ internal static class TypeAnalyzer
     
     private static string ExtractBaseTypeName(string typeFullName)
     {
-        if (typeFullName.Contains("System.Collections.Generic.List<"))
+        // Remove nullable marker if present
+        var cleanTypeName = typeFullName.TrimEnd('?');
+        
+        if (cleanTypeName.Contains("System.Collections.Generic.List<"))
         {
-            return ExtractGenericArgument(typeFullName, 0);
+            return ExtractGenericArgument(cleanTypeName, 0);
         }
         
-        if (typeFullName.Contains("System.Collections.Generic.Dictionary<"))
+        if (cleanTypeName.Contains("System.Collections.Generic.Dictionary<"))
         {
-            return ExtractGenericArgument(typeFullName, 1);
+            // For dictionary, extract the value type (index 1)
+            return ExtractGenericArgument(cleanTypeName, 1);
         }
         
-        if (typeFullName.EndsWith("[]"))
+        if (cleanTypeName.EndsWith("[]"))
         {
-            return typeFullName.Substring(0, typeFullName.Length - 2);
+            return cleanTypeName.Substring(0, cleanTypeName.Length - 2);
         }
         
-        return typeFullName;
+        return cleanTypeName;
+    }
+    
+    private static string ExtractDictionaryKeyType(string typeFullName)
+    {
+        var cleanTypeName = typeFullName.TrimEnd('?');
+        if (cleanTypeName.Contains("System.Collections.Generic.Dictionary<"))
+        {
+            return ExtractGenericArgument(cleanTypeName, 0);
+        }
+        return cleanTypeName;
     }
     
     private static string ExtractGenericArgument(string typeFullName, int index)
@@ -99,10 +125,43 @@ internal static class TypeAnalyzer
         if (startIndex >= 0 && endIndex > startIndex)
         {
             var args = typeFullName.Substring(startIndex + 1, endIndex - startIndex - 1);
-            var parts = args.Split(',');
-            if (index < parts.Length)
+            
+            // Handle nested generics by splitting carefully
+            var parts = new List<string>();
+            var depth = 0;
+            var current = new StringBuilder();
+            
+            foreach (var c in args)
             {
-                return parts[index].Trim();
+                if (c == '<')
+                {
+                    depth++;
+                    current.Append(c);
+                }
+                else if (c == '>')
+                {
+                    depth--;
+                    current.Append(c);
+                }
+                else if (c == ',' && depth == 0)
+                {
+                    parts.Add(current.ToString().Trim().TrimEnd('?'));
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+            
+            if (current.Length > 0)
+            {
+                parts.Add(current.ToString().Trim().TrimEnd('?'));
+            }
+            
+            if (index < parts.Count)
+            {
+                return parts[index];
             }
         }
         return typeFullName;
@@ -247,7 +306,7 @@ internal static class TypeAnalyzer
 
     private static INamedTypeSymbol? FindTypeByFullName(Compilation compilation, string fullTypeName)
     {
-        var typeName = fullTypeName.Replace("global::", "");
+        var typeName = fullTypeName.Replace("global::", "").TrimEnd('?');
         
         var type = compilation.GetTypeByMetadataName(typeName);
         if (type != null)
@@ -266,7 +325,7 @@ internal static class TypeAnalyzer
                 var symbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
                 if (symbol != null)
                 {
-                    var symbolFullName = GetFullTypeName(symbol).Replace("global::", "");
+                    var symbolFullName = GetFullTypeName(symbol).Replace("global::", "").TrimEnd('?');
                     if (symbolFullName == typeName)
                     {
                         return symbol;
