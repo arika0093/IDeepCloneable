@@ -259,6 +259,10 @@ public partial class CloneableGenerator
 
     private static bool IsImmutableType(ITypeSymbol typeSymbol)
     {
+        // Enums are immutable
+        if (typeSymbol.TypeKind == TypeKind.Enum)
+            return true;
+
         // Value types are immutable by default (excluding structs with mutable fields)
         if (typeSymbol.IsValueType && typeSymbol.SpecialType != SpecialType.None)
             return true;
@@ -310,7 +314,37 @@ public partial class CloneableGenerator
 
     private static INamedTypeSymbol? FindTypeByFullName(Compilation compilation, string fullTypeName)
     {
+        // Remove global:: prefix
         var typeName = fullTypeName.Replace("global::", "");
-        return compilation.GetTypeByMetadataName(typeName);
+        
+        // Try to get the type by metadata name
+        var type = compilation.GetTypeByMetadataName(typeName);
+        if (type != null)
+            return type;
+        
+        // For types in the current assembly, search through all syntax trees
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var model = compilation.GetSemanticModel(tree);
+            var root = tree.GetRoot();
+            
+            var classDeclarations = root.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.BaseTypeDeclarationSyntax>();
+            
+            foreach (var classDecl in classDeclarations)
+            {
+                var symbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
+                if (symbol != null)
+                {
+                    var symbolFullName = GetFullTypeName(symbol).Replace("global::", "");
+                    if (symbolFullName == typeName)
+                    {
+                        return symbol;
+                    }
+                }
+            }
+        }
+        
+        return null;
     }
 }
