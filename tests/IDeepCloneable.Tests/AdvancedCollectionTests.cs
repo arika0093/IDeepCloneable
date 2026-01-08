@@ -85,7 +85,7 @@ public class AdvancedCollectionTests
         clone.Items.ShouldNotBeNull();
         clone.Items.ShouldNotBeSameAs(original.Items);
         clone.Items.Count.ShouldBe(5);
-        clone.Items.ToArray().ShouldBe(new[] { 1, 3, 4, 5, 9 });
+        clone.Items.ToArray().ShouldBe([1, 3, 4, 5, 9]);
     }
 
     [Fact]

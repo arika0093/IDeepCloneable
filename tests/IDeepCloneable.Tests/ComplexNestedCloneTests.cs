@@ -18,12 +18,12 @@ public class ComplexNestedCloneTests
             Name = "Root",
             Items = new List<List<List<int>>>
             {
-                new List<List<int>>
+                new()
                 {
                     new List<int> { 1, 2, 3 },
                     new List<int> { 4, 5, 6 },
                 },
-                new List<List<int>>
+                new()
                 {
                     new List<int> { 7, 8, 9 },
                     new List<int> { 10, 11, 12 },
@@ -97,22 +97,22 @@ public class ComplexNestedCloneTests
             Name = "Root",
             Items = new List<ItemWithNestedData>
             {
-                new ItemWithNestedData
+                new()
                 {
                     Id = "Item1",
                     SubItems = new List<SubItem>
                     {
-                        new SubItem { Value = "Sub1-1", Data = 10 },
-                        new SubItem { Value = "Sub1-2", Data = 20 },
+                        new() { Value = "Sub1-1", Data = 10 },
+                        new() { Value = "Sub1-2", Data = 20 },
                     },
                 },
-                new ItemWithNestedData
+                new()
                 {
                     Id = "Item2",
                     SubItems = new List<SubItem>
                     {
-                        new SubItem { Value = "Sub2-1", Data = 30 },
-                        new SubItem { Value = "Sub2-2", Data = 40 },
+                        new() { Value = "Sub2-1", Data = 30 },
+                        new() { Value = "Sub2-2", Data = 40 },
                     },
                 },
             },
@@ -148,12 +148,12 @@ public class ComplexNestedCloneTests
             Name = "Container",
             Groups = new List<List<SimpleCloneableItem>>
             {
-                new List<SimpleCloneableItem>
+                new()
                 {
                     new SimpleCloneableItem { Id = 1, Name = "Item1-1" },
                     new SimpleCloneableItem { Id = 2, Name = "Item1-2" },
                 },
-                new List<SimpleCloneableItem>
+                new()
                 {
                     new SimpleCloneableItem { Id = 3, Name = "Item2-1" },
                     new SimpleCloneableItem { Id = 4, Name = "Item2-2" },
@@ -194,8 +194,8 @@ public class ComplexNestedCloneTests
                     {
                         Items = new List<SimpleCloneableItem>
                         {
-                            new SimpleCloneableItem { Id = 1, Name = "Item1" },
-                            new SimpleCloneableItem { Id = 2, Name = "Item2" },
+                            new() { Id = 1, Name = "Item1" },
+                            new() { Id = 2, Name = "Item2" },
                         },
                     }
                 },
@@ -205,8 +205,8 @@ public class ComplexNestedCloneTests
                     {
                         Items = new List<SimpleCloneableItem>
                         {
-                            new SimpleCloneableItem { Id = 3, Name = "Item3" },
-                            new SimpleCloneableItem { Id = 4, Name = "Item4" },
+                            new() { Id = 3, Name = "Item3" },
+                            new() { Id = 4, Name = "Item4" },
                         },
                     }
                 },
@@ -286,13 +286,13 @@ public class ComplexNestedCloneTests
             Name = "Root",
             Items = new List<ItemWithNestedData>
             {
-                new ItemWithNestedData { Id = "Item1", SubItems = null },
-                new ItemWithNestedData
+                new() { Id = "Item1", SubItems = null },
+                new()
                 {
                     Id = "Item2",
                     SubItems = new List<SubItem>
                     {
-                        new SubItem { Value = "Sub2-1", Data = 30 },
+                        new() { Value = "Sub2-1", Data = 30 },
                     },
                 },
             },

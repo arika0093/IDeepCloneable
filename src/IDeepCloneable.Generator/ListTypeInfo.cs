@@ -8,46 +8,53 @@ namespace IDeepCloneable.Generator;
 internal class ListTypeInfo : SpecialTypeInfo
 {
     public override string TargetTypeStartWith => "global::System.Collections.Generic.List<";
-    
+
     public override string GetMethodName(string typeFullName)
     {
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
         return "CloneList_" + CodeGenerationUtility.SanitizeTypeName(innerType);
     }
-    
+
     public override IndentedStringBuilder GenerateCloneMethod(
-        string typeFullName, 
-        string methodName, 
-        EquatableArray<ClassInfo> allClassInfos, 
-        IndentedStringBuilder builder)
+        string typeFullName,
+        string methodName,
+        EquatableArray<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
     {
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
-        builder.Append("");
-        builder.Append($"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
-        builder.Append($"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
-        builder.Append($"        private static {typeFullName} {methodName}(this {typeFullName} original)");
-        builder.Append("        {");
-        builder.Append("            if (original == null) return null;");
-        
+        builder.AppendLine("");
+        builder.AppendLine(
+            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+        );
+        builder.AppendLine(
+            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+        );
+        builder.AppendLine(
+            $"        private static {typeFullName} {methodName}(this {typeFullName} original)"
+        );
+        builder.AppendLine("        {");
+        builder.AppendLine("            if (original == null) return null;");
+
         if (isImmutable)
         {
-            builder.Append($"            return new {typeFullName}(original);");
+            builder.AppendLine($"            return new {typeFullName}(original);");
         }
         else
         {
-            builder.Append($"            var list = new {typeFullName}(original.Count);");
-            builder.Append("            foreach (var item in original)");
-            builder.Append("            {");
+            builder.AppendLine($"            var list = new {typeFullName}(original.Count);");
+            builder.AppendLine("            foreach (var item in original)");
+            builder.AppendLine("            {");
             var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
-            builder.Append($"                list.Add({cloneCall});");
-            builder.Append("            }");
-            builder.Append("            return list;");
+            builder.AppendLine($"                list.Add({cloneCall});");
+            builder.AppendLine("            }");
+            builder.AppendLine("            return list;");
         }
-        
-        builder.Append("        }");
-        
+
+        builder.AppendLine("        }");
+
         return builder;
     }
 }

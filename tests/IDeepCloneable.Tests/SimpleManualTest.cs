@@ -18,7 +18,7 @@ public class SimpleManualTest
             Name = "Root",
             Items = new List<List<List<int>>>
             {
-                new List<List<int>>
+                new()
                 {
                     new List<int> { 1, 2, 3 },
                     new List<int> { 4, 5, 6 },

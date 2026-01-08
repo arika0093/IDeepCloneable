@@ -16,8 +16,8 @@ public class CollectionCloneTests
             Name = "Parent",
             Items = new List<NestedClass>
             {
-                new NestedClass { Value = "Item1" },
-                new NestedClass { Value = "Item2" },
+                new() { Value = "Item1" },
+                new() { Value = "Item2" },
             },
         };
 
@@ -39,7 +39,7 @@ public class CollectionCloneTests
         var original = new ClassWithList
         {
             Name = "Parent",
-            Items = new List<NestedClass> { new NestedClass { Value = "Original" } },
+            Items = new List<NestedClass> { new() { Value = "Original" } },
         };
 
         var clone = original.DeepClone();
