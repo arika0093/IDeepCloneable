@@ -1,3 +1,5 @@
+using System;
+
 /// <summary>
 /// Utility class for efficiently building indented strings.
 /// </summary>
@@ -26,7 +28,7 @@ public class IndentedStringBuilder(int IndentLevel = 0)
     /// <param name="text">The text to append (may contain multiple lines).</param>
     public void Append(string text)
     {
-        var lines = text.Split(new[] { "\r\n", "\r", "\n" });
+        var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
         foreach (var line in lines)
         {
             _builder.AppendLine(Indent + line);
