@@ -732,22 +732,14 @@ public class CloneableGenerator : IIncrementalGenerator
             sb.AppendLine($"            var temp = new {fullTypeName}();");
             sb.AppendLine("#if NET8_0_OR_GREATER");
             sb.AppendLine("            System.Runtime.InteropServices.CollectionsMarshal.SetCount(temp, value.Count);");
-            sb.AppendLine("            for (int i = 0; i < value.Count; i++)");
-            sb.AppendLine("            {");
-            sb.AppendLine("                var item = value[i];");
-            
-            var cloneStmt = GetItemCloneStatement(elementType, "item");
-            sb.AppendLine($"                temp[i] = {cloneStmt};");
-            
-            sb.AppendLine("            }");
-            sb.AppendLine("#else");
+            sb.AppendLine("#endif");
             sb.AppendLine("            foreach (var item in value)");
             sb.AppendLine("            {");
             
+            var cloneStmt = GetItemCloneStatement(elementType, "item");
             sb.AppendLine($"                temp.Add({cloneStmt});");
             
             sb.AppendLine("            }");
-            sb.AppendLine("#endif");
             sb.AppendLine("            return temp;");
         }
         // Dictionary<TKey, TValue>
@@ -789,9 +781,11 @@ public class CloneableGenerator : IIncrementalGenerator
             var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             
             sb.AppendLine($"            var tempList = new System.Collections.Generic.List<{elementTypeName}>();");
-            sb.AppendLine("#if NET8_0_OR_GREATER");
-            sb.AppendLine("            System.Runtime.InteropServices.CollectionsMarshal.SetCount(tempList, value.Count);");
-            sb.AppendLine("#endif");
+            sb.AppendLine($"""
+            #if NET8_0_OR_GREATER
+                        System.Runtime.InteropServices.CollectionsMarshal.SetCount(tempList, value.Count);
+            #endif
+            """);
             sb.AppendLine("            foreach (var item in value)");
             sb.AppendLine("            {");
             
@@ -1211,6 +1205,19 @@ public class CloneableGenerator : IIncrementalGenerator
         {
             GenerateWithNullCheck(() =>
             {
+                // Check if we have a collection helper for this type
+                var fullCollectionName = collectionType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+                var hasCollectionHelper = s_currentNameGenerator?.HasCloneInternal(fullCollectionName) ?? false;
+                
+                if (hasCollectionHelper)
+                {
+                    // Use the collection helper method
+                    var helperName = s_currentNameGenerator!.GetCloneInternalName(fullCollectionName);
+                    sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = {helperName}({sourceVar}.{propertyName});");
+                    return;
+                }
+                
+                // Fallback to inline generation
                 sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new {collectionTypeName}();");
                 if (isCloneable)
                 {
@@ -1328,9 +1335,9 @@ public class CloneableGenerator : IIncrementalGenerator
                             sb.AppendLine($"{tempIndent}    }}");
                             sb.AppendLine($"{tempIndent}    else");
                             sb.AppendLine($"{tempIndent}    {{");
-                            sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(null);");
-                            sb.AppendLine($"{tempIndent}    }}");
-                            sb.AppendLine($"{tempIndent}}}");
+                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(null);");
+                        sb.AppendLine($"{tempIndent}    }}");
+                        sb.AppendLine($"{tempIndent}}}");
                         }
                         else
                         {
@@ -1509,6 +1516,19 @@ public class CloneableGenerator : IIncrementalGenerator
         
         GenerateWithNullCheck(() =>
         {
+            // Check if we have a collection helper for this dictionary type
+            var fullDictName = dictionaryType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+            var hasDictionaryHelper = s_currentNameGenerator?.HasCloneInternal(fullDictName) ?? false;
+            
+            if (hasDictionaryHelper)
+            {
+                // Use the dictionary helper method
+                var helperName = s_currentNameGenerator!.GetCloneInternalName(fullDictName);
+                sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = {helperName}({sourceVar}.{propertyName});");
+                return;
+            }
+            
+            // Fallback to inline generation
             sb.AppendLine($"{tempIndent}{targetVar}.{propertyName} = new System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}>();");
             
             if (valueIsCloneable)

@@ -55,10 +55,9 @@ internal class TypeDiscovery
         // Handle named types
         if (typeSymbol is INamedTypeSymbol namedType)
         {
-            var fullName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            var fullNameWithoutGlobal = fullName.Replace("global::", "");
+            var fullName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
             
-            if (_visitedTypes.Contains(fullNameWithoutGlobal))
+            if (_visitedTypes.Contains(fullName))
                 return;
 
             // Handle system collection types
@@ -81,7 +80,7 @@ internal class TypeDiscovery
                 // Register concrete collection type if it needs deep cloning
                 if (needsCollectionHelper)
                 {
-                    _visitedTypes.Add(fullNameWithoutGlobal);
+                    _visitedTypes.Add(fullName);
                     _registry.RegisterType(namedType, false, true); // Mark as collection helper
                 }
                 
@@ -89,7 +88,7 @@ internal class TypeDiscovery
             }
 
             // Skip all System namespace types
-            if (fullNameWithoutGlobal.StartsWith("System."))
+            if (fullName.StartsWith("System."))
             {
                 return;
             }
