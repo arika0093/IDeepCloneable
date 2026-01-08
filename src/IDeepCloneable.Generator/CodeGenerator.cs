@@ -242,11 +242,13 @@ internal static class CodeGenerator
             }
         }
 
-        // Handle arrays
-        if (typeFullName.EndsWith("[]"))
+        // Handle arrays (both single and multi-dimensional)
+        if (typeFullName.Contains("[") && typeFullName.Contains("]"))
         {
-            var elementType = typeFullName.Substring(0, typeFullName.Length - 2);
-            var methodName = "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(elementType);
+            // Extract everything before the first [
+            var bracketIndex = typeFullName.IndexOf('[');
+            var elementType = typeFullName.Substring(0, bracketIndex);
+            var methodName = "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
             return $"{methodName}({valueExpression})";
         }
 
@@ -289,18 +291,17 @@ internal static class CodeGenerator
                     }
                 }
 
-                // Handle arrays
-                if (typeFullName.EndsWith("[]"))
+                // Handle arrays (both single and multi-dimensional)
+                if (typeFullName.Contains("[") && typeFullName.Contains("]"))
                 {
-                    var elementType = typeFullName.Substring(0, typeFullName.Length - 2);
                     var methodName =
-                        "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(elementType);
+                        "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
 
                     if (!generatedMethods.Contains(methodName))
                     {
                         generatedMethods.Add(methodName);
                         builder = GenerateArrayCloneMethod(
-                            elementType,
+                            typeFullName,
                             methodName,
                             classInfos,
                             builder
@@ -314,14 +315,16 @@ internal static class CodeGenerator
     }
 
     private static IndentedStringBuilder GenerateArrayCloneMethod(
-        string elementType,
+        string arrayType,
         string methodName,
         EquatableArray<ClassInfo> allClassInfos,
         IndentedStringBuilder builder
     )
     {
+        // Extract element type (everything before the first '[')
+        var bracketIndex = arrayType.IndexOf('[');
+        var elementType = arrayType.Substring(0, bracketIndex);
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
-        var arrayType = $"{elementType}[]";
 
         builder.AppendLine("");
         builder.AppendLine(
@@ -336,6 +339,7 @@ internal static class CodeGenerator
         builder.AppendLine("        {");
         builder.AppendLine("            if (original == null) return null;");
 
+        // For immutable element types, we can use Array.Clone() which works for both single and multi-dimensional arrays
         if (isImmutable)
         {
             builder.AppendLine(
@@ -344,13 +348,27 @@ internal static class CodeGenerator
         }
         else
         {
-            builder.AppendLine($"            var array = new {elementType}[original.Length];");
-            builder.AppendLine("            for (int i = 0; i < original.Length; i++)");
-            builder.AppendLine("            {");
-            var cloneCall = GenerateTypeCloneCall(elementType, "original[i]", allClassInfos);
-            builder.AppendLine($"                array[i] = {cloneCall};");
-            builder.AppendLine("            }");
-            builder.AppendLine("            return array;");
+            // For mutable element types, we need to deep clone each element
+            // Multi-dimensional arrays are more complex, for now we'll use Clone() and note this limitation
+            // TODO: Implement proper deep cloning for multi-dimensional arrays with mutable elements
+            if (arrayType.Contains(","))
+            {
+                // Multi-dimensional array - for now just use Clone (shallow copy)
+                builder.AppendLine(
+                    $"            return (original.Clone() as {arrayType});"
+                );
+            }
+            else
+            {
+                // Single-dimensional array
+                builder.AppendLine($"            var array = new {elementType}[original.Length];");
+                builder.AppendLine("            for (int i = 0; i < original.Length; i++)");
+                builder.AppendLine("            {");
+                var cloneCall = GenerateTypeCloneCall(elementType, "original[i]", allClassInfos);
+                builder.AppendLine($"                array[i] = {cloneCall};");
+                builder.AppendLine("            }");
+                builder.AppendLine("            return array;");
+            }
         }
 
         builder.AppendLine("        }");

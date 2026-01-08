@@ -13,7 +13,20 @@ internal static class CodeGenerationUtility
     /// </summary>
     public static string SanitizeTypeName(string typeName)
     {
-        return typeName
+        // Handle multi-dimensional arrays first (e.g., [,] -> _Array2D, [,,] -> _Array3D)
+        var result = typeName;
+        if (result.Contains("[,"))
+        {
+            // Count the number of dimensions
+            var match = System.Text.RegularExpressions.Regex.Match(result, @"\[(,*)\]");
+            if (match.Success)
+            {
+                var dimensions = match.Groups[1].Value.Length + 1;
+                result = result.Replace(match.Value, $"_Array{dimensions}D");
+            }
+        }
+        
+        return result
             .Replace("global::", "")
             .Replace("::", "_")
             .Replace(".", "_")
@@ -30,6 +43,21 @@ internal static class CodeGenerationUtility
     /// </summary>
     public static bool IsTypeImmutable(string typeFullName)
     {
+        // Arrays are always mutable, even if their element type is immutable
+        if (typeFullName.Contains("[") && typeFullName.Contains("]"))
+            return false;
+        
+        // Most collections are mutable (except for Immutable* types which are handled separately)
+        if (typeFullName.Contains("System.Collections.Generic.List<") ||
+            typeFullName.Contains("System.Collections.Generic.Dictionary<") ||
+            typeFullName.Contains("System.Collections.Generic.HashSet<") ||
+            typeFullName.Contains("System.Collections.Generic.SortedSet<") ||
+            typeFullName.Contains("System.Collections.Generic.Stack<") ||
+            typeFullName.Contains("System.Collections.Generic.Queue<") ||
+            typeFullName.Contains("System.Collections.ObjectModel.ObservableCollection<") ||
+            typeFullName.Contains("System.Collections.ObjectModel.ReadOnlyCollection<"))
+            return false;
+            
         var normalizedType = typeFullName.Replace("global::", "").ToLowerInvariant();
         
         if (normalizedType == "string" || 
