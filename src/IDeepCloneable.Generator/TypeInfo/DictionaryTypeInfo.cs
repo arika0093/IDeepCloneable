@@ -35,10 +35,10 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
 
         builder.AppendLine("");
         builder.AppendLine(
-            $"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
+            CodeTemplateContents.AggressiveInliningAttribute
         );
         builder.AppendLine(
-            $"[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+            CodeTemplateContents.EditorBrowsableAttribute
         );
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
