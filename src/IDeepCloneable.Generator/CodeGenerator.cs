@@ -10,8 +10,15 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal static class CodeGenerator
 {
+    // Frequently used attributes
+    internal const string AggressiveInliningAttribute = 
+        "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]";
+    internal const string EditorBrowsableAttribute = 
+        "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]";
+
     private static readonly List<SpecialTypeInfo> SpecialTypeInfos = new()
     {
+        new ArrayTypeInfo(),
         new ListTypeInfo(),
         new DictionaryTypeInfo(),
         new HashSetTypeInfo(),
@@ -159,12 +166,8 @@ internal static class CodeGenerator
             CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
 
         builder.AppendLine("");
-        builder.AppendLine(
-            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
-        );
-        builder.AppendLine(
-            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
-        );
+        builder.AppendLine($"        {AggressiveInliningAttribute}");
+        builder.AppendLine($"        {EditorBrowsableAttribute}");
         builder.AppendLine(
             $"        {visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
         );
@@ -256,7 +259,7 @@ internal static class CodeGenerator
             return valueExpression;
         }
 
-        // Check special types using SpecialTypeInfo
+        // Check special types using SpecialTypeInfo (includes arrays)
         foreach (var specialTypeInfo in SpecialTypeInfos)
         {
             if (specialTypeInfo.IsMatch(typeFullName))
@@ -264,16 +267,6 @@ internal static class CodeGenerator
                 var methodName = specialTypeInfo.GetMethodName(typeFullName);
                 return $"{methodName}({valueExpression})";
             }
-        }
-
-        // Handle arrays (both single and multi-dimensional)
-        if (typeFullName.Contains("[") && typeFullName.Contains("]"))
-        {
-            // Extract everything before the first [
-            var bracketIndex = typeFullName.IndexOf('[');
-            var elementType = typeFullName.Substring(0, bracketIndex);
-            var methodName = "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
-            return $"{methodName}({valueExpression})";
         }
 
         // Regular type
@@ -303,7 +296,7 @@ internal static class CodeGenerator
         {
             var typeFullName = typesToProcess.Dequeue();
 
-            // Check special types using SpecialTypeInfo
+            // Check special types using SpecialTypeInfo (now includes arrays)
             foreach (var specialTypeInfo in SpecialTypeInfos)
             {
                 if (specialTypeInfo.IsMatch(typeFullName))
@@ -326,103 +319,22 @@ internal static class CodeGenerator
                         {
                             typesToProcess.Enqueue(innerType);
                         }
+                        
+                        // For arrays, also extract and queue the element type
+                        if (typeFullName.Contains("[") && typeFullName.Contains("]"))
+                        {
+                            var bracketIndex = typeFullName.IndexOf('[');
+                            var elementType = typeFullName.Substring(0, bracketIndex);
+                            if (!string.IsNullOrEmpty(elementType))
+                            {
+                                typesToProcess.Enqueue(elementType);
+                            }
+                        }
                     }
                     break;
                 }
             }
-
-            // Handle arrays (both single and multi-dimensional)
-            if (typeFullName.Contains("[") && typeFullName.Contains("]"))
-            {
-                var methodName =
-                    "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
-
-                if (!generatedMethods.Contains(methodName))
-                {
-                    generatedMethods.Add(methodName);
-                    builder = GenerateArrayCloneMethod(
-                        typeFullName,
-                        methodName,
-                        classInfos,
-                        builder
-                    );
-                    
-                    // Extract element type and add to queue
-                    var bracketIndex = typeFullName.IndexOf('[');
-                    var elementType = typeFullName.Substring(0, bracketIndex);
-                    if (!string.IsNullOrEmpty(elementType))
-                    {
-                        typesToProcess.Enqueue(elementType);
-                    }
-                }
-            }
         }
-
-        return builder;
-    }
-
-    private static IndentedStringBuilder GenerateArrayCloneMethod(
-        string arrayType,
-        string methodName,
-        EquatableArray<ClassInfo> allClassInfos,
-        IndentedStringBuilder builder
-    )
-    {
-        // Extract element type (everything before the first '[')
-        var bracketIndex = arrayType.IndexOf('[');
-        var elementType = arrayType.Substring(0, bracketIndex);
-        var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
-
-        builder.AppendLine("");
-        builder.AppendLine(
-            $"        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
-        );
-        builder.AppendLine(
-            $"        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
-        );
-        builder.AppendLine(
-            $"        private static {arrayType} {methodName}(this {arrayType} original)"
-        );
-        builder.AppendLine("        {");
-        builder.AppendLine("            if (original == null) return null;");
-
-        // For immutable element types, we can use Array.Clone() which works for both single and multi-dimensional arrays
-        if (isImmutable)
-        {
-            builder.AppendLine(
-                $"            return (original.Clone() as {arrayType});"
-            );
-        }
-        else
-        {
-            // For mutable element types, we need to deep clone each element
-            if (arrayType.Contains(","))
-            {
-                // Multi-dimensional array with mutable elements
-                // TODO: Implement proper deep cloning for multi-dimensional arrays with mutable elements
-                // For now, this limitation is documented - multi-dimensional arrays with mutable elements
-                // will be shallow copied. This is an edge case that can be improved in the future.
-                builder.AppendLine(
-                    $"            // WARNING: Multi-dimensional arrays with mutable elements are shallow copied"
-                );
-                builder.AppendLine(
-                    $"            return (original.Clone() as {arrayType});"
-                );
-            }
-            else
-            {
-                // Single-dimensional array
-                builder.AppendLine($"            var array = new {elementType}[original.Length];");
-                builder.AppendLine("            for (int i = 0; i < original.Length; i++)");
-                builder.AppendLine("            {");
-                var cloneCall = GenerateTypeCloneCall(elementType, "original[i]", allClassInfos);
-                builder.AppendLine($"                array[i] = {cloneCall};");
-                builder.AppendLine("            }");
-                builder.AppendLine("            return array;");
-            }
-        }
-
-        builder.AppendLine("        }");
 
         return builder;
     }
@@ -480,18 +392,14 @@ internal static class CodeGenerator
         else if (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection)
         {
             // Immutable value types can just return themselves
-            builder.AppendLine(
-                $"{currentIndent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
-            );
+            builder.AppendLine($"{currentIndent}    {AggressiveInliningAttribute}");
             builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()");
             builder.AppendLine($"{currentIndent}        => this;");
         }
         else
         {
             // Concrete classes have MethodImpl attribute and call CloneInternal
-            builder.AppendLine(
-                $"{currentIndent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]"
-            );
+            builder.AppendLine($"{currentIndent}    {AggressiveInliningAttribute}");
             builder.AppendLine($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone()");
             builder.AppendLine($"{currentIndent}        => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
         }
