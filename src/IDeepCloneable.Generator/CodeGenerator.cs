@@ -34,9 +34,10 @@ internal static class CodeGenerator
         context.AddSource("DeepCloneExtensions.g.cs", extensionsCode);
 
         // Generate partial class implementations for each type that needs DeepClone method
+        // Skip types that already have DeepClone method defined (manual or from other generators)
         // Use full class name to avoid collisions when classes have the same simple name in different namespaces
         var generatedFiles = new HashSet<string>();
-        foreach (var classInfo in classInfos.Where(c => c.NeedsDeepCloneMethod))
+        foreach (var classInfo in classInfos.Where(c => c.NeedsDeepCloneMethod && !c.AlreadyHasDeepClone))
         {
             var partialClassCode = GeneratePartialClass(classInfo);
             // Use sanitized full class name to ensure uniqueness
@@ -304,21 +305,31 @@ internal static class CodeGenerator
         var builder = new IndentedStringBuilder();
         builder = GenerateFileHeader(builder);
 
+        // Generate namespace if present
         if (!string.IsNullOrEmpty(classInfo.Namespace))
         {
             builder.Append($"namespace {classInfo.Namespace}");
             builder.Append("{");
         }
 
+        var currentIndent = string.IsNullOrEmpty(classInfo.Namespace) ? "" : "    ";
+        
+        // Generate containing type declarations for nested classes
+        foreach (var containingTypeName in classInfo.ContainingTypeNames)
+        {
+            builder.Append($"{currentIndent}partial class {containingTypeName}");
+            builder.Append($"{currentIndent}{{");
+            currentIndent += "    ";
+        }
+
         var typeKeyword = classInfo.IsRecord 
             ? (classInfo.IsValueType ? "record struct" : "record")
             : (classInfo.IsValueType ? "struct" : "class");
-        var indent = string.IsNullOrEmpty(classInfo.Namespace) ? "" : "    ";
         
-        builder.Append($"{indent}partial {typeKeyword} {classInfo.ClassName} : global::IDeepCloneable<{classInfo.FullClassName}>");
-        builder.Append($"{indent}{{");
-        builder.Append($"{indent}    /// <inheritdoc />");
-        builder.Append($"{indent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        builder.Append($"{currentIndent}partial {typeKeyword} {classInfo.ClassName} : global::IDeepCloneable<{classInfo.FullClassName}>");
+        builder.Append($"{currentIndent}{{");
+        builder.Append($"{currentIndent}    /// <inheritdoc />");
+        builder.Append($"{currentIndent}    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
 
         var modifiers = "public";
         if (!classInfo.IsSealed && !classInfo.IsValueType)
@@ -330,9 +341,17 @@ internal static class CodeGenerator
         }
 
         var sanitizedName = CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName);
-        builder.Append($"{indent}    {modifiers} {classInfo.FullClassName} DeepClone() => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
-        builder.Append($"{indent}}}");
+        builder.Append($"{currentIndent}    {modifiers} {classInfo.FullClassName} DeepClone() => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
+        builder.Append($"{currentIndent}}}");
 
+        // Close containing type declarations
+        for (int i = 0; i < classInfo.ContainingTypeNames.Count; i++)
+        {
+            currentIndent = currentIndent.Substring(0, currentIndent.Length - 4);
+            builder.Append($"{currentIndent}}}");
+        }
+
+        // Close namespace if present
         if (!string.IsNullOrEmpty(classInfo.Namespace))
         {
             builder.Append("}");
