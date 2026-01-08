@@ -23,7 +23,7 @@ internal class CloneInternalNameGenerator
         return _typeToSafeName.ContainsKey(fullTypeName);
     }
 
-    public string GetCloneInternalName(string fullTypeName)
+    public string? GetCloneInternalName(string fullTypeName)
     {
         if (_typeToSafeName.TryGetValue(fullTypeName, out var safeName))
         {

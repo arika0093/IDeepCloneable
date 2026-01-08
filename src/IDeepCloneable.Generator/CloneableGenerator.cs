@@ -789,11 +789,9 @@ public class CloneableGenerator : IIncrementalGenerator
             var elementTypeName = elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             
             sb.AppendLine($"            var tempList = new System.Collections.Generic.List<{elementTypeName}>();");
-            sb.AppendLine($"""
-            #if NET8_0_OR_GREATER
-                        System.Runtime.InteropServices.CollectionsMarshal.SetCount(tempList, value.Count);
-            #endif
-            """);
+            sb.AppendLine("#if NET8_0_OR_GREATER");
+            sb.AppendLine("            System.Runtime.InteropServices.CollectionsMarshal.SetCount(tempList, value.Count);");
+            sb.AppendLine("#endif");
             sb.AppendLine("            foreach (var item in value)");
             sb.AppendLine("            {");
             
@@ -1330,9 +1328,9 @@ public class CloneableGenerator : IIncrementalGenerator
                             sb.AppendLine($"{tempIndent}    }}");
                             sb.AppendLine($"{tempIndent}    else");
                             sb.AppendLine($"{tempIndent}    {{");
-                        sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(null);");
-                        sb.AppendLine($"{tempIndent}    }}");
-                        sb.AppendLine($"{tempIndent}}}");
+                            sb.AppendLine($"{tempIndent}        {targetVar}.{propertyName}.Add(null);");
+                            sb.AppendLine($"{tempIndent}    }}");
+                            sb.AppendLine($"{tempIndent}}}");
                         }
                         else
                         {
