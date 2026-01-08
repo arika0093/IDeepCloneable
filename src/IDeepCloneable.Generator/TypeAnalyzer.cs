@@ -45,32 +45,17 @@ internal static class TypeAnalyzer
                     
                 processedTypes.Add(fullName);
 
-                var classInfo = CreateClassInfo(currentType, context.SemanticModel.Compilation);
+                var classInfo = CreateClassInfo(currentType, context.SemanticModel.Compilation, out var childTypes);
                 if (classInfo != null)
                 {
                     classInfoList.Add(classInfo);
                     
-                    foreach (var prop in classInfo.Properties)
+                    // Enqueue child types discovered during property analysis
+                    foreach (var childType in childTypes)
                     {
-                        if (prop.NeedsDeepClone && !prop.IsImmutable)
+                        if (!processedTypes.Contains(GetFullTypeName(childType)))
                         {
-                            var typeName = ExtractBaseTypeName(prop.TypeFullName);
-                            var childType = FindTypeByFullName(context.SemanticModel.Compilation, typeName);
-                            if (childType != null && !processedTypes.Contains(GetFullTypeName(childType)))
-                            {
-                                typesToProcess.Enqueue(childType);
-                            }
-                            
-                            // For Dictionary types, also process the key type
-                            if (prop.TypeFullName.Contains("System.Collections.Generic.Dictionary<"))
-                            {
-                                var keyTypeName = ExtractDictionaryKeyType(prop.TypeFullName);
-                                var keyType = FindTypeByFullName(context.SemanticModel.Compilation, keyTypeName);
-                                if (keyType != null && !processedTypes.Contains(GetFullTypeName(keyType)))
-                                {
-                                    typesToProcess.Enqueue(keyType);
-                                }
-                            }
+                            typesToProcess.Enqueue(childType);
                         }
                     }
                 }
@@ -167,9 +152,9 @@ internal static class TypeAnalyzer
         return typeFullName;
     }
 
-    private static ClassInfo? CreateClassInfo(INamedTypeSymbol typeSymbol, Compilation compilation)
+    private static ClassInfo? CreateClassInfo(INamedTypeSymbol typeSymbol, Compilation compilation, out List<INamedTypeSymbol> childTypes)
     {
-        var properties = GetProperties(typeSymbol, compilation);
+        var properties = GetProperties(typeSymbol, compilation, out childTypes);
         var fullName = GetFullTypeName(typeSymbol);
         
         var hasDeepCloneableAttribute = typeSymbol.GetAttributes()
@@ -205,9 +190,10 @@ internal static class TypeAnalyzer
         };
     }
 
-    private static List<PropertyInfo> GetProperties(INamedTypeSymbol typeSymbol, Compilation compilation)
+    private static List<PropertyInfo> GetProperties(INamedTypeSymbol typeSymbol, Compilation compilation, out List<INamedTypeSymbol> childTypes)
     {
         var properties = new List<PropertyInfo>();
+        childTypes = new List<INamedTypeSymbol>();
 
         foreach (var member in typeSymbol.GetMembers())
         {
@@ -238,10 +224,50 @@ internal static class TypeAnalyzer
                     NeedsDeepClone = needsDeepClone,
                     IsImmutable = isImmutable
                 });
+                
+                // Extract child types for further processing
+                if (needsDeepClone)
+                {
+                    ExtractChildTypes(memberType, childTypes);
+                }
             }
         }
 
         return properties;
+    }
+    
+    private static void ExtractChildTypes(ITypeSymbol typeSymbol, List<INamedTypeSymbol> childTypes)
+    {
+        // Handle nullable reference types (T?)
+        var actualType = typeSymbol.NullableAnnotation == NullableAnnotation.Annotated && typeSymbol is INamedTypeSymbol
+            ? typeSymbol
+            : typeSymbol;
+        
+        // Handle generic types (List<T>, Dictionary<TKey, TValue>, etc.)
+        if (actualType is INamedTypeSymbol namedType && namedType.IsGenericType)
+        {
+            // Add type arguments
+            foreach (var typeArg in namedType.TypeArguments)
+            {
+                if (typeArg is INamedTypeSymbol argNamedType && !IsImmutableType(typeArg))
+                {
+                    childTypes.Add(argNamedType);
+                }
+            }
+        }
+        // Handle arrays
+        else if (actualType is IArrayTypeSymbol arrayType)
+        {
+            if (arrayType.ElementType is INamedTypeSymbol elementType && !IsImmutableType(arrayType.ElementType))
+            {
+                childTypes.Add(elementType);
+            }
+        }
+        // Handle regular types (including nullable reference types)
+        else if (actualType is INamedTypeSymbol regularType && !IsImmutableType(actualType))
+        {
+            childTypes.Add(regularType);
+        }
     }
 
     private static string GetFullTypeName(ITypeSymbol typeSymbol)
