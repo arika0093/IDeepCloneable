@@ -111,14 +111,12 @@ using System.Runtime.InteropServices;
                 sb.AppendLine("            return original with");
                 sb.AppendLine("            {");
                 
-                bool isFirst = true;
                 foreach (var prop in classInfo.Properties)
                 {
                     if (prop.NeedsDeepClone)
                     {
                         var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
                         sb.AppendLine($"                {prop.Name} = {cloneCall},");
-                        isFirst = false;
                     }
                 }
                 
@@ -494,26 +492,45 @@ using System.Runtime.InteropServices;
     private static bool IsTypeImmutable(string typeFullName)
     {
         // Remove global:: prefix for matching
-        var normalizedType = typeFullName.Replace("global::", "");
+        var normalizedType = typeFullName.Replace("global::", "").ToLowerInvariant();
         
-        // Common immutable types
-        return normalizedType.Contains("System.String") ||
-               normalizedType.Contains("System.Int32") ||
-               normalizedType.Contains("System.Int64") ||
-               normalizedType.Contains("System.Int16") ||
-               normalizedType.Contains("System.UInt32") ||
-               normalizedType.Contains("System.UInt64") ||
-               normalizedType.Contains("System.UInt16") ||
-               normalizedType.Contains("System.Byte") ||
-               normalizedType.Contains("System.SByte") ||
-               normalizedType.Contains("System.Boolean") ||
-               normalizedType.Contains("System.Double") ||
-               normalizedType.Contains("System.Single") ||
-               normalizedType.Contains("System.Decimal") ||
-               normalizedType.Contains("System.Char") ||
-               normalizedType.Contains("System.DateTime") ||
-               normalizedType.Contains("System.DateTimeOffset") ||
-               normalizedType.Contains("System.TimeSpan") ||
-               normalizedType.Contains("System.Guid");
+        // Check for simple type names (string, int, bool, etc.)
+        if (normalizedType == "string" || 
+            normalizedType == "int" ||
+            normalizedType == "long" ||
+            normalizedType == "short" ||
+            normalizedType == "uint" ||
+            normalizedType == "ulong" ||
+            normalizedType == "ushort" ||
+            normalizedType == "byte" ||
+            normalizedType == "sbyte" ||
+            normalizedType == "bool" ||
+            normalizedType == "double" ||
+            normalizedType == "float" ||
+            normalizedType == "decimal" ||
+            normalizedType == "char")
+        {
+            return true;
+        }
+        
+        // Common immutable types (full names)
+        return normalizedType.Contains("system.string") ||
+               normalizedType.Contains("system.int32") ||
+               normalizedType.Contains("system.int64") ||
+               normalizedType.Contains("system.int16") ||
+               normalizedType.Contains("system.uint32") ||
+               normalizedType.Contains("system.uint64") ||
+               normalizedType.Contains("system.uint16") ||
+               normalizedType.Contains("system.byte") ||
+               normalizedType.Contains("system.sbyte") ||
+               normalizedType.Contains("system.boolean") ||
+               normalizedType.Contains("system.double") ||
+               normalizedType.Contains("system.single") ||
+               normalizedType.Contains("system.decimal") ||
+               normalizedType.Contains("system.char") ||
+               normalizedType.Contains("system.datetime") ||
+               normalizedType.Contains("system.datetimeoffset") ||
+               normalizedType.Contains("system.timespan") ||
+               normalizedType.Contains("system.guid");
     }
 }
