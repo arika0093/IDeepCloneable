@@ -280,49 +280,72 @@ internal static class CodeGenerator
     )
     {
         var generatedMethods = new HashSet<string>();
+        var typesToProcess = new Queue<string>();
 
+        // First, collect all property types
         foreach (var classInfo in classInfos)
         {
             foreach (var prop in classInfo.Properties)
             {
-                var typeFullName = prop.TypeFullName;
+                typesToProcess.Enqueue(prop.TypeFullName);
+            }
+        }
 
-                // Check special types using SpecialTypeInfo
-                foreach (var specialTypeInfo in SpecialTypeInfos)
+        // Process types and their nested types
+        while (typesToProcess.Count > 0)
+        {
+            var typeFullName = typesToProcess.Dequeue();
+
+            // Check special types using SpecialTypeInfo
+            foreach (var specialTypeInfo in SpecialTypeInfos)
+            {
+                if (specialTypeInfo.IsMatch(typeFullName))
                 {
-                    if (specialTypeInfo.IsMatch(typeFullName))
-                    {
-                        var methodName = specialTypeInfo.GetMethodName(typeFullName);
-
-                        if (!generatedMethods.Contains(methodName))
-                        {
-                            generatedMethods.Add(methodName);
-                            builder = specialTypeInfo.GenerateCloneMethod(
-                                typeFullName,
-                                methodName,
-                                classInfos,
-                                builder
-                            );
-                        }
-                        break;
-                    }
-                }
-
-                // Handle arrays (both single and multi-dimensional)
-                if (typeFullName.Contains("[") && typeFullName.Contains("]"))
-                {
-                    var methodName =
-                        "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
+                    var methodName = specialTypeInfo.GetMethodName(typeFullName);
 
                     if (!generatedMethods.Contains(methodName))
                     {
                         generatedMethods.Add(methodName);
-                        builder = GenerateArrayCloneMethod(
+                        builder = specialTypeInfo.GenerateCloneMethod(
                             typeFullName,
                             methodName,
                             classInfos,
                             builder
                         );
+                        
+                        // Extract inner type(s) and add to queue for processing
+                        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+                        if (innerType != typeFullName && !string.IsNullOrEmpty(innerType))
+                        {
+                            typesToProcess.Enqueue(innerType);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // Handle arrays (both single and multi-dimensional)
+            if (typeFullName.Contains("[") && typeFullName.Contains("]"))
+            {
+                var methodName =
+                    "CloneArray_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
+
+                if (!generatedMethods.Contains(methodName))
+                {
+                    generatedMethods.Add(methodName);
+                    builder = GenerateArrayCloneMethod(
+                        typeFullName,
+                        methodName,
+                        classInfos,
+                        builder
+                    );
+                    
+                    // Extract element type and add to queue
+                    var bracketIndex = typeFullName.IndexOf('[');
+                    var elementType = typeFullName.Substring(0, bracketIndex);
+                    if (!string.IsNullOrEmpty(elementType))
+                    {
+                        typesToProcess.Enqueue(elementType);
                     }
                 }
             }
