@@ -17,7 +17,7 @@ jobs:
         run: dotnet restore
 
       - name: Run benchmarks
-        run: dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj
+        run: dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj -c Release
 
       - name: Move Benchmark Result
         run: mv BenchmarkResult.md ./benchmark/BenchmarkResult.md
