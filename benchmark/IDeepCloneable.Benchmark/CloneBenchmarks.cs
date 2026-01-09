@@ -23,9 +23,7 @@ namespace IDeepCloneable.Benchmark;
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [SimpleJob(RuntimeMoniker.Net10_0)]
 [SimpleJob(RuntimeMoniker.Net60)]
-#if WINDOWS
 [SimpleJob(RuntimeMoniker.Net481)]
-#endif
 public class CloneBenchmarks
 {
     private ComplexModel _model = null!;
