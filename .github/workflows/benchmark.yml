@@ -19,21 +19,6 @@ jobs:
       - name: Run benchmarks
         run: dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj
 
-      - name: Generate summary
-        run: |
-          # Assuming the summary is generated in a specific format
-          cat BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report-github.md > summary.md
-
-      # replace README.md benchmark section
-      - name: Update README with benchmark summary
-        run: |
-          sed -i '/## Benchmark Summary/,/^$/d' README.md
-          echo -e "\n## Benchmark Summary\n" >> README.md
-          cat summary.md >> README.md
-
-      - name: Delete summary file
-        run: rm summary.md
-
       - name: Commit & Push
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
