@@ -227,4 +227,4 @@ This is the source generator library that automatically generates the `IDeepClon
 There is no need to directly reference this library.
 
 ## Benchmark Summary
-see [BenchmarkResult.md](benchmark/BenchmarkResult.md).
+see [BenchmarkResults.md](benchmark/BenchmarkResults.md).
