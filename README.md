@@ -110,7 +110,7 @@ Performance is a concern, right? In benchmarks for [medium-sized models](./bench
 | FastCloner_Reflection     |  8,772.5 ns |  9.61 | 0.8392 | 0.0153 |  13.79 KB |
 | SystemTextJson_Reflection | 31,857.2 ns | 34.90 | 1.2207 |      - |  20.59 KB |
 
-Detailed results can be found in [BenchmarkResults.md](benchmark/BenchmarkResults.md) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
+Detailed results can be found in [benchmark/results](benchmark/results) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
 
 ## Customize
 As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.

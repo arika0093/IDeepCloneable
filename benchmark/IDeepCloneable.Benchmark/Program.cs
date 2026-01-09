@@ -1,4 +1,4 @@
 using BenchmarkDotNet.Running;
 using IDeepCloneable.Benchmark;
 
-BenchmarkRunner.Run<CloneBenchmarks>();
+BenchmarkRunner.Run<CloneBenchmarks>(args: args);

@@ -1,0 +1,66 @@
+name: Run Benchmarks (All)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark-all:
+    matrix:
+      os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run benchmarks
+        run: dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj -c Release
+
+      - name: Move Benchmark Result
+        shell: bash
+        run: mv -f BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report-github.md benchmark/results/${{ matrix.os }}-all.md
+
+      - name: Upload Result as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-${{ matrix.os }}
+          path: benchmark/results/${{ matrix.os }}-all.md
+
+  commit-results:
+    needs: benchmark-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download Benchmark Result (ubuntu)
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmark-ubuntu-latest
+          path: benchmark/results/ubuntu-latest-all.md
+
+      - name: Download Benchmark Results (windows)
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmark-windows-latest
+          path: benchmark/results/windows-latest-all.md
+
+      - name: Download Benchmark Results (macos)
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmark-macos-latest
+          path: benchmark/results/macos-latest-all.md
+
+      - name: Commit & Push
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "[skip-ci] chore: update benchmark summary"
+          branch: ${{ github.ref_name }}
