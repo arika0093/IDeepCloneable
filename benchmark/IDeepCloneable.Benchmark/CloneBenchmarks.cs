@@ -19,11 +19,8 @@ namespace IDeepCloneable.Benchmark;
 /// Benchmarks comparing different deep cloning approaches for complex object models.
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
-[SimpleJob(RuntimeMoniker.Net10_0)]
-[SimpleJob(RuntimeMoniker.Net60)]
-[SimpleJob(RuntimeMoniker.Net481)]
+[SimpleJob]
 public class CloneBenchmarks
 {
     private ComplexModel _model = null!;
