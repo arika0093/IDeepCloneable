@@ -121,9 +121,7 @@ internal static class CodeGenerator
             // Skip only if it's a value type AND all properties are immutable
             // Or if it's an abstract class (can't instantiate)
             // Or if it's a special type (handled by special type handlers)
-            var skipGeneration = (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection) 
-                               || classInfo.IsAbstract
-                               || isSpecialType;
+            var skipGeneration = classInfo.IsImmutableUsable || classInfo.IsAbstract || isSpecialType;
             
             if (!skipGeneration)
             {
@@ -391,7 +389,7 @@ internal static class CodeGenerator
             // Abstract classes have abstract DeepClone method without implementation
             builder.AppendLine($"{modifiers} {classInfo.FullClassName} DeepClone();");
         }
-        else if (classInfo.IsValueType && classInfo.IsAllImmutable && !classInfo.IsCollection)
+        else if (classInfo.IsImmutableUsable)
         {
             // Immutable value types can just return themselves
             builder.AppendLine($"{CodeTemplateContents.AggressiveInliningAttribute}");
