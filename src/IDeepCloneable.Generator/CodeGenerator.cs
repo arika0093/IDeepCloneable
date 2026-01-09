@@ -92,13 +92,13 @@ internal static class CodeGenerator
         builder = GenerateFileHeader(builder);
         builder.AppendLine("namespace IDeepCloneable.Generator");
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine(
             "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
         );
         builder.AppendLine("internal static partial class DeepCloneExtensions");
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
 
         // Generate CloneInternal methods for each class
         // Even if all properties are immutable, we still need to clone reference types (classes)
@@ -134,9 +134,9 @@ internal static class CodeGenerator
         // Generate special collection clone methods
         builder = GenerateCollectionCloneMethods(classInfos, builder);
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder.ToString();
@@ -170,7 +170,7 @@ internal static class CodeGenerator
             $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
 
         if (!classInfo.IsValueType)
         {
@@ -183,7 +183,7 @@ internal static class CodeGenerator
             {
                 builder.AppendLine("return original with");
                 builder.AppendLine("{");
-                builder = builder.IncreaseIndent();
+                builder.IncreaseIndent();
 
                 foreach (var prop in classInfo.Properties)
                 {
@@ -194,7 +194,7 @@ internal static class CodeGenerator
                     }
                 }
 
-                builder = builder.DecreaseIndent();
+                builder.DecreaseIndent();
                 builder.AppendLine("};");
             }
             else
@@ -223,7 +223,7 @@ internal static class CodeGenerator
             builder.AppendLine("return clone;");
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;
@@ -351,7 +351,7 @@ internal static class CodeGenerator
         {
             builder.AppendLine($"namespace {classInfo.Namespace}");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
         }
 
         // Generate containing type declarations for nested classes
@@ -359,7 +359,7 @@ internal static class CodeGenerator
         {
             builder.AppendLine($"partial class {containingTypeName}");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
         }
 
         var typeKeyword = classInfo.IsRecord
@@ -370,7 +370,7 @@ internal static class CodeGenerator
             $"partial {typeKeyword} {classInfo.ClassName} : global::IDeepCloneable<{classInfo.FullClassName}>"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("/// <inheritdoc />");
         
         var modifiers = "public";
@@ -406,20 +406,20 @@ internal static class CodeGenerator
             builder.AppendLine($"    => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
         }
         
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         // Close containing type declarations
         for (int i = 0; i < classInfo.ContainingTypeNames.Count; i++)
         {
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
         }
 
         // Close namespace if present
         if (!string.IsNullOrEmpty(classInfo.Namespace))
         {
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
         }
 

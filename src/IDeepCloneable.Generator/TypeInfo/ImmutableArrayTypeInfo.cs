@@ -35,7 +35,7 @@ internal class ImmutableArrayTypeInfo : SpecialTypeInfo
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("if (original.IsDefault) return original;");
 
         if (isImmutable)
@@ -48,15 +48,15 @@ internal class ImmutableArrayTypeInfo : SpecialTypeInfo
             builder.AppendLine($"var builder = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{innerType}>(original.Length);");
             builder.AppendLine("for (int i = 0; i < original.Length; i++)");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
             var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "original[i]", allClassInfos);
             builder.AppendLine($"builder.Add({cloneCall});");
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return builder.ToImmutable();");
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;

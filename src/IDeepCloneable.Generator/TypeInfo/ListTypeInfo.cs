@@ -36,7 +36,7 @@ internal class ListTypeInfo : SpecialTypeInfo
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
@@ -48,15 +48,15 @@ internal class ListTypeInfo : SpecialTypeInfo
             builder.AppendLine($"var list = new {typeFullName}(original.Count);");
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
             var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.AppendLine($"list.Add({cloneCall});");
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return list;");
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;

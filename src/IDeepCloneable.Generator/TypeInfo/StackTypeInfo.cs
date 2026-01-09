@@ -35,7 +35,7 @@ internal class StackTypeInfo : SpecialTypeInfo
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
         // Stack needs to preserve order, so we use ToArray() then pass to constructor
@@ -54,15 +54,15 @@ internal class StackTypeInfo : SpecialTypeInfo
             builder.AppendLine($"var stack = new {typeFullName}(array.Length);");
             builder.AppendLine("for (int i = 0; i < array.Length; i++)");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
             var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "array[i]", allClassInfos);
             builder.AppendLine($"stack.Push({cloneCall});");
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return stack;");
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;

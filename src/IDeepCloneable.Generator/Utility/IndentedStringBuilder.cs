@@ -17,16 +17,16 @@ public class IndentedStringBuilder(StringBuilder stringBuilder, int indentLevel 
     public const int IndentSize = 4;
 
     /// <summary>Current indent level (0 or greater).</summary>
-    public int IndentLevel { get; init; } = indentLevel;
+    public int IndentLevel { get; private set; } = indentLevel;
 
     /// <summary>Returns a string of spaces representing the current indent.</summary>
     public string Indent => new(' ', IndentLevel * IndentSize);
 
     /// <summary>Returns a new builder with the indent level increased by one.</summary>
-    public IndentedStringBuilder IncreaseIndent() => new(stringBuilder, IndentLevel + 1);
+    public void IncreaseIndent() => IndentLevel += 1;
 
     /// <summary>Returns a new builder with the indent level decreased by one (not below zero).</summary>
-    public IndentedStringBuilder DecreaseIndent() => new(stringBuilder, Math.Max(0, IndentLevel - 1));
+    public void DecreaseIndent() => IndentLevel = Math.Max(0, IndentLevel - 1);
 
     /// <summary>
     /// Appends the specified text with the current indent. Newlines in the text are handled per line.

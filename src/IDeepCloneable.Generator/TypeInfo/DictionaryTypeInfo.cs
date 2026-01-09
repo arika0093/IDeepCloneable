@@ -44,7 +44,7 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
         if (keyIsImmutable && valueIsImmutable)
@@ -56,7 +56,7 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
             builder.AppendLine($"var dict = new {typeFullName}(original.Count);");
             builder.AppendLine("foreach (var kvp in original)");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
 
             var keyClone = keyIsImmutable
                 ? "kvp.Key"
@@ -66,12 +66,12 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
                 : CodeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
 
             builder.AppendLine($"dict.Add({keyClone}, {valueClone});");
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return dict;");
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;

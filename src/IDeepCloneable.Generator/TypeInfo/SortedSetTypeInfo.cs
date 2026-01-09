@@ -35,7 +35,7 @@ internal class SortedSetTypeInfo : SpecialTypeInfo
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
@@ -47,15 +47,15 @@ internal class SortedSetTypeInfo : SpecialTypeInfo
             builder.AppendLine($"var sortedSet = new {typeFullName}();");
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
             var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.AppendLine($"sortedSet.Add({cloneCall});");
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return sortedSet;");
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;
