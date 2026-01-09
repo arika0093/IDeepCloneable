@@ -20,7 +20,7 @@ namespace IDeepCloneable.Benchmark;
 [MemoryDiagnoser]
 [SimpleJob]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
-[MarkdownExporter]
+[MarkdownExporterAttribute.GitHub]
 public class CloneBenchmarks
 {
     private ComplexModel _model = null!;

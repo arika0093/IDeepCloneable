@@ -22,7 +22,7 @@ jobs:
       - name: Generate summary
         run: |
           # Assuming the summary is generated in a specific format
-          cat benchmark/IDeepCloneable.Benchmark/BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report.md > summary.md
+          cat BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report-github.md > summary.md
 
       # replace README.md benchmark section
       - name: Update README with benchmark summary
