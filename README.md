@@ -227,6 +227,7 @@ This is the source generator library that automatically generates the `IDeepClon
 There is no need to directly reference this library.
 
 ## Benchmark Summary
+```
 
 BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.3 LTS (Noble Numbat) (container)
 AMD EPYC 7763 3.24GHz, 1 CPU, 2 logical cores and 1 physical core
@@ -235,16 +236,17 @@ AMD EPYC 7763 3.24GHz, 1 CPU, 2 logical cores and 1 physical core
   DefaultJob : .NET 10.0.0 (10.0.0, 10.0.25.52411), X64 RyuJIT x86-64-v3
 
 
- Method                    | Mean      | Error     | StdDev    | Median    | Ratio | RatioSD | Gen0   | Gen1   | Allocated | Alloc Ratio |
--------------------------- |----------:|----------:|----------:|----------:|------:|--------:|-------:|-------:|----------:|------------:|
- Mapperly                  |  1.325 μs | 0.0265 μs | 0.0674 μs |  1.314 μs |  0.71 |    0.07 | 0.2880 | 0.0038 |   4.73 KB |        0.83 |
- Manual                    |  1.360 μs | 0.0271 μs | 0.0761 μs |  1.349 μs |  0.73 |    0.08 | 0.2880 | 0.0038 |   4.73 KB |        0.83 |
- FastCloner_SourceGen      |  1.569 μs | 0.0313 μs | 0.0681 μs |  1.554 μs |  0.84 |    0.08 | 0.2880 | 0.0038 |   4.73 KB |        0.83 |
- IDeepCloneable            |  1.886 μs | 0.0613 μs | 0.1760 μs |  1.873 μs |  1.01 |    0.13 | 0.3490 | 0.0057 |   5.72 KB |        1.00 |
- AutoMapper                |  4.353 μs | 0.0838 μs | 0.1857 μs |  4.335 μs |  2.33 |    0.23 | 0.3433 |      - |   5.65 KB |        0.99 |
- MemoryPack                |  9.578 μs | 0.1894 μs | 0.4426 μs |  9.536 μs |  5.12 |    0.51 | 0.9003 | 0.0153 |   14.8 KB |        2.59 |
- FastCloner_Reflection     | 11.529 μs | 0.2278 μs | 0.5501 μs | 11.532 μs |  6.16 |    0.62 | 0.8392 | 0.0153 |  13.79 KB |        2.41 |
- MessagePack               | 17.769 μs | 0.4060 μs | 1.1844 μs | 17.600 μs |  9.50 |    1.05 | 0.8240 | 0.0305 |  13.48 KB |        2.36 |
- SystemTextJson_SourceGen  | 29.829 μs | 0.5786 μs | 1.4832 μs | 29.326 μs | 15.95 |    1.61 | 0.9766 |      - |  20.28 KB |        3.55 |
- SystemTextJson_Reflection | 36.723 μs | 0.7343 μs | 0.6869 μs | 36.416 μs | 19.63 |    1.76 | 1.2207 |      - |  20.59 KB |        3.60 |
- NewtonsoftJson            | 57.806 μs | 1.2501 μs | 3.5867 μs | 57.145 μs | 30.90 |    3.32 | 2.0752 | 0.1221 |  35.73 KB |        6.25 |
+```
+| Method                    | Mean      | Error     | StdDev    | Median    | Ratio | RatioSD | Gen0   | Gen1   | Allocated | Alloc Ratio |
+|-------------------------- |----------:|----------:|----------:|----------:|------:|--------:|-------:|-------:|----------:|------------:|
+| Mapperly                  |  1.280 μs | 0.0283 μs | 0.0825 μs |  1.267 μs |  0.94 |    0.09 | 0.2880 | 0.0038 |   4.73 KB |        1.00 |
+| Manual                    |  1.363 μs | 0.0340 μs | 0.1002 μs |  1.345 μs |  1.00 |    0.10 | 0.2880 | 0.0038 |   4.73 KB |        1.00 |
+| IDeepCloneable            |  1.367 μs | 0.0319 μs | 0.0935 μs |  1.348 μs |  1.00 |    0.09 | 0.2880 | 0.0038 |   4.73 KB |        1.00 |
+| FastCloner_SourceGen      |  1.492 μs | 0.0303 μs | 0.0864 μs |  1.484 μs |  1.10 |    0.10 | 0.2880 | 0.0038 |   4.73 KB |        1.00 |
+| AutoMapper                |  4.189 μs | 0.0832 μs | 0.2290 μs |  4.170 μs |  3.08 |    0.26 | 0.3433 |      - |   5.65 KB |        1.19 |
+| MemoryPack                |  9.309 μs | 0.1914 μs | 0.5522 μs |  9.107 μs |  6.84 |    0.60 | 0.9003 | 0.0153 |   14.8 KB |        3.13 |
+| FastCloner_Reflection     | 11.635 μs | 0.3546 μs | 0.9943 μs | 11.265 μs |  8.55 |    0.92 | 0.8392 | 0.0153 |  13.79 KB |        2.91 |
+| MessagePack               | 18.525 μs | 0.7076 μs | 2.0417 μs | 17.891 μs | 13.61 |    1.74 | 0.8240 | 0.0305 |  13.48 KB |        2.85 |
+| SystemTextJson_SourceGen  | 35.568 μs | 1.9284 μs | 5.3757 μs | 34.023 μs | 26.13 |    4.29 | 1.2207 |      - |  20.28 KB |        4.28 |
+| SystemTextJson_Reflection | 43.192 μs | 2.4626 μs | 6.9055 μs | 40.847 μs | 31.73 |    5.46 | 0.9766 |      - |  20.59 KB |        4.35 |
+| NewtonsoftJson            | 59.850 μs | 1.6627 μs | 4.7706 μs | 59.482 μs | 43.97 |    4.52 | 2.0752 | 0.1221 |  35.73 KB |        7.55 |
