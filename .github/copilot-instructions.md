@@ -182,7 +182,7 @@ Each special collection type should inherit from the `SpecialTypeInfo` base clas
 internal abstract class SpecialTypeInfo
 {
     public abstract string TargetTypeStartWith { get; }
-    public bool IsMatch(string typeFullName) => 
+    public virtual bool IsMatch(string typeFullName) => 
         typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
     public abstract string GetMethodName(string typeFullName);
     public abstract IndentedStringBuilder GenerateCloneMethod(
