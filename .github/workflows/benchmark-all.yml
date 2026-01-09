@@ -30,7 +30,7 @@ jobs:
         run: mv -f BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report-github.md benchmark/results/${{ matrix.os }}-all.md
 
       - name: Upload Result as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: benchmark-${{ matrix.os }}
           path: benchmark/results/${{ matrix.os }}-all.md
@@ -42,23 +42,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Download Benchmark Result (ubuntu)
-        uses: actions/download-artifact@v3
+      - name: Download Benchmark Results
+        uses: actions/download-artifact@v7
         with:
-          name: benchmark-ubuntu-latest
-          path: benchmark/results/ubuntu-latest-all.md
-
-      - name: Download Benchmark Results (windows)
-        uses: actions/download-artifact@v3
-        with:
-          name: benchmark-windows-latest
-          path: benchmark/results/windows-latest-all.md
-
-      - name: Download Benchmark Results (macos)
-        uses: actions/download-artifact@v3
-        with:
-          name: benchmark-macos-latest
-          path: benchmark/results/macos-latest-all.md
+          path: benchmark/results
+          pattern: benchmark-*
+          merge-multiple: true
 
       - name: Commit & Push
         uses: stefanzweifel/git-auto-commit-action@v7
