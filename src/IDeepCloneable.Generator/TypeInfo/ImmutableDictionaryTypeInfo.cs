@@ -7,7 +7,8 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.Immutable.ImmutableDictionary<";
+    public override string TargetTypeStartWith =>
+        "global::System.Collections.Immutable.ImmutableDictionary<";
 
     public override string GetMethodName(string typeFullName)
     {
@@ -34,12 +35,8 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
         var valueIsImmutable = CodeGenerationUtility.IsTypeImmutable(valueType);
 
         builder.AppendLine("");
-        builder.AppendLine(
-            CodeTemplateContents.AggressiveInliningAttribute
-        );
-        builder.AppendLine(
-            CodeTemplateContents.EditorBrowsableAttribute
-        );
+        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
@@ -54,7 +51,9 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var builder = global::System.Collections.Immutable.ImmutableDictionary.CreateBuilder<{keyType}, {valueType}>();");
+            builder.AppendLine(
+                $"var builder = global::System.Collections.Immutable.ImmutableDictionary.CreateBuilder<{keyType}, {valueType}>();"
+            );
             builder.AppendLine("foreach (var kvp in original)");
             builder.AppendLine("{");
             builder.IncreaseIndent();

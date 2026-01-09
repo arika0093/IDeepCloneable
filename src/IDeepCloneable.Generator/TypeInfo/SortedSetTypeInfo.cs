@@ -25,12 +25,8 @@ internal class SortedSetTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(
-            CodeTemplateContents.AggressiveInliningAttribute
-        );
-        builder.AppendLine(
-            CodeTemplateContents.EditorBrowsableAttribute
-        );
+        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );

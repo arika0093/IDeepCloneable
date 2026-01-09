@@ -45,9 +45,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         // For immutable element types or value types, we can use Array.Clone()
         if (isImmutable)
         {
-            builder.AppendLine(
-                $"return (original.Clone() as {typeFullName});"
-            );
+            builder.AppendLine($"return (original.Clone() as {typeFullName});");
         }
         else
         {
@@ -61,9 +59,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                 builder.AppendLine(
                     $"// WARNING: Multi-dimensional arrays with mutable elements are shallow copied"
                 );
-                builder.AppendLine(
-                    $"return (original.Clone() as {typeFullName});"
-                );
+                builder.AppendLine($"return (original.Clone() as {typeFullName});");
             }
             else
             {
@@ -72,7 +68,11 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                 builder.AppendLine("for (int i = 0; i < original.Length; i++)");
                 builder.AppendLine("{");
                 builder.IncreaseIndent();
-                var cloneCall = CodeGenerator.GenerateTypeCloneCall(elementType, "original[i]", allClassInfos);
+                var cloneCall = CodeGenerator.GenerateTypeCloneCall(
+                    elementType,
+                    "original[i]",
+                    allClassInfos
+                );
                 builder.AppendLine($"array[i] = {cloneCall};");
                 builder.DecreaseIndent();
                 builder.AppendLine("}");

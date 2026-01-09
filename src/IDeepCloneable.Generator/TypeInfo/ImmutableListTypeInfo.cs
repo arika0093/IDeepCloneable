@@ -7,7 +7,8 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal class ImmutableListTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.Immutable.ImmutableList<";
+    public override string TargetTypeStartWith =>
+        "global::System.Collections.Immutable.ImmutableList<";
 
     public override string GetMethodName(string typeFullName)
     {
@@ -25,12 +26,8 @@ internal class ImmutableListTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(
-            CodeTemplateContents.AggressiveInliningAttribute
-        );
-        builder.AppendLine(
-            CodeTemplateContents.EditorBrowsableAttribute
-        );
+        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
@@ -45,7 +42,9 @@ internal class ImmutableListTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var builder = global::System.Collections.Immutable.ImmutableList.CreateBuilder<{innerType}>();");
+            builder.AppendLine(
+                $"var builder = global::System.Collections.Immutable.ImmutableList.CreateBuilder<{innerType}>();"
+            );
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
             builder.IncreaseIndent();

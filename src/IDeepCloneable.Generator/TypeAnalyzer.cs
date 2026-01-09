@@ -15,14 +15,16 @@ internal static class TypeAnalyzer
 {
     private const string DeepCloneableAttributeMetadataName = "DeepCloneableAttribute";
 
-    public static EquatableArray<ClassInfo>? GetRelationalAllClassInfo(GeneratorAttributeSyntaxContext context)
+    public static EquatableArray<ClassInfo>? GetRelationalAllClassInfo(
+        GeneratorAttributeSyntaxContext context
+    )
     {
         // Extracts information from types marked with [DeepCloneable] and all reachable types.
         // "Reachable" is defined as:
         //   * The class itself marked with [DeepCloneable] (A)
         //   * All classes that inherit from A
         //   * All classes referenced by properties/fields of A (recursively)
-        
+
         try
         {
             var targetSymbol = context.TargetSymbol as INamedTypeSymbol;
@@ -32,24 +34,28 @@ internal static class TypeAnalyzer
             var classInfoList = new List<ClassInfo>();
             var processedTypes = new HashSet<string>();
             var typesToProcess = new Queue<INamedTypeSymbol>();
-            
+
             typesToProcess.Enqueue(targetSymbol);
 
             while (typesToProcess.Count > 0)
             {
                 var currentType = typesToProcess.Dequeue();
                 var fullName = GetFullTypeName(currentType);
-                
+
                 if (processedTypes.Contains(fullName))
                     continue;
-                    
+
                 processedTypes.Add(fullName);
 
-                var classInfo = CreateClassInfo(currentType, context.SemanticModel.Compilation, out var childTypes);
+                var classInfo = CreateClassInfo(
+                    currentType,
+                    context.SemanticModel.Compilation,
+                    out var childTypes
+                );
                 if (classInfo != null)
                 {
                     classInfoList.Add(classInfo);
-                    
+
                     // Enqueue child types discovered during property analysis
                     foreach (var childType in childTypes)
                     {
@@ -68,7 +74,7 @@ internal static class TypeAnalyzer
             return null;
         }
     }
-    
+
     private static string ExtractGenericArgument(string typeFullName, int index)
     {
         var startIndex = typeFullName.IndexOf('<');
@@ -76,12 +82,12 @@ internal static class TypeAnalyzer
         if (startIndex >= 0 && endIndex > startIndex)
         {
             var args = typeFullName.Substring(startIndex + 1, endIndex - startIndex - 1);
-            
+
             // Handle nested generics by splitting carefully
             var parts = new List<string>();
             var depth = 0;
             var current = new StringBuilder();
-            
+
             foreach (var c in args)
             {
                 if (c == '<')
@@ -104,12 +110,12 @@ internal static class TypeAnalyzer
                     current.Append(c);
                 }
             }
-            
+
             if (current.Length > 0)
             {
                 parts.Add(current.ToString().Trim().TrimEnd('?'));
             }
-            
+
             if (index < parts.Count)
             {
                 return parts[index];
@@ -118,18 +124,27 @@ internal static class TypeAnalyzer
         return typeFullName;
     }
 
-    private static ClassInfo? CreateClassInfo(INamedTypeSymbol typeSymbol, Compilation compilation, out List<INamedTypeSymbol> childTypes)
+    private static ClassInfo? CreateClassInfo(
+        INamedTypeSymbol typeSymbol,
+        Compilation compilation,
+        out List<INamedTypeSymbol> childTypes
+    )
     {
         var properties = GetProperties(typeSymbol, compilation, out childTypes);
         var fullName = GetFullTypeName(typeSymbol);
-        
-        var hasDeepCloneableAttribute = typeSymbol.GetAttributes()
+
+        var hasDeepCloneableAttribute = typeSymbol
+            .GetAttributes()
             .Any(attr => attr.AttributeClass?.Name == DeepCloneableAttributeMetadataName);
 
         // Check if this type already has a DeepClone method
-        var alreadyHasDeepClone = typeSymbol.GetMembers("DeepClone")
+        var alreadyHasDeepClone = typeSymbol
+            .GetMembers("DeepClone")
             .OfType<IMethodSymbol>()
-            .Any(m => m.Parameters.Length == 0 && m.ReturnType.Equals(typeSymbol, SymbolEqualityComparer.Default));
+            .Any(m =>
+                m.Parameters.Length == 0
+                && m.ReturnType.Equals(typeSymbol, SymbolEqualityComparer.Default)
+            );
 
         // Check if base class has DeepClone method (either via attribute or manual implementation)
         var baseHasDeepClone = false;
@@ -137,24 +152,38 @@ internal static class TypeAnalyzer
         while (current != null && current.SpecialType != SpecialType.System_Object)
         {
             // Check for [DeepCloneable] attribute
-            if (current.GetAttributes().Any(attr => attr.AttributeClass?.Name == DeepCloneableAttributeMetadataName))
+            if (
+                current
+                    .GetAttributes()
+                    .Any(attr => attr.AttributeClass?.Name == DeepCloneableAttributeMetadataName)
+            )
             {
                 baseHasDeepClone = true;
                 break;
             }
-            
-            // Check for manual DeepClone method implementation  
+
+            // Check for manual DeepClone method implementation
             // Must have no parameters and return a compatible type
-            if (current.GetMembers("DeepClone")
-                .OfType<IMethodSymbol>()
-                .Any(m => m.Parameters.Length == 0 && 
-                         (m.ReturnType.Equals(current, SymbolEqualityComparer.Default) || 
-                          SymbolEqualityComparer.Default.Equals(m.ReturnType.OriginalDefinition, current.OriginalDefinition))))
+            if (
+                current
+                    .GetMembers("DeepClone")
+                    .OfType<IMethodSymbol>()
+                    .Any(m =>
+                        m.Parameters.Length == 0
+                        && (
+                            m.ReturnType.Equals(current, SymbolEqualityComparer.Default)
+                            || SymbolEqualityComparer.Default.Equals(
+                                m.ReturnType.OriginalDefinition,
+                                current.OriginalDefinition
+                            )
+                        )
+                    )
+            )
             {
                 baseHasDeepClone = true;
                 break;
             }
-            
+
             current = current.BaseType;
         }
 
@@ -174,11 +203,15 @@ internal static class TypeAnalyzer
             IsAbstract = typeSymbol.IsAbstract,
             IsSealed = typeSymbol.IsSealed,
             BaseHasDeepClone = baseHasDeepClone,
-            AlreadyHasDeepClone = alreadyHasDeepClone
+            AlreadyHasDeepClone = alreadyHasDeepClone,
         };
     }
 
-    private static List<PropertyInfo> GetProperties(INamedTypeSymbol typeSymbol, Compilation compilation, out List<INamedTypeSymbol> childTypes)
+    private static List<PropertyInfo> GetProperties(
+        INamedTypeSymbol typeSymbol,
+        Compilation compilation,
+        out List<INamedTypeSymbol> childTypes
+    )
     {
         var properties = new List<PropertyInfo>();
         childTypes = new List<INamedTypeSymbol>();
@@ -193,19 +226,24 @@ internal static class TypeAnalyzer
                 // Skip indexers (this[])
                 if (propSymbol.IsIndexer)
                     continue;
-                    
+
                 // Skip explicitly implemented interface properties (have dots in MetadataName)
                 if (propSymbol.MetadataName.Contains("."))
                     continue;
-                    
+
                 // Skip properties without a setter (can't be cloned into)
                 if (propSymbol.SetMethod == null)
                     continue;
-                    
+
                 memberType = propSymbol.Type;
                 memberName = propSymbol.Name;
             }
-            else if (member is IFieldSymbol fieldSymbol && !fieldSymbol.IsStatic && !fieldSymbol.IsConst && !fieldSymbol.IsImplicitlyDeclared)
+            else if (
+                member is IFieldSymbol fieldSymbol
+                && !fieldSymbol.IsStatic
+                && !fieldSymbol.IsConst
+                && !fieldSymbol.IsImplicitlyDeclared
+            )
             {
                 memberType = fieldSymbol.Type;
                 memberName = fieldSymbol.Name;
@@ -216,15 +254,17 @@ internal static class TypeAnalyzer
                 var isImmutable = IsImmutableType(memberType);
                 var needsDeepClone = !isImmutable;
 
-                properties.Add(new PropertyInfo
-                {
-                    Name = memberName,
-                    TypeFullName = GetFullTypeName(memberType),
-                    IsNullable = memberType.NullableAnnotation == NullableAnnotation.Annotated,
-                    NeedsDeepClone = needsDeepClone,
-                    IsImmutable = isImmutable
-                });
-                
+                properties.Add(
+                    new PropertyInfo
+                    {
+                        Name = memberName,
+                        TypeFullName = GetFullTypeName(memberType),
+                        IsNullable = memberType.NullableAnnotation == NullableAnnotation.Annotated,
+                        NeedsDeepClone = needsDeepClone,
+                        IsImmutable = isImmutable,
+                    }
+                );
+
                 // Extract child types for further processing
                 if (needsDeepClone)
                 {
@@ -235,7 +275,7 @@ internal static class TypeAnalyzer
 
         return properties;
     }
-    
+
     private static void ExtractChildTypes(ITypeSymbol typeSymbol, List<INamedTypeSymbol> childTypes)
     {
         // Handle generic types (List<T>, Dictionary<TKey, TValue>, etc.)
@@ -253,7 +293,10 @@ internal static class TypeAnalyzer
         // Handle arrays
         else if (typeSymbol is IArrayTypeSymbol arrayType)
         {
-            if (arrayType.ElementType is INamedTypeSymbol elementType && !IsImmutableType(arrayType.ElementType))
+            if (
+                arrayType.ElementType is INamedTypeSymbol elementType
+                && !IsImmutableType(arrayType.ElementType)
+            )
             {
                 childTypes.Add(elementType);
             }
@@ -272,7 +315,7 @@ internal static class TypeAnalyzer
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementTypeName = GetFullTypeName(arrayType.ElementType);
-            
+
             // Handle multi-dimensional arrays
             if (arrayType.Rank == 1)
             {
@@ -285,11 +328,15 @@ internal static class TypeAnalyzer
                 return $"{elementTypeName}[{commas}]";
             }
         }
-        
+
         // For primitive types, use the CLR type name instead of the C# keyword
         // because global::int is invalid (must be global::System.Int32)
-        var displayString = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted));
-        
+        var displayString = typeSymbol.ToDisplayString(
+            SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(
+                SymbolDisplayGlobalNamespaceStyle.Omitted
+            )
+        );
+
         // Map C# keywords to CLR type names for use with global::
         displayString = displayString switch
         {
@@ -308,9 +355,9 @@ internal static class TypeAnalyzer
             "ushort" => "System.UInt16",
             "object" => "System.Object",
             "string" => "System.String",
-            _ => displayString
+            _ => displayString,
         };
-        
+
         return "global::" + displayString;
     }
 
@@ -318,12 +365,15 @@ internal static class TypeAnalyzer
     {
         // Return only the actual namespace, not containing types
         // Return empty string for global namespace
-        if (typeSymbol.ContainingNamespace == null || typeSymbol.ContainingNamespace.IsGlobalNamespace)
+        if (
+            typeSymbol.ContainingNamespace == null
+            || typeSymbol.ContainingNamespace.IsGlobalNamespace
+        )
             return string.Empty;
-            
+
         return typeSymbol.ContainingNamespace.ToDisplayString();
     }
-    
+
     private static List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
     {
         var containingTypes = new List<string>();
@@ -341,7 +391,7 @@ internal static class TypeAnalyzer
         // System.Object cannot be cloned (it's the base type)
         if (typeSymbol.SpecialType == SpecialType.System_Object)
             return true;
-            
+
         if (typeSymbol.TypeKind == TypeKind.Enum)
             return true;
 
@@ -371,9 +421,11 @@ internal static class TypeAnalyzer
         }
 
         var fullName = GetFullTypeName(typeSymbol);
-        if (fullName.StartsWith("global::System.DateTimeOffset") ||
-            fullName.StartsWith("global::System.TimeSpan") ||
-            fullName.StartsWith("global::System.Guid"))
+        if (
+            fullName.StartsWith("global::System.DateTimeOffset")
+            || fullName.StartsWith("global::System.TimeSpan")
+            || fullName.StartsWith("global::System.Guid")
+        )
         {
             return true;
         }
@@ -384,18 +436,18 @@ internal static class TypeAnalyzer
     private static bool IsCollectionType(ITypeSymbol typeSymbol)
     {
         var fullName = GetFullTypeName(typeSymbol);
-        return fullName.Contains("System.Collections.Generic.List<") ||
-               fullName.Contains("System.Collections.Generic.Dictionary<") ||
-               fullName.Contains("System.Collections.Generic.HashSet<") ||
-               fullName.Contains("System.Collections.Generic.SortedSet<") ||
-               fullName.Contains("System.Collections.Generic.Stack<") ||
-               fullName.Contains("System.Collections.Generic.Queue<") ||
-               fullName.Contains("System.Collections.ObjectModel.ObservableCollection<") ||
-               fullName.Contains("System.Collections.ObjectModel.ReadOnlyCollection<") ||
-               fullName.Contains("System.Collections.Immutable.ImmutableList<") ||
-               fullName.Contains("System.Collections.Immutable.ImmutableArray<") ||
-               fullName.Contains("System.Collections.Immutable.ImmutableHashSet<") ||
-               fullName.Contains("System.Collections.Immutable.ImmutableDictionary<") ||
-               fullName.Contains("[]");
+        return fullName.Contains("System.Collections.Generic.List<")
+            || fullName.Contains("System.Collections.Generic.Dictionary<")
+            || fullName.Contains("System.Collections.Generic.HashSet<")
+            || fullName.Contains("System.Collections.Generic.SortedSet<")
+            || fullName.Contains("System.Collections.Generic.Stack<")
+            || fullName.Contains("System.Collections.Generic.Queue<")
+            || fullName.Contains("System.Collections.ObjectModel.ObservableCollection<")
+            || fullName.Contains("System.Collections.ObjectModel.ReadOnlyCollection<")
+            || fullName.Contains("System.Collections.Immutable.ImmutableList<")
+            || fullName.Contains("System.Collections.Immutable.ImmutableArray<")
+            || fullName.Contains("System.Collections.Immutable.ImmutableHashSet<")
+            || fullName.Contains("System.Collections.Immutable.ImmutableDictionary<")
+            || fullName.Contains("[]");
     }
 }

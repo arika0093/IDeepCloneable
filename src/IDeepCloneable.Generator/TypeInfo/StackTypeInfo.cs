@@ -25,12 +25,8 @@ internal class StackTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(
-            CodeTemplateContents.AggressiveInliningAttribute
-        );
-        builder.AppendLine(
-            CodeTemplateContents.EditorBrowsableAttribute
-        );
+        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
@@ -44,7 +40,7 @@ internal class StackTypeInfo : SpecialTypeInfo
         // So we need to reverse to maintain the original order
         builder.AppendLine($"var array = original.ToArray();");
         builder.AppendLine($"global::System.Array.Reverse(array);");
-        
+
         if (isImmutable)
         {
             builder.AppendLine($"return new {typeFullName}(array);");
@@ -55,7 +51,11 @@ internal class StackTypeInfo : SpecialTypeInfo
             builder.AppendLine("for (int i = 0; i < array.Length; i++)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
-            var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "array[i]", allClassInfos);
+            var cloneCall = CodeGenerator.GenerateTypeCloneCall(
+                innerType,
+                "array[i]",
+                allClassInfos
+            );
             builder.AppendLine($"stack.Push({cloneCall});");
             builder.DecreaseIndent();
             builder.AppendLine("}");

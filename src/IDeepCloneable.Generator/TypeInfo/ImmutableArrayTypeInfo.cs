@@ -7,7 +7,8 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal class ImmutableArrayTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.Immutable.ImmutableArray<";
+    public override string TargetTypeStartWith =>
+        "global::System.Collections.Immutable.ImmutableArray<";
 
     public override string GetMethodName(string typeFullName)
     {
@@ -25,12 +26,8 @@ internal class ImmutableArrayTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(
-            CodeTemplateContents.AggressiveInliningAttribute
-        );
-        builder.AppendLine(
-            CodeTemplateContents.EditorBrowsableAttribute
-        );
+        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
@@ -45,11 +42,17 @@ internal class ImmutableArrayTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var builder = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{innerType}>(original.Length);");
+            builder.AppendLine(
+                $"var builder = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{innerType}>(original.Length);"
+            );
             builder.AppendLine("for (int i = 0; i < original.Length; i++)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
-            var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "original[i]", allClassInfos);
+            var cloneCall = CodeGenerator.GenerateTypeCloneCall(
+                innerType,
+                "original[i]",
+                allClassInfos
+            );
             builder.AppendLine($"builder.Add({cloneCall});");
             builder.DecreaseIndent();
             builder.AppendLine("}");

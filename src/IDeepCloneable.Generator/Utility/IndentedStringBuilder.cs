@@ -9,9 +9,8 @@ using System.Text;
 public class IndentedStringBuilder(StringBuilder stringBuilder, int indentLevel = 0)
 {
     /// <summary>Initializes a new instance of the <see cref="IndentedStringBuilder"/> class.</summary>
-    public IndentedStringBuilder(int indentLevel = 0) : this(new StringBuilder(), indentLevel)
-    {
-    }
+    public IndentedStringBuilder(int indentLevel = 0)
+        : this(new StringBuilder(), indentLevel) { }
 
     /// <summary>Number of spaces per indent level.</summary>
     public const int IndentSize = 4;

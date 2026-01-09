@@ -7,7 +7,8 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.Immutable.ImmutableHashSet<";
+    public override string TargetTypeStartWith =>
+        "global::System.Collections.Immutable.ImmutableHashSet<";
 
     public override string GetMethodName(string typeFullName)
     {
@@ -25,12 +26,8 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(
-            CodeTemplateContents.AggressiveInliningAttribute
-        );
-        builder.AppendLine(
-            CodeTemplateContents.EditorBrowsableAttribute
-        );
+        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
@@ -45,7 +42,9 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var builder = global::System.Collections.Immutable.ImmutableHashSet.CreateBuilder<{innerType}>();");
+            builder.AppendLine(
+                $"var builder = global::System.Collections.Immutable.ImmutableHashSet.CreateBuilder<{innerType}>();"
+            );
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
             builder.IncreaseIndent();

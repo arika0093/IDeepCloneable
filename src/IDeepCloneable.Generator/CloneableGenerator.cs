@@ -32,12 +32,15 @@ public class CloneableGenerator : IIncrementalGenerator
             static (spc, sources) => ExecuteForAll(sources, spc)
         );
     }
-    
-    private static void ExecuteForAll(ImmutableArray<EquatableArray<ClassInfo>> allClassInfoArrays, SourceProductionContext context)
+
+    private static void ExecuteForAll(
+        ImmutableArray<EquatableArray<ClassInfo>> allClassInfoArrays,
+        SourceProductionContext context
+    )
     {
         var allClassInfos = new List<ClassInfo>();
         var seenTypes = new HashSet<string>();
-        
+
         foreach (var classInfoArray in allClassInfoArrays)
         {
             foreach (var classInfo in classInfoArray)
@@ -49,10 +52,10 @@ public class CloneableGenerator : IIncrementalGenerator
                 }
             }
         }
-        
+
         if (allClassInfos.Count == 0)
             return;
-        
+
         var classInfosArray = new EquatableArray<ClassInfo>(allClassInfos);
         CodeGenerator.Execute(classInfosArray, context);
     }

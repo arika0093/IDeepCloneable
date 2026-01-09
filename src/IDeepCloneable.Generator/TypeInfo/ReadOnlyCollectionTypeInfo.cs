@@ -7,7 +7,8 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.ObjectModel.ReadOnlyCollection<";
+    public override string TargetTypeStartWith =>
+        "global::System.Collections.ObjectModel.ReadOnlyCollection<";
 
     public override string GetMethodName(string typeFullName)
     {
@@ -25,12 +26,8 @@ internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(
-            CodeTemplateContents.AggressiveInliningAttribute
-        );
-        builder.AppendLine(
-            CodeTemplateContents.EditorBrowsableAttribute
-        );
+        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
@@ -41,11 +38,15 @@ internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
         if (isImmutable)
         {
             // ReadOnlyCollection wraps a List, but we can just create a new one with the same items
-            builder.AppendLine($"return new {typeFullName}(new global::System.Collections.Generic.List<{innerType}>(original));");
+            builder.AppendLine(
+                $"return new {typeFullName}(new global::System.Collections.Generic.List<{innerType}>(original));"
+            );
         }
         else
         {
-            builder.AppendLine($"var list = new global::System.Collections.Generic.List<{innerType}>(original.Count);");
+            builder.AppendLine(
+                $"var list = new global::System.Collections.Generic.List<{innerType}>(original.Count);"
+            );
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
             builder.IncreaseIndent();

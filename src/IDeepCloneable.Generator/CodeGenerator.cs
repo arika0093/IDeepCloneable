@@ -117,12 +117,13 @@ internal static class CodeGenerator
                     break;
                 }
             }
-            
+
             // Skip only if it's a value type AND all properties are immutable
             // Or if it's an abstract class (can't instantiate)
             // Or if it's a special type (handled by special type handlers)
-            var skipGeneration = classInfo.IsImmutableUsable || classInfo.IsAbstract || isSpecialType;
-            
+            var skipGeneration =
+                classInfo.IsImmutableUsable || classInfo.IsAbstract || isSpecialType;
+
             if (!skipGeneration)
             {
                 builder = GenerateCloneInternalMethod(classInfo, classInfos, builder);
@@ -246,7 +247,11 @@ internal static class CodeGenerator
             // For nullable reference types, we need the null check to avoid calling clone on null
             else
             {
-                var cloneCall = GenerateTypeCloneCall(prop.TypeFullName, propertyAccess, allClassInfos);
+                var cloneCall = GenerateTypeCloneCall(
+                    prop.TypeFullName,
+                    propertyAccess,
+                    allClassInfos
+                );
                 return $"{propertyAccess} != null ? {cloneCall} : null";
             }
         }
@@ -323,14 +328,14 @@ internal static class CodeGenerator
                             classInfos,
                             builder
                         );
-                        
+
                         // Extract inner type(s) and add to queue for processing
                         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
                         if (innerType != typeFullName && !string.IsNullOrEmpty(innerType))
                         {
                             typesToProcess.Enqueue(innerType);
                         }
-                        
+
                         // For arrays, also extract and queue the element type
                         if (typeFullName.Contains("[") && typeFullName.Contains("]"))
                         {
@@ -381,7 +386,7 @@ internal static class CodeGenerator
         builder.AppendLine("{");
         builder.IncreaseIndent();
         builder.AppendLine("/// <inheritdoc />");
-        
+
         var modifiers = "public";
         if (!classInfo.IsSealed && !classInfo.IsValueType)
         {
@@ -394,7 +399,7 @@ internal static class CodeGenerator
         }
 
         var sanitizedName = CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName);
-        
+
         if (classInfo.IsAbstract)
         {
             // Abstract classes have abstract DeepClone method without implementation
@@ -412,9 +417,11 @@ internal static class CodeGenerator
             // Concrete classes have MethodImpl attribute and call CloneInternal
             builder.AppendLine($"{CodeTemplateContents.AggressiveInliningAttribute}");
             builder.AppendLine($"{modifiers} {classInfo.FullClassName} DeepClone()");
-            builder.AppendLine($"    => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);");
+            builder.AppendLine(
+                $"    => global::IDeepCloneable.Generator.DeepCloneExtensions.{sanitizedName}_CloneInternal(this);"
+            );
         }
-        
+
         builder.DecreaseIndent();
         builder.AppendLine("}");
 

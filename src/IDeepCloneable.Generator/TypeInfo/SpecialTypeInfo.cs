@@ -10,17 +10,19 @@ internal abstract class SpecialTypeInfo
 {
     /// <summary>Target type prefix to match against.</summary>
     public abstract string TargetTypeStartWith { get; }
-    
+
     /// <summary>Checks if the given type matches this special type.</summary>
-    public virtual bool IsMatch(string typeFullName) => typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
-    
+    public virtual bool IsMatch(string typeFullName) =>
+        typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
+
     /// <summary>Generates the method name for cloning this special type.</summary>
     public abstract string GetMethodName(string typeFullName);
-    
+
     /// <summary>Generates the clone method for this special type.</summary>
     public abstract IndentedStringBuilder GenerateCloneMethod(
-        string typeFullName, 
-        string methodName, 
-        EquatableArray<ClassInfo> allClassInfos, 
-        IndentedStringBuilder builder);
+        string typeFullName,
+        string methodName,
+        EquatableArray<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    );
 }
