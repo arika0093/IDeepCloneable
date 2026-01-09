@@ -237,7 +237,7 @@ internal static class CodeGenerator
         if (prop.IsNullable)
         {
             var cloneCall = GenerateTypeCloneCall(prop.TypeFullName, propertyAccess, allClassInfos);
-            return $"{propertyAccess} == null ? null : {cloneCall}";
+            return $"{propertyAccess} != null ? {cloneCall} : null";
         }
         else
         {
