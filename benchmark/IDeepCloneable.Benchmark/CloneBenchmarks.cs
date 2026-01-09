@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using AutoMapper;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Running;
 using MemoryPack;
@@ -20,7 +21,11 @@ namespace IDeepCloneable.Benchmark;
 [MemoryDiagnoser]
 [SimpleJob]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
-[MarkdownExporterAttribute.GitHub]
+[SimpleJob(RuntimeMoniker.Net10_0)]
+[SimpleJob(RuntimeMoniker.Net60)]
+#if WINDOWS
+[SimpleJob(RuntimeMoniker.Net481)]
+#endif
 public class CloneBenchmarks
 {
     private ComplexModel _model = null!;
