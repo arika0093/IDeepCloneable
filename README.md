@@ -189,6 +189,20 @@ This library implements its own `IDeepCloneable<T>` interface instead of the sta
 
 For these reasons, even as early as 2004, the use of `ICloneable` was not recommended. [Reference](https://learn.microsoft.com/en-us/archive/blogs/brada/should-we-obsolete-icloneable-the-slar-on-system-icloneable)
 
+## Performance
+Performance is a concern, right? In benchmarks for [medium-sized models](./benchmark/IDeepCloneable.Benchmark/TestDataGenerator.cs), it shows comparable results to major libraries.
+
+| Method                    | Mean        | Ratio | Gen0   | Gen1   | Allocated |
+|-------------------------- |------------:|------:|-------:|-------:|----------:|
+| IDeepCloneable            |    912.7 ns |  1.00 | 0.2890 | 0.0048 |   4.73 KB |
+| Mapperly                  |    996.6 ns |  1.09 | 0.2880 | 0.0038 |   4.73 KB |
+| FastCloner_SourceGen      |  1,147.7 ns |  1.26 | 0.2880 | 0.0038 |   4.73 KB |
+| AutoMapper                |  3,139.2 ns |  3.44 | 0.3433 | 0.0038 |   5.65 KB |
+| FastCloner_Reflection     |  8,772.5 ns |  9.61 | 0.8392 | 0.0153 |  13.79 KB |
+| SystemTextJson_Reflection | 31,857.2 ns | 34.90 | 1.2207 |      - |  20.59 KB |
+
+Detailed results can be found in [BenchmarkResults.md](benchmark/BenchmarkResults.md) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
+
 ## Customize
 As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.
 
@@ -204,6 +218,8 @@ public class Person : IDeepCloneable<Person>
     }
 }
 ```
+
+
 
 ## Library Structure
 This consists of two libraries.
@@ -226,5 +242,3 @@ Additionally, it will automatically reference the `IDeepCloneable.Generator`.
 This is the source generator library that automatically generates the `IDeepCloneable<T>.DeepClone()` method.
 There is no need to directly reference this library.
 
-## Benchmark Summary
-see [BenchmarkResults.md](benchmark/BenchmarkResults.md).
