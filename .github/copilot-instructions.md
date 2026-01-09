@@ -110,7 +110,6 @@ Example for List<T>:
 [EditorBrowsable(EditorBrowsableState.Never)]
 private static List<ElementType> CloneList_ElementType(this List<ElementType> original)
 {
-    if (original == null) return null;
     var list = new List<ElementType>(original.Count);
     foreach (var item in original)
     {
