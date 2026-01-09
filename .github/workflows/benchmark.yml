@@ -27,7 +27,8 @@ jobs:
         run: dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj -c Release
 
       - name: Move Benchmark Result
-        run: mv BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report-github.md benchmark/BenchmarkResults.md
+        shell: bash
+        run: mv -f BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report-github.md benchmark/BenchmarkResults.md
 
       - name: Commit & Push
         uses: stefanzweifel/git-auto-commit-action@v7
