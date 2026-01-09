@@ -93,6 +93,65 @@ public partial class MyModel { /* ... */ }
 library.RegisterCloneMethod<MyModel>();
 ```
 
+## Benefits
+While there are many similar libraries available, this library's key feature is that it generates the `DeepClone()` method as an implementation of the `IDeepCloneable<T>` interface.
+
+By doing this:
+* Library authors can use `DeepClone()` without reflection (NativeAOT friendly)
+* Users are relieved of the burden of manual implementation
+
+## Performance
+Performance is a concern, right? In benchmarks for [medium-sized models](./benchmark/IDeepCloneable.Benchmark/TestDataGenerator.cs), it shows comparable results to major libraries.
+
+| Method                    | Mean        | Ratio | Gen0   | Gen1   | Allocated |
+|-------------------------- |------------:|------:|-------:|-------:|----------:|
+| IDeepCloneable            |    912.7 ns |  1.00 | 0.2890 | 0.0048 |   4.73 KB |
+| Mapperly                  |    996.6 ns |  1.09 | 0.2880 | 0.0038 |   4.73 KB |
+| FastCloner_SourceGen      |  1,147.7 ns |  1.26 | 0.2880 | 0.0038 |   4.73 KB |
+| AutoMapper                |  3,139.2 ns |  3.44 | 0.3433 | 0.0038 |   5.65 KB |
+| FastCloner_Reflection     |  8,772.5 ns |  9.61 | 0.8392 | 0.0153 |  13.79 KB |
+| SystemTextJson_Reflection | 31,857.2 ns | 34.90 | 1.2207 |      - |  20.59 KB |
+
+Detailed results can be found in [BenchmarkResults.md](benchmark/BenchmarkResults.md) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
+
+## Customize
+As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.
+
+```csharp
+public class Person : IDeepCloneable<Person>
+{
+    public string Name { get; set; }
+    public int Age { get; set; }
+
+    public Person DeepClone()
+    {
+        // your custom implementation
+    }
+}
+```
+
+## Library Structure
+This consists of two libraries.
+
+### IDeepCloneable
+This is the library that defines the `IDeepCloneable<T>` interface and the `[DeepCloneable]` marker attribute.  
+To allow users of third-party libraries to use it without worrying about `IDeepCloneable`, it is defined directly under the global namespace.
+
+```csharp
+public sealed class DeepCloneableAttribute : Attribute;
+public interface IDeepCloneable<T>
+{
+    T DeepClone();
+}
+```
+
+Additionally, it will automatically reference the `IDeepCloneable.Generator`.
+
+### IDeepCloneable.Generator
+This is the source generator library that automatically generates the `IDeepCloneable<T>.DeepClone()` method.
+There is no need to directly reference this library.
+
+## FAQ
 ### What is DeepClone?
 DeepClone (also commonly referred to as DeepCopy) refers to the operation of creating a complete copy of an object.
 
@@ -174,13 +233,6 @@ person6.Address.City = "Auto Cloned City";
 // person1.Address.City remains unchanged
 ```
 
-### Benefits
-While there are many similar libraries available, this library's key feature is that it generates the `DeepClone()` method as an implementation of the `IDeepCloneable<T>` interface.
-
-By doing this:
-* Library authors can use `DeepClone()` without reflection (NativeAOT friendly)
-* Users are relieved of the burden of manual implementation
-
 ### Why not use `ICloneable`?
 This library implements its own `IDeepCloneable<T>` interface instead of the standard `System.ICloneable` for the following reasons:
 
@@ -188,57 +240,4 @@ This library implements its own `IDeepCloneable<T>` interface instead of the sta
 * `ICloneable.Clone()` is non-generic, so you must cast the return value.
 
 For these reasons, even as early as 2004, the use of `ICloneable` was not recommended. [Reference](https://learn.microsoft.com/en-us/archive/blogs/brada/should-we-obsolete-icloneable-the-slar-on-system-icloneable)
-
-## Performance
-Performance is a concern, right? In benchmarks for [medium-sized models](./benchmark/IDeepCloneable.Benchmark/TestDataGenerator.cs), it shows comparable results to major libraries.
-
-| Method                    | Mean        | Ratio | Gen0   | Gen1   | Allocated |
-|-------------------------- |------------:|------:|-------:|-------:|----------:|
-| IDeepCloneable            |    912.7 ns |  1.00 | 0.2890 | 0.0048 |   4.73 KB |
-| Mapperly                  |    996.6 ns |  1.09 | 0.2880 | 0.0038 |   4.73 KB |
-| FastCloner_SourceGen      |  1,147.7 ns |  1.26 | 0.2880 | 0.0038 |   4.73 KB |
-| AutoMapper                |  3,139.2 ns |  3.44 | 0.3433 | 0.0038 |   5.65 KB |
-| FastCloner_Reflection     |  8,772.5 ns |  9.61 | 0.8392 | 0.0153 |  13.79 KB |
-| SystemTextJson_Reflection | 31,857.2 ns | 34.90 | 1.2207 |      - |  20.59 KB |
-
-Detailed results can be found in [BenchmarkResults.md](benchmark/BenchmarkResults.md) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
-
-## Customize
-As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.
-
-```csharp
-public class Person : IDeepCloneable<Person>
-{
-    public string Name { get; set; }
-    public int Age { get; set; }
-
-    public Person DeepClone()
-    {
-        // your custom implementation
-    }
-}
-```
-
-
-
-## Library Structure
-This consists of two libraries.
-
-### IDeepCloneable
-This is the library that defines the `IDeepCloneable<T>` interface and the `[DeepCloneable]` marker attribute.  
-To allow users of third-party libraries to use it without worrying about `IDeepCloneable`, it is defined directly under the global namespace.
-
-```csharp
-public sealed class DeepCloneableAttribute : Attribute;
-public interface IDeepCloneable<T>
-{
-    T DeepClone();
-}
-```
-
-Additionally, it will automatically reference the `IDeepCloneable.Generator`.
-
-### IDeepCloneable.Generator
-This is the source generator library that automatically generates the `IDeepCloneable<T>.DeepClone()` method.
-There is no need to directly reference this library.
 
