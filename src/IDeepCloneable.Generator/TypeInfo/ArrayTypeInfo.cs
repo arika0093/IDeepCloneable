@@ -33,8 +33,8 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
 
         builder.AppendLine("");
-        builder.AppendLine($"{CodeGenerator.AggressiveInliningAttribute}");
-        builder.AppendLine($"{CodeGenerator.EditorBrowsableAttribute}");
+        builder.AppendLine($"{CodeTemplateContents.AggressiveInliningAttribute}");
+        builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
