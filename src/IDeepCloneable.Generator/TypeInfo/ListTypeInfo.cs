@@ -33,6 +33,7 @@ internal class ListTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
+        builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
         {

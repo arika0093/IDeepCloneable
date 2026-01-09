@@ -32,6 +32,7 @@ internal class HashSetTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
+        builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
         {
