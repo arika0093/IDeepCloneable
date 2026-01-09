@@ -44,7 +44,7 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
         if (keyIsImmutable && valueIsImmutable)
@@ -57,7 +57,7 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
             builder.AppendLine($"var builder = global::System.Collections.Immutable.ImmutableDictionary.CreateBuilder<{keyType}, {valueType}>();");
             builder.AppendLine("foreach (var kvp in original)");
             builder.AppendLine("{");
-            builder = builder.IncreaseIndent();
+            builder.IncreaseIndent();
 
             var keyClone = keyIsImmutable
                 ? "kvp.Key"
@@ -67,12 +67,12 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
                 : CodeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
 
             builder.AppendLine($"builder.Add({keyClone}, {valueClone});");
-            builder = builder.DecreaseIndent();
+            builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return builder.ToImmutable();");
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;

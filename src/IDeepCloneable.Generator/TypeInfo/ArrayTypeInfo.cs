@@ -39,7 +39,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
-        builder = builder.IncreaseIndent();
+        builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
         // For immutable element types or value types, we can use Array.Clone()
@@ -71,16 +71,16 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                 builder.AppendLine($"var array = new {elementType}[original.Length];");
                 builder.AppendLine("for (int i = 0; i < original.Length; i++)");
                 builder.AppendLine("{");
-                builder = builder.IncreaseIndent();
+                builder.IncreaseIndent();
                 var cloneCall = CodeGenerator.GenerateTypeCloneCall(elementType, "original[i]", allClassInfos);
                 builder.AppendLine($"array[i] = {cloneCall};");
-                builder = builder.DecreaseIndent();
+                builder.DecreaseIndent();
                 builder.AppendLine("}");
                 builder.AppendLine("return array;");
             }
         }
 
-        builder = builder.DecreaseIndent();
+        builder.DecreaseIndent();
         builder.AppendLine("}");
 
         return builder;
