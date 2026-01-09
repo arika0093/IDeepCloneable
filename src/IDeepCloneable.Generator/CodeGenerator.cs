@@ -234,10 +234,21 @@ internal static class CodeGenerator
     {
         var propertyAccess = $"original.{prop.Name}";
 
+        // For nullable properties
         if (prop.IsNullable)
         {
-            var cloneCall = GenerateTypeCloneCall(prop.TypeFullName, propertyAccess, allClassInfos);
-            return $"{propertyAccess} != null ? {cloneCall} : null";
+            // If it's a nullable value type (immutable), we can just assign directly
+            // e.g., DateTime? can be assigned without null check: clone.UpdateAt = original.UpdateAt
+            if (prop.IsImmutable)
+            {
+                return propertyAccess;
+            }
+            // For nullable reference types, we need the null check to avoid calling clone on null
+            else
+            {
+                var cloneCall = GenerateTypeCloneCall(prop.TypeFullName, propertyAccess, allClassInfos);
+                return $"{propertyAccess} != null ? {cloneCall} : null";
+            }
         }
         else
         {
