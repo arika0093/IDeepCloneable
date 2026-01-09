@@ -40,7 +40,6 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
-        builder.AppendLine("if (original == null) return null;");
 
         // For immutable element types or value types, we can use Array.Clone()
         if (isImmutable)

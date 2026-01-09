@@ -171,11 +171,6 @@ internal static class CodeGenerator
         builder.AppendLine("{");
         builder.IncreaseIndent();
 
-        if (!classInfo.IsValueType)
-        {
-            builder.AppendLine("if (original == null) return null;");
-        }
-
         if (classInfo.IsRecord || classInfo.IsValueType)
         {
             if (ShouldUseWithSyntax(classInfo))

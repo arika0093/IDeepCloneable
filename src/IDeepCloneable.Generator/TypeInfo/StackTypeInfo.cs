@@ -32,7 +32,6 @@ internal class StackTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
-        builder.AppendLine("if (original == null) return null;");
 
         // Stack needs to preserve order, so we use ToArray() then pass to constructor
         // ToArray() returns items in the order they would be popped (LIFO)
