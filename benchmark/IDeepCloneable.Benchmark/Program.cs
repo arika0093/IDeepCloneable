@@ -30,7 +30,7 @@ foreach (var benchmarkType in benchmarkTypes)
 }
 
 // Generate markdown report
-GenerateBenchmarkReport(summaries, "../BenchmarkResult.md");
+GenerateBenchmarkReport(summaries, "BenchmarkResult.md");
 
 static void GenerateBenchmarkReport(List<BenchmarkDotNet.Reports.Summary> summaries, string outputPath)
 {
@@ -47,7 +47,10 @@ static void GenerateBenchmarkReport(List<BenchmarkDotNet.Reports.Summary> summar
 
         // Load the GitHub-formatted Markdown report
         var artifactsPath = Path.Combine("BenchmarkDotNet.Artifacts", "results");
-        var reportFileName = $"{summary.Title}-report-github.md";
+        // summary Title is IDeepCloneable.Benchmark.CloneBenchmarks-20260109-011649
+        // so we remove the datetime part to get the base report file name
+        var summaryTitleWithoutDateTime = summary.Title.Split('-').First();
+        var reportFileName = $"{summaryTitleWithoutDateTime}-report-github.md";
         var reportFilePath = Path.Combine(artifactsPath, reportFileName);
 
         if (File.Exists(reportFilePath))

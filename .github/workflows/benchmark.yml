@@ -19,6 +19,9 @@ jobs:
       - name: Run benchmarks
         run: dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj
 
+      - name: Move Benchmark Result
+        run: mv BenchmarkResult.md ./benchmark/BenchmarkResult.md
+
       - name: Commit & Push
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
