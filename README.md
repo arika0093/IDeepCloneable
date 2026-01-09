@@ -60,8 +60,6 @@ dotnet add package IDeepCloneable
 Then, you can check if a type implements `IDeepCloneable<T>` and call the `DeepClone()` method accordingly.
 
 ```csharp
-using IDeepCloneable;
-
 public void RegisterCloneMethod<T>()
 {
     Func<T, T> cloneFunc = null;
@@ -219,8 +217,6 @@ person5.Address.City = "Cloned City";
 While this works, it is still a bit cumbersome. With this library, you can automatically generate the implementation of the `DeepClone()` method.
 
 ```csharp
-using IDeepCloneable;
-
 [DeepCloneable] // <- add this attribute
 public partial class Person // <- make it partial
 {
