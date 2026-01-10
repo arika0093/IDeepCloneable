@@ -75,55 +75,6 @@ internal static class TypeAnalyzer
         }
     }
 
-    private static string ExtractGenericArgument(string typeFullName, int index)
-    {
-        var startIndex = typeFullName.IndexOf('<');
-        var endIndex = typeFullName.LastIndexOf('>');
-        if (startIndex >= 0 && endIndex > startIndex)
-        {
-            var args = typeFullName.Substring(startIndex + 1, endIndex - startIndex - 1);
-
-            // Handle nested generics by splitting carefully
-            var parts = new List<string>();
-            var depth = 0;
-            var current = new StringBuilder();
-
-            foreach (var c in args)
-            {
-                if (c == '<')
-                {
-                    depth++;
-                    current.Append(c);
-                }
-                else if (c == '>')
-                {
-                    depth--;
-                    current.Append(c);
-                }
-                else if (c == ',' && depth == 0)
-                {
-                    parts.Add(current.ToString().Trim().TrimEnd('?'));
-                    current.Clear();
-                }
-                else
-                {
-                    current.Append(c);
-                }
-            }
-
-            if (current.Length > 0)
-            {
-                parts.Add(current.ToString().Trim().TrimEnd('?'));
-            }
-
-            if (index < parts.Count)
-            {
-                return parts[index];
-            }
-        }
-        return typeFullName;
-    }
-
     private static ClassInfo? CreateClassInfo(
         INamedTypeSymbol typeSymbol,
         Compilation compilation,
