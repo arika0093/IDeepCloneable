@@ -199,7 +199,7 @@ internal class MyCloneableGenerator : CloneableGeneratorCore<MyGeneratorOptions>
 internal class MyGeneratorOptions : CloneableGeneratorOptionsCore
 {
     // The DeepClone implementation will be generated for types with this attribute.
-    public override string AttributeMetadataName => "MyLibraryAttribute";
+    public override string AttributeMetadataName => "MyLibrary.MyLibraryAttribute";
 
     // Specify the interface name that generated types should implement. If empty, only a partial class is generated.
     public override string ImplementedInterfaceName => "global::MyLibrary.IMyLibraryClass";
@@ -246,7 +246,7 @@ There is no need to directly reference this library.
 
 ### IDeepCloneable.Generator.Source
 This library provides the source code for the source generator.
-It is intended for library authors who want to create their own attributes that automatically implement `IDeepCloneable<T>`.
+It is intended for library authors who want to create their own attributes and interfaces that automatically implement `DeepClone`.
 
 ## FAQ
 ### What is DeepClone?
