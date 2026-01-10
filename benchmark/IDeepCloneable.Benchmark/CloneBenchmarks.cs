@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AutoMapper;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Order;
-using BenchmarkDotNet.Running;
 using MemoryPack;
 using MessagePack;
 using Newtonsoft.Json;
@@ -19,6 +14,7 @@ namespace IDeepCloneable.Benchmark;
 /// Benchmarks comparing different deep cloning approaches for complex object models.
 /// </summary>
 [MemoryDiagnoser]
+[DisassemblyDiagnoser(printSource: true)]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [SimpleJob]
 public class CloneBenchmarks
@@ -26,7 +22,6 @@ public class CloneBenchmarks
     private ComplexModel _model = null!;
     private IMapper _autoMapper = null!;
     private JsonSerializerOptions _systemTextJsonOptions = null!;
-    private JsonSerializerOptions _systemTextJsonSourceGenOptions = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -48,13 +43,6 @@ public class CloneBenchmarks
 
         // Setup System.Text.Json options
         _systemTextJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-        // Setup System.Text.Json with source generation
-        _systemTextJsonSourceGenOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            TypeInfoResolver = BenchmarkJsonContext.Default,
-        };
     }
 
     [Benchmark(Baseline = true)]
