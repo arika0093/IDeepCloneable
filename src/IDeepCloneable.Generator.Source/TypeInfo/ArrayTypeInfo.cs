@@ -43,10 +43,20 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
-        // For immutable element types or value types, we can use Array.Clone()
+        // For immutable element types or value types, use optimized AsSpan().ToArray() for better performance
+        // Note: AsSpan() only works for single-dimensional arrays
         if (isImmutable)
         {
-            builder.AppendLine($"return (original.Clone() as {typeFullName});");
+            if (typeFullName.Contains(","))
+            {
+                // Multi-dimensional arrays - use Array.Clone()
+                builder.AppendLine($"return (original.Clone() as {typeFullName});");
+            }
+            else
+            {
+                // Single-dimensional arrays - use AsSpan().ToArray() for fast cloning
+                builder.AppendLine($"return original.AsSpan().ToArray();");
+            }
         }
         else
         {
