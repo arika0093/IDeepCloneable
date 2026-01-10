@@ -8,7 +8,7 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Generates source code for deep cloning functionality.
 /// </summary>
-internal class CodeGenerator(ICloneableGeneratorOptions options)
+internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 {
     private static readonly List<SpecialTypeInfo> SpecialTypeInfos =
     [
@@ -374,9 +374,10 @@ internal class CodeGenerator(ICloneableGeneratorOptions options)
             ? (classInfo.IsValueType ? "record struct" : "record")
             : (classInfo.IsValueType ? "struct" : "class");
 
-        builder.AppendLine(
-            $"partial {typeKeyword} {classInfo.ClassName} : {options.ImplementedInterfaceName}<{classInfo.FullClassName}>"
-        );
+        var implementInterface = !string.IsNullOrWhiteSpace(options.ImplementedInterfaceName)
+            ? $" : {options.ImplementedInterfaceName}<{classInfo.FullClassName}>"
+            : string.Empty;
+        builder.AppendLine($"partial {typeKeyword} {classInfo.ClassName}{implementInterface}");
         builder.AppendLine("{");
         builder.IncreaseIndent();
         builder.AppendLine("/// <inheritdoc />");

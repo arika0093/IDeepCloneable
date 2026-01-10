@@ -7,7 +7,7 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Analyzes types and extracts metadata needed for deep clone generation.
 /// </summary>
-internal class TypeAnalyzer(ICloneableGeneratorOptions options)
+internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 {
     public EquatableArray<ClassInfo>? GetRelationalAllClassInfo(
         GeneratorAttributeSyntaxContext context
