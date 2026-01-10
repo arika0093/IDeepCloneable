@@ -16,14 +16,14 @@ public class SimpleManualTest
         var original = new ManualTripleNestedList
         {
             Name = "Root",
-            Items = new List<List<List<int>>>
-            {
+            Items =
+            [
                 new()
                 {
                     new List<int> { 1, 2, 3 },
                     new List<int> { 4, 5, 6 },
                 },
-            },
+            ],
         };
 
         // Act

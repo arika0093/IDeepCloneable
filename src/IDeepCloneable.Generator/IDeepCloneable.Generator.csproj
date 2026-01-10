@@ -28,4 +28,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IDeepCloneable.Generator.Source\IDeepCloneable.Generator.Source.csproj" />
+  </ItemGroup>
 </Project>

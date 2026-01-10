@@ -88,11 +88,7 @@ public class RecordCloneTests
     [Fact]
     public void DeepClone_RecordWithCollection_ClonesCorrectly()
     {
-        var original = new RecordWithCollection
-        {
-            Name = "Test",
-            Tags = new System.Collections.Generic.List<string> { "tag1", "tag2", "tag3" },
-        };
+        var original = new RecordWithCollection { Name = "Test", Tags = ["tag1", "tag2", "tag3"] };
 
         var clone = original.DeepClone();
 

@@ -14,11 +14,7 @@ public class CollectionCloneTests
         var original = new ClassWithList
         {
             Name = "Parent",
-            Items = new List<NestedClass>
-            {
-                new() { Value = "Item1" },
-                new() { Value = "Item2" },
-            },
+            Items = [new() { Value = "Item1" }, new() { Value = "Item2" }],
         };
 
         var clone = original.DeepClone();
@@ -39,7 +35,7 @@ public class CollectionCloneTests
         var original = new ClassWithList
         {
             Name = "Parent",
-            Items = new List<NestedClass> { new() { Value = "Original" } },
+            Items = [new() { Value = "Original" }],
         };
 
         var clone = original.DeepClone();
@@ -62,17 +58,13 @@ public class CollectionCloneTests
     [Fact]
     public void DeepClone_ListOfValueTypes_CreatesNewList()
     {
-        var original = new ClassWithValueList
-        {
-            Name = "Parent",
-            Numbers = new List<int> { 1, 2, 3 },
-        };
+        var original = new ClassWithValueList { Name = "Parent", Numbers = [1, 2, 3] };
 
         var clone = original.DeepClone();
 
         clone.ShouldNotBeSameAs(original);
         clone.Numbers.ShouldNotBeSameAs(original.Numbers);
-        clone.Numbers.ShouldBe(new List<int> { 1, 2, 3 });
+        clone.Numbers.ShouldBe([1, 2, 3]);
     }
 }
 

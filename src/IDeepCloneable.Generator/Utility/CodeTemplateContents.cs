@@ -5,9 +5,6 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal static class CodeTemplateContents
 {
-    // public const string AggressiveInliningAttribute =
-    //     "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]";
-    public const string AggressiveInliningAttribute = "";
     public const string EditorBrowsableAttribute =
         "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]";
 }

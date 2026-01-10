@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
 namespace IDeepCloneable.Generator;
@@ -23,8 +24,9 @@ internal class ArrayTypeInfo : SpecialTypeInfo
     public override IndentedStringBuilder GenerateCloneMethod(
         string typeFullName,
         string methodName,
-        EquatableArray<ClassInfo> allClassInfos,
-        IndentedStringBuilder builder
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
     )
     {
         // Extract element type (everything before the first '[')
@@ -33,7 +35,6 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
 
         builder.AppendLine("");
-        builder.AppendLine($"{CodeTemplateContents.AggressiveInliningAttribute}");
         builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
@@ -68,7 +69,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                 builder.AppendLine("for (int i = 0; i < original.Length; i++)");
                 builder.AppendLine("{");
                 builder.IncreaseIndent();
-                var cloneCall = CodeGenerator.GenerateTypeCloneCall(
+                var cloneCall = codeGenerator.GenerateTypeCloneCall(
                     elementType,
                     "original[i]",
                     allClassInfos

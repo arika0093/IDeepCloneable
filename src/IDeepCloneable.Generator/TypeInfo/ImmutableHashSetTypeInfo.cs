@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
 namespace IDeepCloneable.Generator;
@@ -18,15 +19,15 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
     public override IndentedStringBuilder GenerateCloneMethod(
         string typeFullName,
         string methodName,
-        EquatableArray<ClassInfo> allClassInfos,
-        IndentedStringBuilder builder
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
     )
     {
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
@@ -48,7 +49,7 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
-            var cloneCall = CodeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
+            var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.AppendLine($"builder.Add({cloneCall});");
             builder.DecreaseIndent();
             builder.AppendLine("}");

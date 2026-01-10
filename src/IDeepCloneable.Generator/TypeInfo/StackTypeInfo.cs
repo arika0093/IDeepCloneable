@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
 namespace IDeepCloneable.Generator;
@@ -17,15 +18,15 @@ internal class StackTypeInfo : SpecialTypeInfo
     public override IndentedStringBuilder GenerateCloneMethod(
         string typeFullName,
         string methodName,
-        EquatableArray<ClassInfo> allClassInfos,
-        IndentedStringBuilder builder
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
     )
     {
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
@@ -51,7 +52,7 @@ internal class StackTypeInfo : SpecialTypeInfo
             builder.AppendLine("for (int i = 0; i < array.Length; i++)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
-            var cloneCall = CodeGenerator.GenerateTypeCloneCall(
+            var cloneCall = codeGenerator.GenerateTypeCloneCall(
                 innerType,
                 "array[i]",
                 allClassInfos

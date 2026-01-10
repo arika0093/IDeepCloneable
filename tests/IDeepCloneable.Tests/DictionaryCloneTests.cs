@@ -103,11 +103,7 @@ public class DictionaryCloneTests
     [Fact]
     public void DeepClone_EmptyDictionary_HandlesCorrectly()
     {
-        var original = new ClassWithValueDictionary
-        {
-            Name = "Test",
-            Scores = new Dictionary<string, int>(),
-        };
+        var original = new ClassWithValueDictionary { Name = "Test", Scores = [] };
 
         var clone = original.DeepClone();
 

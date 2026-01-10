@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
 namespace IDeepCloneable.Generator;
@@ -18,8 +19,9 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
     public override IndentedStringBuilder GenerateCloneMethod(
         string typeFullName,
         string methodName,
-        EquatableArray<ClassInfo> allClassInfos,
-        IndentedStringBuilder builder
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
     )
     {
         var genericArgs = CodeGenerationUtility.ExtractGenericType(typeFullName);
@@ -35,7 +37,6 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
         var valueIsImmutable = CodeGenerationUtility.IsTypeImmutable(valueType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.AggressiveInliningAttribute);
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
             $"private static {typeFullName} {methodName}(this {typeFullName} original)"
@@ -60,10 +61,10 @@ internal class ImmutableDictionaryTypeInfo : SpecialTypeInfo
 
             var keyClone = keyIsImmutable
                 ? "kvp.Key"
-                : CodeGenerator.GenerateTypeCloneCall(keyType, "kvp.Key", allClassInfos);
+                : codeGenerator.GenerateTypeCloneCall(keyType, "kvp.Key", allClassInfos);
             var valueClone = valueIsImmutable
                 ? "kvp.Value"
-                : CodeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
+                : codeGenerator.GenerateTypeCloneCall(valueType, "kvp.Value", allClassInfos);
 
             builder.AppendLine($"builder.Add({keyClone}, {valueClone});");
             builder.DecreaseIndent();

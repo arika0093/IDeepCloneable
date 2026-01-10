@@ -16,8 +16,8 @@ public class ComplexNestedCloneTests
         var original = new ClassWithTripleNestedList
         {
             Name = "Root",
-            Items = new List<List<List<int>>>
-            {
+            Items =
+            [
                 new()
                 {
                     new List<int> { 1, 2, 3 },
@@ -28,7 +28,7 @@ public class ComplexNestedCloneTests
                     new List<int> { 7, 8, 9 },
                     new List<int> { 10, 11, 12 },
                 },
-            },
+            ],
         };
 
         // Act: Clone the object
@@ -44,7 +44,7 @@ public class ComplexNestedCloneTests
         clone.Name.ShouldBe("Root");
         clone.Items.Count.ShouldBe(2);
         clone.Items[0].Count.ShouldBe(2);
-        clone.Items[0][0].ShouldBe(new List<int> { 1, 2, 3 });
+        clone.Items[0][0].ShouldBe([1, 2, 3]);
 
         // Verify modifying clone doesn't affect original
         clone.Items[0][0][0] = 999;
@@ -95,27 +95,27 @@ public class ComplexNestedCloneTests
         var original = new ComplexStructure
         {
             Name = "Root",
-            Items = new List<ItemWithNestedData>
-            {
+            Items =
+            [
                 new()
                 {
                     Id = "Item1",
-                    SubItems = new List<SubItem>
-                    {
+                    SubItems =
+                    [
                         new() { Value = "Sub1-1", Data = 10 },
                         new() { Value = "Sub1-2", Data = 20 },
-                    },
+                    ],
                 },
                 new()
                 {
                     Id = "Item2",
-                    SubItems = new List<SubItem>
-                    {
+                    SubItems =
+                    [
                         new() { Value = "Sub2-1", Data = 30 },
                         new() { Value = "Sub2-2", Data = 40 },
-                    },
+                    ],
                 },
-            },
+            ],
         };
 
         // Act: Clone the object
@@ -146,8 +146,8 @@ public class ComplexNestedCloneTests
         var original = new ClassWithNestedListOfObjects
         {
             Name = "Container",
-            Groups = new List<List<SimpleCloneableItem>>
-            {
+            Groups =
+            [
                 new()
                 {
                     new SimpleCloneableItem { Id = 1, Name = "Item1-1" },
@@ -158,7 +158,7 @@ public class ComplexNestedCloneTests
                     new SimpleCloneableItem { Id = 3, Name = "Item2-1" },
                     new SimpleCloneableItem { Id = 4, Name = "Item2-2" },
                 },
-            },
+            ],
         };
 
         // Act: Clone the object
@@ -192,22 +192,22 @@ public class ComplexNestedCloneTests
                     "key1",
                     new DataContainer
                     {
-                        Items = new List<SimpleCloneableItem>
-                        {
+                        Items =
+                        [
                             new() { Id = 1, Name = "Item1" },
                             new() { Id = 2, Name = "Item2" },
-                        },
+                        ],
                     }
                 },
                 {
                     "key2",
                     new DataContainer
                     {
-                        Items = new List<SimpleCloneableItem>
-                        {
+                        Items =
+                        [
                             new() { Id = 3, Name = "Item3" },
                             new() { Id = 4, Name = "Item4" },
-                        },
+                        ],
                     }
                 },
             },
@@ -284,18 +284,11 @@ public class ComplexNestedCloneTests
         var original = new ComplexStructure
         {
             Name = "Root",
-            Items = new List<ItemWithNestedData>
-            {
+            Items =
+            [
                 new() { Id = "Item1", SubItems = null },
-                new()
-                {
-                    Id = "Item2",
-                    SubItems = new List<SubItem>
-                    {
-                        new() { Value = "Sub2-1", Data = 30 },
-                    },
-                },
-            },
+                new() { Id = "Item2", SubItems = [new() { Value = "Sub2-1", Data = 30 }] },
+            ],
         };
 
         // Act: Clone the object

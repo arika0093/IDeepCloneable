@@ -187,7 +187,7 @@ internal abstract class SpecialTypeInfo
     public abstract IndentedStringBuilder GenerateCloneMethod(
         string typeFullName, 
         string methodName, 
-        EquatableArray<ClassInfo> allClassInfos, 
+        List<ClassInfo> allClassInfos, 
         IndentedStringBuilder builder);
 }
 ```

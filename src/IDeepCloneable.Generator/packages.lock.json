@@ -115,6 +115,12 @@
         "dependencies": {
           "System.Runtime.CompilerServices.Unsafe": "4.5.3"
         }
+      },
+      "ideepcloneable.generator.source": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.CodeAnalysis.CSharp": "[4.4.0, )"
+        }
       }
     }
   }

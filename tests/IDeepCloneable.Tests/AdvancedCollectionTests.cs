@@ -55,11 +55,7 @@ public class AdvancedCollectionTests
     [Fact]
     public void DeepClone_HashSet_ClonesCorrectly()
     {
-        var original = new ClassWithHashSet
-        {
-            Name = "Test",
-            Items = new HashSet<int> { 1, 2, 3, 4, 5 },
-        };
+        var original = new ClassWithHashSet { Name = "Test", Items = [1, 2, 3, 4, 5] };
 
         var clone = original.DeepClone();
 
@@ -67,17 +63,13 @@ public class AdvancedCollectionTests
         clone.Items.ShouldNotBeNull();
         clone.Items.ShouldNotBeSameAs(original.Items);
         clone.Items.Count.ShouldBe(5);
-        clone.Items.ShouldBe(new HashSet<int> { 1, 2, 3, 4, 5 });
+        clone.Items.ShouldBe([1, 2, 3, 4, 5]);
     }
 
     [Fact]
     public void DeepClone_SortedSet_ClonesCorrectly()
     {
-        var original = new ClassWithSortedSet
-        {
-            Name = "Test",
-            Items = new SortedSet<int> { 3, 1, 4, 1, 5, 9 },
-        };
+        var original = new ClassWithSortedSet { Name = "Test", Items = [3, 1, 4, 1, 5, 9] };
 
         var clone = original.DeepClone();
 
@@ -91,11 +83,7 @@ public class AdvancedCollectionTests
     [Fact]
     public void DeepClone_ObservableCollection_ClonesCorrectly()
     {
-        var original = new ClassWithObservableCollection
-        {
-            Name = "Test",
-            Items = new ObservableCollection<int> { 1, 2, 3 },
-        };
+        var original = new ClassWithObservableCollection { Name = "Test", Items = [1, 2, 3] };
 
         var clone = original.DeepClone();
 
@@ -112,7 +100,7 @@ public class AdvancedCollectionTests
         var original = new ClassWithReadOnlyCollection
         {
             Name = "Test",
-            Items = new ReadOnlyCollection<int>(new List<int> { 1, 2, 3 }),
+            Items = new ReadOnlyCollection<int>([1, 2, 3]),
         };
 
         var clone = original.DeepClone();

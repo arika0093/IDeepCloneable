@@ -31,8 +31,8 @@ public static class TestDataGenerator
                     Country = "USA",
                 },
             },
-            Contributors = new List<UserInfo>
-            {
+            Contributors =
+            [
                 new()
                 {
                     UserId = "user-002",
@@ -89,7 +89,7 @@ public static class TestDataGenerator
                         Country = "USA",
                     },
                 },
-            },
+            ],
             Metadata = new Dictionary<string, string>
             {
                 { "category", "test" },
@@ -100,17 +100,17 @@ public static class TestDataGenerator
                 { "region", "us-west-2" },
                 { "tier", "premium" },
             },
-            Items = new List<DataItem>
-            {
+            Items =
+            [
                 new()
                 {
                     ItemId = "item-001",
                     Title = "First Item",
                     Description = "This is the first item with a detailed description",
                     Value = 99.99,
-                    Tags = new List<string> { "tag1", "tag2", "tag3", "important", "featured" },
-                    SubItems = new List<SubItem>
-                    {
+                    Tags = ["tag1", "tag2", "tag3", "important", "featured"],
+                    SubItems =
+                    [
                         new()
                         {
                             SubId = "sub-001",
@@ -132,7 +132,7 @@ public static class TestDataGenerator
                             Quantity = 8,
                             Price = 24.99m,
                         },
-                    },
+                    ],
                     Properties = new Dictionary<string, string>
                     {
                         { "color", "blue" },
@@ -148,9 +148,9 @@ public static class TestDataGenerator
                     Title = "Second Item",
                     Description = "This is the second item with another detailed description",
                     Value = 149.99,
-                    Tags = new List<string> { "tag4", "tag5", "premium" },
-                    SubItems = new List<SubItem>
-                    {
+                    Tags = ["tag4", "tag5", "premium"],
+                    SubItems =
+                    [
                         new()
                         {
                             SubId = "sub-004",
@@ -165,7 +165,7 @@ public static class TestDataGenerator
                             Quantity = 12,
                             Price = 44.99m,
                         },
-                    },
+                    ],
                     Properties = new Dictionary<string, string>
                     {
                         { "color", "red" },
@@ -179,9 +179,9 @@ public static class TestDataGenerator
                     Title = "Third Item",
                     Description = "This is the third item for additional testing data",
                     Value = 79.99,
-                    Tags = new List<string> { "tag6", "tag7", "tag8" },
-                    SubItems = new List<SubItem>
-                    {
+                    Tags = ["tag6", "tag7", "tag8"],
+                    SubItems =
+                    [
                         new()
                         {
                             SubId = "sub-006",
@@ -189,7 +189,7 @@ public static class TestDataGenerator
                             Quantity = 20,
                             Price = 9.99m,
                         },
-                    },
+                    ],
                     Properties = new Dictionary<string, string>
                     {
                         { "color", "green" },
@@ -202,9 +202,9 @@ public static class TestDataGenerator
                     Title = "Fourth Item",
                     Description = "This is the fourth item with extensive details and properties",
                     Value = 199.99,
-                    Tags = new List<string> { "tag9", "tag10", "exclusive", "limited" },
-                    SubItems = new List<SubItem>
-                    {
+                    Tags = ["tag9", "tag10", "exclusive", "limited"],
+                    SubItems =
+                    [
                         new()
                         {
                             SubId = "sub-007",
@@ -226,7 +226,7 @@ public static class TestDataGenerator
                             Quantity = 11,
                             Price = 29.99m,
                         },
-                    },
+                    ],
                     Properties = new Dictionary<string, string>
                     {
                         { "color", "black" },
@@ -241,9 +241,9 @@ public static class TestDataGenerator
                     Title = "Fifth Item",
                     Description = "This is the fifth item to increase data volume",
                     Value = 59.99,
-                    Tags = new List<string> { "tag11", "tag12" },
-                    SubItems = new List<SubItem>
-                    {
+                    Tags = ["tag11", "tag12"],
+                    SubItems =
+                    [
                         new()
                         {
                             SubId = "sub-010",
@@ -258,7 +258,7 @@ public static class TestDataGenerator
                             Quantity = 18,
                             Price = 19.99m,
                         },
-                    },
+                    ],
                     Properties = new Dictionary<string, string>
                     {
                         { "color", "white" },
@@ -266,21 +266,21 @@ public static class TestDataGenerator
                         { "finish", "matte" },
                     },
                 },
-            },
+            ],
             Settings = new Settings
             {
                 IsEnabled = true,
                 MaxItems = 100,
                 Timeout = TimeSpan.FromSeconds(30),
-                AllowedDomains = new List<string>
-                {
+                AllowedDomains =
+                [
                     "example.com",
                     "test.com",
                     "sample.org",
                     "demo.net",
                     "staging.dev",
                     "production.io",
-                },
+                ],
                 Limits = new Dictionary<string, int>
                 {
                     { "maxUsers", 1000 },
@@ -294,8 +294,8 @@ public static class TestDataGenerator
                     CacheSize = 256,
                     UseCompression = true,
                     CompressionLevel = "high",
-                    Features = new List<string>
-                    {
+                    Features =
+                    [
                         "feature1",
                         "feature2",
                         "feature3",
@@ -304,7 +304,7 @@ public static class TestDataGenerator
                         "authentication",
                         "logging",
                         "monitoring",
-                    },
+                    ],
                 },
             },
         };

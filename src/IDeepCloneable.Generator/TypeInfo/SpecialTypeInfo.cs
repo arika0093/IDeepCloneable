@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
 namespace IDeepCloneable.Generator;
@@ -22,7 +23,8 @@ internal abstract class SpecialTypeInfo
     public abstract IndentedStringBuilder GenerateCloneMethod(
         string typeFullName,
         string methodName,
-        EquatableArray<ClassInfo> allClassInfos,
-        IndentedStringBuilder builder
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
     );
 }

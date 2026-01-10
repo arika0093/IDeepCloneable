@@ -1,21 +1,15 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace IDeepCloneable.Generator;
 
 /// <summary>
 /// Analyzes types and extracts metadata needed for deep clone generation.
 /// </summary>
-internal static class TypeAnalyzer
+internal class TypeAnalyzer(ICloneableGeneratorOptions options)
 {
-    private const string DeepCloneableAttributeMetadataName = "DeepCloneableAttribute";
-
-    public static EquatableArray<ClassInfo>? GetRelationalAllClassInfo(
+    public EquatableArray<ClassInfo>? GetRelationalAllClassInfo(
         GeneratorAttributeSyntaxContext context
     )
     {
@@ -24,7 +18,6 @@ internal static class TypeAnalyzer
         //   * The class itself marked with [DeepCloneable] (A)
         //   * All classes that inherit from A
         //   * All classes referenced by properties/fields of A (recursively)
-
         try
         {
             var targetSymbol = context.TargetSymbol as INamedTypeSymbol;
@@ -75,7 +68,7 @@ internal static class TypeAnalyzer
         }
     }
 
-    private static ClassInfo? CreateClassInfo(
+    private ClassInfo? CreateClassInfo(
         INamedTypeSymbol typeSymbol,
         Compilation compilation,
         out List<INamedTypeSymbol> childTypes
@@ -86,7 +79,7 @@ internal static class TypeAnalyzer
 
         var hasDeepCloneableAttribute = typeSymbol
             .GetAttributes()
-            .Any(attr => attr.AttributeClass?.Name == DeepCloneableAttributeMetadataName);
+            .Any(attr => attr.AttributeClass?.Name == options.AttributeMetadataName);
 
         // Check if this type already has a DeepClone method
         var alreadyHasDeepClone = typeSymbol
@@ -106,7 +99,7 @@ internal static class TypeAnalyzer
             if (
                 current
                     .GetAttributes()
-                    .Any(attr => attr.AttributeClass?.Name == DeepCloneableAttributeMetadataName)
+                    .Any(attr => attr.AttributeClass?.Name == options.AttributeMetadataName)
             )
             {
                 baseHasDeepClone = true;
@@ -158,14 +151,14 @@ internal static class TypeAnalyzer
         };
     }
 
-    private static List<PropertyInfo> GetProperties(
+    private List<PropertyInfo> GetProperties(
         INamedTypeSymbol typeSymbol,
         Compilation compilation,
         out List<INamedTypeSymbol> childTypes
     )
     {
         var properties = new List<PropertyInfo>();
-        childTypes = new List<INamedTypeSymbol>();
+        childTypes = [];
 
         foreach (var member in typeSymbol.GetMembers())
         {
@@ -227,7 +220,7 @@ internal static class TypeAnalyzer
         return properties;
     }
 
-    private static void ExtractChildTypes(ITypeSymbol typeSymbol, List<INamedTypeSymbol> childTypes)
+    private void ExtractChildTypes(ITypeSymbol typeSymbol, List<INamedTypeSymbol> childTypes)
     {
         // Handle generic types (List<T>, Dictionary<TKey, TValue>, etc.)
         if (typeSymbol is INamedTypeSymbol namedType && namedType.IsGenericType)
@@ -260,7 +253,7 @@ internal static class TypeAnalyzer
         }
     }
 
-    private static string GetFullTypeName(ITypeSymbol typeSymbol)
+    private string GetFullTypeName(ITypeSymbol typeSymbol)
     {
         // Handle array types specially (including multi-dimensional and jagged)
         if (typeSymbol is IArrayTypeSymbol arrayType)
@@ -312,7 +305,7 @@ internal static class TypeAnalyzer
         return "global::" + displayString;
     }
 
-    private static string GetNamespace(INamedTypeSymbol typeSymbol)
+    private string GetNamespace(INamedTypeSymbol typeSymbol)
     {
         // Return only the actual namespace, not containing types
         // Return empty string for global namespace
@@ -325,7 +318,7 @@ internal static class TypeAnalyzer
         return typeSymbol.ContainingNamespace.ToDisplayString();
     }
 
-    private static List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
+    private List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
     {
         var containingTypes = new List<string>();
         var containingType = typeSymbol.ContainingType;
@@ -337,7 +330,7 @@ internal static class TypeAnalyzer
         return containingTypes;
     }
 
-    private static bool IsImmutableType(ITypeSymbol typeSymbol)
+    private bool IsImmutableType(ITypeSymbol typeSymbol)
     {
         // System.Object cannot be cloned (it's the base type)
         if (typeSymbol.SpecialType == SpecialType.System_Object)
@@ -384,7 +377,7 @@ internal static class TypeAnalyzer
         return false;
     }
 
-    private static bool IsCollectionType(ITypeSymbol typeSymbol)
+    private bool IsCollectionType(ITypeSymbol typeSymbol)
     {
         var fullName = GetFullTypeName(typeSymbol);
         return fullName.Contains("System.Collections.Generic.List<")
