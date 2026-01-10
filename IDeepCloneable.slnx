@@ -6,6 +6,7 @@
   </Configurations>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
+    <Project Path="src/IDeepCloneable.Generator.Source/IDeepCloneable.Generator.Source.csproj" />
     <Project Path="src/IDeepCloneable.Generator/IDeepCloneable.Generator.csproj" />
     <Project Path="src/IDeepCloneable/IDeepCloneable.csproj" />
   </Folder>

@@ -14,7 +14,7 @@ public class CloneableGeneratorOptions : ICloneableGeneratorOptions
 
     public string ImplementsMethodName => "DeepClone";
 
-    public string ExtensionsExportFileName => "DeepCloneableExtensions.g.cs";
+    public string ExtensionsExportFileName => "DeepCloneableExtensions";
 
     public string ExtensionsNamespace => "IDeepCloneable.Generator";
 

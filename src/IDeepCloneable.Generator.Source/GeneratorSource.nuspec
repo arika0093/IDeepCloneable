@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata>
+    <id>IDeepCloneable.Generator.Source</id>
+    <version>$version$</version>
+    <authors>$authors$</authors>
+	<includeBuildOutput>false</includeBuildOutput>
+    <developmentDependency>true</developmentDependency>
+    <license type="expression">Apache-2.0</license>
+    <projectUrl>$projectUrl$</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <copyright>$copyright$</copyright>
+  </metadata>
+  <files>
+    <file src="**\*.cs" target="contentFiles/cs/netstandard2.0/IDeepCloneable.Generator.Source/" exclude="obj/**" />
+    <file src="GeneratorSource.targets" target="build/IDeepCloneable.Generator.Source.targets" />
+  </files>
+</package>

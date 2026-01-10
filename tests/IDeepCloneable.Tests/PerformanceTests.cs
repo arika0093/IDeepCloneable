@@ -126,7 +126,7 @@ public partial class ClassWithImmutableIntArray
 [DeepCloneable]
 public partial class ClassWithMultipleArrays
 {
-    public int[] Integers { get; set; } = Array.Empty<int>();
-    public double[] Doubles { get; set; } = Array.Empty<double>();
-    public bool[] Booleans { get; set; } = Array.Empty<bool>();
+    public int[] Integers { get; set; } = [];
+    public double[] Doubles { get; set; } = [];
+    public bool[] Booleans { get; set; } = [];
 }

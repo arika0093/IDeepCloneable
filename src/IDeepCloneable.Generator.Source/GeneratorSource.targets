@@ -1,0 +1,10 @@
+<Project>
+  <ItemGroup>
+    <Compile Update="@(Compile)">
+      <Visible
+        Condition="%(NuGetItemType) == 'Compile' and %(NuGetPackageId) == 'IDeepCloneable.Generator.Source'"
+        >true</Visible
+      >
+    </Compile>
+  </ItemGroup>
+</Project>

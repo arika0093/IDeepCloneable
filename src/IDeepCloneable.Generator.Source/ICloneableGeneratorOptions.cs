@@ -18,16 +18,19 @@ public interface ICloneableGeneratorOptions
 
     /// <summary>
     /// The name of the file to export the extension methods to.
+    /// e.g. "DeepCloneableExtensions" (without .g.cs)
     /// </summary>
     string ExtensionsExportFileName { get; }
 
     /// <summary>
     /// The namespace for the generated extension methods.
+    /// e.g. "IDeepCloneable.Generator"
     /// </summary>
     string ExtensionsNamespace { get; }
 
     /// <summary>
     /// The class name for the generated extension methods.
+    /// e.g. "DeepCloneableExtensions"
     /// </summary>
     string ExtensionsClassName { get; }
 

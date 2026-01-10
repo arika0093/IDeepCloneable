@@ -94,7 +94,7 @@ public class ArrayCloneTests
     [Fact]
     public void DeepClone_EmptyArray_HandlesCorrectly()
     {
-        var original = new ClassWithIntArray { Name = "Test", Numbers = System.Array.Empty<int>() };
+        var original = new ClassWithIntArray { Name = "Test", Numbers = [] };
 
         var clone = original.DeepClone();
 
