@@ -8,4 +8,4 @@ namespace IDeepCloneable.Generator;
 /// Generates DeepClone methods for types marked with [DeepCloneable] attribute.
 /// </summary>
 [Generator]
-public class CloneableGenerator : CloneableGeneratorCore<CloneableGeneratorOptions>;
+internal class CloneableGenerator : CloneableGeneratorCore<CloneableGeneratorOptions>;
