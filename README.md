@@ -180,10 +180,11 @@ It’s also recommended to add the [Polyfill library](https://github.com/SimonCr
 </Project>
 ```
 
+</details>
+
 > [!TIPS]
 > If you’re familiar with Source Generators, you might wonder if it’s okay to add third-party libraries. Both `IDeepCloneable.Generator.Source` and `Polyfill` are [source-only NuGet packages](https://andrewlock.net/creating-source-only-nuget-packages/), so they work fine in source generator libraries.
 
-</details>
 
 Next, add code like the following to your source generator:
 
