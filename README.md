@@ -4,9 +4,15 @@
 Automatic implementation of the `IDeepCloneable<T>` interface via source generators. Suitable for both library authors and users.
 
 ## Overview
-Provides automatic generation of the `DeepClone()` method and `IDeepCloneable<T>` implementation for partial types marked with `[DeepCloneable]`.
+Provides automatic generation of the `DeepClone()` method and `IDeepCloneable<T>` implementation for partial types marked with `[DeepCloneable]`.  
 
-### Quick Start (for users)
+This library supports the following three usage scenarios:
+
+1. [For end users](#quick-start-for-end-users): Simply add the `[DeepCloneable]` attribute to your model class and the `DeepClone()` method will be generated automatically.
+2. [For library authors](#usage-for-library-authors): Use the `IDeepCloneable<T>` interface to call `DeepClone()` without reflection.
+3. [For advanced library authors](#customize-for-library-authors): Integrate the generator to automatically implement `IDeepCloneable<T>` for types marked with your own custom attributes.
+
+### Quick Start (for end users)
 Install the NuGet package [IDeepCloneable](https://www.nuget.org/packages/IDeepCloneable/) to your project.
 
 ```bash
@@ -112,7 +118,7 @@ Performance is a concern, right? In benchmarks for [medium-sized models](./bench
 
 Detailed results can be found in [benchmark/results](benchmark/results) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
 
-## Customize
+## Customize (For end users)
 As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.
 
 ```csharp
@@ -128,8 +134,96 @@ public class Person : IDeepCloneable<Person>
 }
 ```
 
+## Customize (For library authors)
+### Using only the generation logic
+You might want to enable the same functionality for your own library-specific attribute, instead of the obvious `[DeepCloneable]` attribute name. Here’s how you can do it.
+
+First, create a source generator project and add the `IDeepCloneable.Generator.Source` NuGet package.
+It’s also recommended to add the [Polyfill library](https://github.com/SimonCropp/Polyfill).  
+
+<details>
+<summary>Example .csproj for source generator project</summary>
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <AnalyzerLanguage>cs</AnalyzerLanguage>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <DevelopmentDependency>true</DevelopmentDependency>
+        <IncludeSymbols>false</IncludeSymbols>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="IDeepCloneable.Generator.Source" Version="*">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Polyfill" Version="*">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+</Project>
+```
+
+> [!TIPS]
+> If you’re familiar with Source Generators, you might wonder if it’s okay to add third-party libraries. Both `IDeepCloneable.Generator.Source` and `Polyfill` are [source-only NuGet packages](https://andrewlock.net/creating-source-only-nuget-packages/), so they work fine in source generator libraries.
+
+</details>
+
+Next, add code like the following to your source generator:
+
+```csharp
+using IDeepCloneable.Generator;
+
+// Generator
+[Generator]
+internal class MyCloneableGenerator : CloneableGeneratorCore<MyGeneratorOptions>;
+
+// Options
+internal class MyGeneratorOptions : CloneableGeneratorOptionsCore
+{
+    // The DeepClone implementation will be generated for types with this attribute.
+    public override string AttributeMetadataName => "MyLibraryAttribute";
+
+    // Specify the interface name that generated types should implement. If empty, only a partial class is generated.
+    public override string ImplementedInterfaceName => "global::MyLibrary.IMyLibraryClass";
+
+    // There are other options you can override as needed.
+}
+```
+
+Finally, define the required attribute and interface in your library:
+
+```csharp
+namespace MyLibrary;
+
+// Marker Attribute
+public sealed class MyLibraryAttribute : Attribute;
+
+// Your Interface
+public interface IMyLibraryClass<T>
+{
+    T DeepClone(); // add it
+}
+```
+
 ## Library Structure
-This consists of two libraries.
+This consists of three libraries.
 
 ### IDeepCloneable
 This is the library that defines the `IDeepCloneable<T>` interface and the `[DeepCloneable]` marker attribute.  
@@ -148,6 +242,10 @@ Additionally, it will automatically reference the `IDeepCloneable.Generator`.
 ### IDeepCloneable.Generator
 This is the source generator library that automatically generates the `IDeepCloneable<T>.DeepClone()` method.
 There is no need to directly reference this library.
+
+### IDeepCloneable.Generator.Source
+This library provides the source code for the source generator.
+It is intended for library authors who want to create their own attributes that automatically implement `IDeepCloneable<T>`.
 
 ## FAQ
 ### What is DeepClone?
