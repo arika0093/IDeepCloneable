@@ -19,8 +19,6 @@ The generator is organized into separate, complete classes (not partial classes)
 - **TypeAnalyzer**: Analyzes types and recursively discovers all reachable types
 - **CodeGenerator**: Generates source code using `IndentedStringBuilder`
 - **SpecialTypeInfo**: Abstract base class for special collection type handlers
-  - **ListTypeInfo**: Handler for `List<T>` collections
-  - **DictionaryTypeInfo**: Handler for `Dictionary<TKey, TValue>` collections
 - **CodeGenerationUtility**: Utility methods for type name manipulation and immutability checks
 
 ### Type Discovery Process (GetRelationalAllClassInfo)
@@ -166,10 +164,20 @@ namespace (Namespace)
 4. **Raw String Literals**: Use `$"""` format for multi-line string generation
 
 5. **Method Attributes**: All generated methods must use fully qualified attribute names:
-   - `[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]`
    - `[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]`
 
 6. **Extension Methods**: Extension methods in `DeepCloneExtensions` class MUST be marked as `static`
+
+### Development Guidelines
+
+If you reference any markdown files under docs/plan/, you must also follow these additional rules:
+
+1. You must fully achieve the described requirements. Do not stop midway, implement ad-hoc solutions, or consider the work complete without passing all tests.
+2. The generated code must include English comments describing the implemented specifications.
+3. You must always add corresponding test code for your implementation, and confirm that all tests pass.
+4. Always focus on performance improvements. You can measure execution speed with the following command:
+`dotnet run --project benchmark/IDeepCloneable.Benchmark/IDeepCloneable.Benchmark.csproj -c Release -- --filter IDeepCloneable.Benchmark.CloneBenchmarks.IDeepCloneable`
+5. Once everything is complete, add a commit that deletes the specified markdown file.
 
 ## Special Type Handling
 
