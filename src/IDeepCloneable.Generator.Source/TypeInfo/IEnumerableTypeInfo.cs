@@ -20,8 +20,8 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
     public override bool IsMatch(string typeFullName)
     {
         // Match if it's exactly IEnumerable<T> or contains IEnumerable<T> (implementing types)
-        return typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal) ||
-               typeFullName.Contains("IEnumerable<");
+        return typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal)
+            || typeFullName.Contains("IEnumerable<");
     }
 
     public override string GetMethodName(string typeFullName)
@@ -37,11 +37,6 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
-        // Reuse ListTypeInfo logic for generating the clone method
-        // Extract inner type from IEnumerable<T>
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
-
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
@@ -49,30 +44,12 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
-        builder.AppendLine("if (original == null) return null;");
-
-        // Use the same logic as ListTypeInfo - convert to List<T>
-        if (isImmutable)
-        {
-            builder.AppendLine(
-                $"return new global::System.Collections.Generic.List<{innerType}>(original);"
-            );
-        }
-        else
-        {
-            builder.AppendLine(
-                $"var list = new global::System.Collections.Generic.List<{innerType}>();"
-            );
-            builder.AppendLine("foreach (var item in original)");
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
-            var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
-            builder.AppendLine($"list.Add({cloneCall});");
-            builder.DecreaseIndent();
-            builder.AppendLine("}");
-            builder.AppendLine("return list;");
-        }
-
+        ListTypeInfo.GenerateCloneMethodLogicPart(
+            typeFullName,
+            allClassInfos,
+            builder,
+            codeGenerator
+        );
         builder.DecreaseIndent();
         builder.AppendLine("}");
 
