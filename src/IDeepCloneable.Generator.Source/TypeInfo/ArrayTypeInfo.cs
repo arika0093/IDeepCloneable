@@ -143,50 +143,37 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         {
             // Multi-dimensional arrays with mutable elements - deep clone each element
             // Extract dimensions from type (e.g., [,] is 2D, [,,] is 3D)
-            var dimensionCount = typeFullName.Where(c => c == ',').Count() + 1;
+            var dimensionCount = typeFullName.Count(c => c == ',') + 1;
+            builder.AppendLine($"// Dimension {dimensionCount}");
 
-            // Create new array with same dimensions
-            builder.AppendLine($"var lengths = new int[{dimensionCount}];");
+            // Get lengths for each dimension
             for (int i = 0; i < dimensionCount; i++)
             {
-                builder.AppendLine($"lengths[{i}] = original.GetLength({i});");
+                builder.AppendLine($"var l{i} = original.GetLength({i});");
             }
-            builder.AppendLine(
-                $"var clone = global::System.Array.CreateInstance(typeof({elementType}), lengths) as {typeFullName};"
-            );
 
-            // Walk through all elements using indices
-            builder.AppendLine($"var indices = new int[{dimensionCount}];");
-            builder.AppendLine($"var totalElements = 1;");
+            // Create clone array
+            var commaPart = string.Join(",", Enumerable.Range(0, dimensionCount).Select(i => $"l{i}"));
+            builder.AppendLine($"var clone = new {elementType}[{commaPart}];");
+
+            // Create clone each element
             for (int i = 0; i < dimensionCount; i++)
             {
-                builder.AppendLine($"totalElements *= lengths[{i}];");
+                builder.AppendLine($"for (int i{i} = 0; i{i} < l{i}; i{i}++)");
+                builder.AppendLine("{");
+                builder.IncreaseIndent();
             }
-            builder.AppendLine("for (int i = 0; i < totalElements; i++)");
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
 
-            // Calculate multi-dimensional indices from flat index
-            builder.AppendLine("var temp = i;");
-            for (int dim = dimensionCount - 1; dim >= 0; dim--)
+            var originalAccessors = Enumerable.Range(0, dimensionCount).Select(i => $"i{i}");
+            var originalAccessorText = $"[{string.Join(",", originalAccessors)}]";
+            var generateCall = codeGenerator.GenerateTypeCloneCall(elementType, $"original{originalAccessorText}", allClassInfos);
+            builder.AppendLine($"clone{originalAccessorText} = {generateCall};");
+
+            for (int i = 0; i < dimensionCount; i++)
             {
-                builder.AppendLine($"indices[{dim}] = temp % lengths[{dim}];");
-                if (dim > 0)
-                {
-                    builder.AppendLine($"temp /= lengths[{dim}];");
-                }
+                builder.DecreaseIndent();
+                builder.AppendLine("}");
             }
-
-            // Clone the element
-            var cloneCall = codeGenerator.GenerateTypeCloneCall(
-                elementType,
-                "original.GetValue(indices)",
-                allClassInfos
-            );
-            builder.AppendLine($"clone.SetValue({cloneCall}, indices);");
-
-            builder.DecreaseIndent();
-            builder.AppendLine("}");
             builder.AppendLine("return clone;");
         }
 
