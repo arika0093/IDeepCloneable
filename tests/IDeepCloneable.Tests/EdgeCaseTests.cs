@@ -115,6 +115,49 @@ public class EdgeCaseTests
     }
 
     [Fact]
+    public void DeepClone_ComplexCircularReferenceWithRoot_HandlesCorrectly()
+    {
+        // Arrange: Create a more complex circular reference structure
+        // Root -> Node1 -> Node2 -> Node3 -> Root (circular back to root)
+        var root = new CircularNode { Name = "Root", Value = 0 };
+        var node1 = new CircularNode { Name = "Node1", Value = 1 };
+        var node2 = new CircularNode { Name = "Node2", Value = 2 };
+        var node3 = new CircularNode { Name = "Node3", Value = 3 };
+        
+        root.Next = node1;
+        node1.Next = node2;
+        node2.Next = node3;
+        node3.Next = root; // Circle back to root
+
+        // Act: Clone the root object
+        var cloneRoot = root.DeepClone();
+
+        // Assert: Verify structure is preserved
+        cloneRoot.ShouldNotBeSameAs(root);
+        cloneRoot.Name.ShouldBe("Root");
+        cloneRoot.Value.ShouldBe(0);
+        
+        var cloneNode1 = cloneRoot.Next;
+        cloneNode1.ShouldNotBeNull();
+        cloneNode1.ShouldNotBeSameAs(node1);
+        cloneNode1!.Name.ShouldBe("Node1");
+        
+        var cloneNode2 = cloneNode1.Next;
+        cloneNode2.ShouldNotBeNull();
+        cloneNode2.ShouldNotBeSameAs(node2);
+        cloneNode2!.Name.ShouldBe("Node2");
+        
+        var cloneNode3 = cloneNode2.Next;
+        cloneNode3.ShouldNotBeNull();
+        cloneNode3.ShouldNotBeSameAs(node3);
+        cloneNode3!.Name.ShouldBe("Node3");
+        
+        // Verify circular reference back to root is preserved
+        cloneNode3.Next.ShouldNotBeNull();
+        cloneNode3.Next.ShouldBeSameAs(cloneRoot); // Should circle back to cloned root
+    }
+
+    [Fact]
     public void DeepClone_SelfReferencing_HandlesCorrectly()
     {
         // Arrange: Create a self-referencing node

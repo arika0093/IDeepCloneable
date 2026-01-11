@@ -41,6 +41,9 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         if (classInfos.Count == 0)
             return;
 
+        // Check if any class has circular references
+        var hasAnyCircularReferences = classInfos.Any(c => c.HasCircularReference);
+
         // Generate DeepCloneExtensions.g.cs
         var extensionsCode = GenerateDeepCloneExtensions(classInfos);
         context.AddSource($"{options.ExtensionsExportFileName}.g.cs", extensionsCode);
@@ -53,7 +56,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             var classInfo in classInfos.Where(c => c.NeedsDeepCloneMethod && !c.AlreadyHasDeepClone)
         )
         {
-            var partialClassCode = GeneratePartialClass(classInfo);
+            var partialClassCode = GeneratePartialClass(classInfo, hasAnyCircularReferences);
             // Use sanitized full class name to ensure uniqueness
             var fileName =
                 $"{CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName)}.{options.ImplementsMethodName}.g.cs";
@@ -97,6 +100,23 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         builder.AppendLine($"internal static partial class {options.ExtensionsClassName}");
         builder.AppendLine("{");
         builder.IncreaseIndent();
+
+        // Check if any class has circular references to determine if we need a cache
+        var hasCircularReferences = classInfos.Any(c => c.HasCircularReference);
+        if (hasCircularReferences)
+        {
+            // Add static cache field for circular reference handling
+            builder.AppendLine(
+                "// Cache for handling circular references during cloning"
+            );
+            builder.AppendLine(
+                "[global::System.ThreadStatic]"
+            );
+            builder.AppendLine(
+                "internal static global::System.Collections.Generic.Dictionary<int, object>? _cloneCache;"
+            );
+            builder.AppendLine("");
+        }
 
         // Generate CloneInternal methods for each class
         // Even if all properties are immutable, we still need to clone reference types (classes)
@@ -163,19 +183,10 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         builder.AppendLine("");
         builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
         
-        // For types with circular references, add a cache parameter
-        if (classInfo.HasCircularReference)
-        {
-            builder.AppendLine(
-                $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original, global::System.Collections.Generic.Dictionary<int, object> cache = null)"
-            );
-        }
-        else
-        {
-            builder.AppendLine(
-                $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
-            );
-        }
+        // Method signature - no cache parameter as it's now a static field
+        builder.AppendLine(
+            $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
+        );
         
         builder.AppendLine("{");
         builder.IncreaseIndent();
@@ -184,137 +195,20 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         {
             builder.AppendLine("if (original == null) return null;");
             
-            // For circular references, check cache first
+            // For circular references, use static cache field
             if (classInfo.HasCircularReference)
             {
-                builder.AppendLine("cache ??= new global::System.Collections.Generic.Dictionary<int, object>();");
-                builder.AppendLine("var hashCode = original.GetHashCode();");
-                builder.AppendLine("if (cache.TryGetValue(hashCode, out var cached))");
-                builder.AppendLine("{");
-                builder.IncreaseIndent();
-                builder.AppendLine($"return ({classInfo.FullClassName})cached;");
-                builder.DecreaseIndent();
-                builder.AppendLine("}");
+                builder = GenerateCircularReferenceCheck(classInfo, builder);
             }
         }
 
         if (classInfo.IsRecord || classInfo.IsValueType)
         {
-            if (ShouldUseWithSyntax(classInfo))
-            {
-                builder.AppendLine("return original with");
-                builder.AppendLine("{");
-                builder.IncreaseIndent();
-
-                foreach (var prop in classInfo.Properties)
-                {
-                    if (prop.NeedsDeepClone)
-                    {
-                        var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos, classInfo.HasCircularReference);
-                        builder.AppendLine($"{prop.Name} = {cloneCall},");
-                    }
-                }
-
-                builder.DecreaseIndent();
-                builder.AppendLine("};");
-            }
-            else
-            {
-                // Only return original for immutable value types
-                builder.AppendLine("return original;");
-            }
+            builder = GenerateRecordOrValueTypeClone(classInfo, allClassInfos, builder);
         }
         else
         {
-            // Check for required properties
-            var requiredProps = classInfo.Properties.Where(p => p.IsRequired).ToList();
-            var nonRequiredProps = classInfo.Properties.Where(p => !p.IsRequired).ToList();
-            
-            // Determine how to create the instance
-            if (classInfo.HasCopyConstructor)
-            {
-                // Use copy constructor
-                builder.AppendLine($"var clone = new {classInfo.FullClassName}(original);");
-                
-                // For circular references, add to cache immediately after creation
-                if (classInfo.HasCircularReference)
-                {
-                    builder.AppendLine("cache[hashCode] = clone;");
-                }
-                
-                // Override properties with deep clones
-                foreach (var prop in classInfo.Properties)
-                {
-                    if (!prop.IsImmutable)
-                    {
-                        var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos, classInfo.HasCircularReference);
-                        builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
-                    }
-                }
-            }
-            else if (requiredProps.Any())
-            {
-                // Use object initializer for required properties
-                builder.AppendLine($"var clone = new {classInfo.FullClassName}");
-                builder.AppendLine("{");
-                builder.IncreaseIndent();
-                
-                foreach (var prop in requiredProps)
-                {
-                    var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos, classInfo.HasCircularReference);
-                    builder.AppendLine($"{prop.Name} = {cloneCall},");
-                }
-                
-                builder.DecreaseIndent();
-                builder.AppendLine("};");
-                
-                // For circular references, add to cache after creation
-                if (classInfo.HasCircularReference)
-                {
-                    builder.AppendLine("cache[hashCode] = clone;");
-                }
-                
-                // Set non-required properties
-                foreach (var prop in nonRequiredProps)
-                {
-                    if (prop.IsImmutable)
-                    {
-                        builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
-                    }
-                    else
-                    {
-                        var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos, classInfo.HasCircularReference);
-                        builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
-                    }
-                }
-            }
-            else
-            {
-                // Check if there's a parameterless constructor
-                // For now, assume parameterless constructor exists (this is the standard behavior)
-                builder.AppendLine($"var clone = new {classInfo.FullClassName}();");
-                
-                // For circular references, add to cache immediately after creation
-                if (classInfo.HasCircularReference)
-                {
-                    builder.AppendLine("cache[hashCode] = clone;");
-                }
-
-                foreach (var prop in classInfo.Properties)
-                {
-                    if (prop.IsImmutable)
-                    {
-                        builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
-                    }
-                    else
-                    {
-                        var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos, classInfo.HasCircularReference);
-                        builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
-                    }
-                }
-            }
-
-            builder.AppendLine("return clone;");
+            builder = GenerateClassClone(classInfo, allClassInfos, builder);
         }
 
         builder.DecreaseIndent();
@@ -323,7 +217,203 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         return builder;
     }
 
-    private string GeneratePropertyCloneCall(PropertyInfo prop, List<ClassInfo> allClassInfos, bool hasCircularReference = false)
+    /// <summary>
+    /// Generates circular reference checking logic using static cache.
+    /// </summary>
+    private IndentedStringBuilder GenerateCircularReferenceCheck(
+        ClassInfo classInfo,
+        IndentedStringBuilder builder
+    )
+    {
+        builder.AppendLine("// Check static cache for circular references");
+        builder.AppendLine("_cloneCache ??= new global::System.Collections.Generic.Dictionary<int, object>();");
+        builder.AppendLine("var hashCode = original.GetHashCode();");
+        builder.AppendLine("if (_cloneCache.TryGetValue(hashCode, out var cached))");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine($"return ({classInfo.FullClassName})cached;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+        return builder;
+    }
+
+    /// <summary>
+    /// Generates clone logic for records and value types using 'with' syntax.
+    /// </summary>
+    private IndentedStringBuilder GenerateRecordOrValueTypeClone(
+        ClassInfo classInfo,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
+    {
+        if (ShouldUseWithSyntax(classInfo))
+        {
+            builder.AppendLine("return original with");
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+
+            foreach (var prop in classInfo.Properties)
+            {
+                if (prop.NeedsDeepClone)
+                {
+                    var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
+                    builder.AppendLine($"{prop.Name} = {cloneCall},");
+                }
+            }
+
+            builder.DecreaseIndent();
+            builder.AppendLine("};");
+        }
+        else
+        {
+            // Only return original for immutable value types
+            builder.AppendLine("return original;");
+        }
+        return builder;
+    }
+
+    /// <summary>
+    /// Generates clone logic for classes (non-record reference types).
+    /// Handles required properties, copy constructors, and circular references.
+    /// </summary>
+    private IndentedStringBuilder GenerateClassClone(
+        ClassInfo classInfo,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
+    {
+        // Check for required properties
+        var requiredProps = classInfo.Properties.Where(p => p.IsRequired).ToList();
+        var nonRequiredProps = classInfo.Properties.Where(p => !p.IsRequired).ToList();
+        
+        // Determine how to create the instance
+        if (classInfo.HasCopyConstructor)
+        {
+            builder = GenerateCopyConstructorClone(classInfo, allClassInfos, builder);
+        }
+        else if (requiredProps.Any())
+        {
+            builder = GenerateRequiredPropertiesClone(classInfo, requiredProps, nonRequiredProps, allClassInfos, builder);
+        }
+        else
+        {
+            builder = GenerateDefaultConstructorClone(classInfo, allClassInfos, builder);
+        }
+
+        builder.AppendLine("return clone;");
+        return builder;
+    }
+
+    /// <summary>
+    /// Generates clone logic using copy constructor.
+    /// </summary>
+    private IndentedStringBuilder GenerateCopyConstructorClone(
+        ClassInfo classInfo,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
+    {
+        // Use copy constructor
+        builder.AppendLine($"var clone = new {classInfo.FullClassName}(original);");
+        
+        // For circular references, add to static cache immediately after creation
+        if (classInfo.HasCircularReference)
+        {
+            builder.AppendLine("_cloneCache[hashCode] = clone;");
+        }
+        
+        // Override properties with deep clones
+        foreach (var prop in classInfo.Properties)
+        {
+            if (!prop.IsImmutable)
+            {
+                var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
+                builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
+            }
+        }
+        return builder;
+    }
+
+    /// <summary>
+    /// Generates clone logic for classes with required properties using object initializer.
+    /// </summary>
+    private IndentedStringBuilder GenerateRequiredPropertiesClone(
+        ClassInfo classInfo,
+        List<PropertyInfo> requiredProps,
+        List<PropertyInfo> nonRequiredProps,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
+    {
+        // Use object initializer for required properties
+        builder.AppendLine($"var clone = new {classInfo.FullClassName}");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        
+        foreach (var prop in requiredProps)
+        {
+            var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
+            builder.AppendLine($"{prop.Name} = {cloneCall},");
+        }
+        
+        builder.DecreaseIndent();
+        builder.AppendLine("};");
+        
+        // For circular references, add to static cache after creation
+        if (classInfo.HasCircularReference)
+        {
+            builder.AppendLine("_cloneCache[hashCode] = clone;");
+        }
+        
+        // Set non-required properties
+        foreach (var prop in nonRequiredProps)
+        {
+            if (prop.IsImmutable)
+            {
+                builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
+            }
+            else
+            {
+                var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
+                builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
+            }
+        }
+        return builder;
+    }
+
+    /// <summary>
+    /// Generates clone logic for classes using default parameterless constructor.
+    /// </summary>
+    private IndentedStringBuilder GenerateDefaultConstructorClone(
+        ClassInfo classInfo,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder
+    )
+    {
+        builder.AppendLine($"var clone = new {classInfo.FullClassName}();");
+        
+        // For circular references, add to static cache immediately after creation
+        if (classInfo.HasCircularReference)
+        {
+            builder.AppendLine("_cloneCache[hashCode] = clone;");
+        }
+
+        foreach (var prop in classInfo.Properties)
+        {
+            if (prop.IsImmutable)
+            {
+                builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
+            }
+            else
+            {
+                var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
+                builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
+            }
+        }
+        return builder;
+    }
+
+    private string GeneratePropertyCloneCall(PropertyInfo prop, List<ClassInfo> allClassInfos)
     {
         var propertyAccess = $"original.{prop.Name}";
 
@@ -342,26 +432,25 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                 var cloneCall = GenerateTypeCloneCall(
                     prop.TypeFullName,
                     propertyAccess,
-                    allClassInfos,
-                    hasCircularReference
+                    allClassInfos
                 );
                 return $"{propertyAccess} != null ? {cloneCall} : null";
             }
         }
         else
         {
-            return GenerateTypeCloneCall(prop.TypeFullName, propertyAccess, allClassInfos, hasCircularReference);
+            return GenerateTypeCloneCall(prop.TypeFullName, propertyAccess, allClassInfos);
         }
     }
 
     /// <summary>
     /// Generates a clone call for a specific type.
+    /// No longer needs cache parameter as it's now a static field.
     /// </summary>
     public string GenerateTypeCloneCall(
         string typeFullName,
         string valueExpression,
-        List<ClassInfo> allClassInfos,
-        bool hasCircularReference = false
+        List<ClassInfo> allClassInfos
     )
     {
         if (CodeGenerationUtility.IsTypeImmutable(typeFullName))
@@ -379,18 +468,9 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             }
         }
 
-        // Regular type - check if it has circular reference
-        var classInfo = allClassInfos.FirstOrDefault(c => c.FullClassName == typeFullName);
+        // Regular type - all types use the same simple call now (cache is static)
         var sanitizedName = CodeGenerationUtility.SanitizeTypeName(typeFullName);
-        
-        if (classInfo != null && classInfo.HasCircularReference && hasCircularReference)
-        {
-            return $"{sanitizedName}_CloneInternal({valueExpression}, cache)";
-        }
-        else
-        {
-            return $"{sanitizedName}_CloneInternal({valueExpression})";
-        }
+        return $"{sanitizedName}_CloneInternal({valueExpression})";
     }
 
     private IndentedStringBuilder GenerateCollectionCloneMethods(
@@ -459,7 +539,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         return builder;
     }
 
-    private string GeneratePartialClass(ClassInfo classInfo)
+    private string GeneratePartialClass(ClassInfo classInfo, bool hasAnyCircularReferences)
     {
         var builder = new IndentedStringBuilder();
         builder = GenerateFileHeader(builder);
@@ -522,13 +602,30 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         }
         else
         {
-            // Concrete classes have MethodImpl attribute and call CloneInternal
-            builder.AppendLine(
-                $"{modifiers} {classInfo.FullClassName} {options.ImplementsMethodName}()"
-            );
-            builder.AppendLine(
-                $"    => global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}.{sanitizedName}_CloneInternal(this);"
-            );
+            // Concrete classes: clear cache if any type has circular references, then call CloneInternal
+            if (hasAnyCircularReferences)
+            {
+                builder.AppendLine(
+                    $"{modifiers} {classInfo.FullClassName} {options.ImplementsMethodName}()"
+                );
+                builder.AppendLine("{");
+                builder.IncreaseIndent();
+                builder.AppendLine("// Clear cache for new deep clone operation to handle circular references");
+                builder.AppendLine($"global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}._cloneCache = null;");
+                builder.AppendLine($"return global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}.{sanitizedName}_CloneInternal(this);");
+                builder.DecreaseIndent();
+                builder.AppendLine("}");
+            }
+            else
+            {
+                // No circular references, use simple expression body
+                builder.AppendLine(
+                    $"{modifiers} {classInfo.FullClassName} {options.ImplementsMethodName}()"
+                );
+                builder.AppendLine(
+                    $"    => global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}.{sanitizedName}_CloneInternal(this);"
+                );
+            }
         }
 
         builder.DecreaseIndent();

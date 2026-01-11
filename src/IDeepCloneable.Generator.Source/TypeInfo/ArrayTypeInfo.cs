@@ -29,6 +29,41 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        // Check if this is a multi-dimensional array
+        if (typeFullName.Contains(","))
+        {
+            return GenerateMultiDimensionalArrayCloneMethod(
+                typeFullName,
+                methodName,
+                allClassInfos,
+                builder,
+                codeGenerator
+            );
+        }
+        else
+        {
+            return GenerateSingleDimensionalArrayCloneMethod(
+                typeFullName,
+                methodName,
+                allClassInfos,
+                builder,
+                codeGenerator
+            );
+        }
+    }
+
+    /// <summary>
+    /// Generates clone method for single-dimensional arrays.
+    /// Uses AsSpan().ToArray() for immutable elements, deep clones mutable elements.
+    /// </summary>
+    private IndentedStringBuilder GenerateSingleDimensionalArrayCloneMethod(
+        string typeFullName,
+        string methodName,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
+    )
+    {
         // Extract element type (everything before the first '[')
         var bracketIndex = typeFullName.IndexOf('[');
         var elementType = typeFullName.Substring(0, bracketIndex);
@@ -43,52 +78,75 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
 
-        // For immutable element types or value types, use optimized AsSpan().ToArray() for better performance
-        // Note: AsSpan() only works for single-dimensional arrays
         if (isImmutable)
         {
-            if (typeFullName.Contains(","))
-            {
-                // Multi-dimensional arrays - use Array.Clone()
-                builder.AppendLine($"return (original.Clone() as {typeFullName});");
-            }
-            else
-            {
-                // Single-dimensional arrays - use AsSpan().ToArray() for fast cloning
-                builder.AppendLine($"return original.AsSpan().ToArray();");
-            }
+            // Use AsSpan().ToArray() for fast cloning of immutable/primitive elements
+            builder.AppendLine($"return original.AsSpan().ToArray();");
         }
         else
         {
-            // For mutable element types, we need to deep clone each element
-            if (typeFullName.Contains(","))
-            {
-                // Multi-dimensional array with mutable elements
-                // TODO: Implement proper deep cloning for multi-dimensional arrays with mutable elements
-                // For now, this limitation is documented - multi-dimensional arrays with mutable elements
-                // will be shallow copied. This is an edge case that can be improved in the future.
-                builder.AppendLine(
-                    $"// WARNING: Multi-dimensional arrays with mutable elements are shallow copied"
-                );
-                builder.AppendLine($"return (original.Clone() as {typeFullName});");
-            }
-            else
-            {
-                // Single-dimensional array
-                builder.AppendLine($"var array = new {elementType}[original.Length];");
-                builder.AppendLine("for (int i = 0; i < original.Length; i++)");
-                builder.AppendLine("{");
-                builder.IncreaseIndent();
-                var cloneCall = codeGenerator.GenerateTypeCloneCall(
-                    elementType,
-                    "original[i]",
-                    allClassInfos
-                );
-                builder.AppendLine($"array[i] = {cloneCall};");
-                builder.DecreaseIndent();
-                builder.AppendLine("}");
-                builder.AppendLine("return array;");
-            }
+            // Deep clone each mutable element
+            builder.AppendLine($"var array = new {elementType}[original.Length];");
+            builder.AppendLine("for (int i = 0; i < original.Length; i++)");
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            var cloneCall = codeGenerator.GenerateTypeCloneCall(
+                elementType,
+                "original[i]",
+                allClassInfos
+            );
+            builder.AppendLine($"array[i] = {cloneCall};");
+            builder.DecreaseIndent();
+            builder.AppendLine("}");
+            builder.AppendLine("return array;");
+        }
+
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Generates clone method for multi-dimensional arrays.
+    /// Uses Array.Clone() for all cases as deep cloning multi-dimensional mutable arrays is complex.
+    /// </summary>
+    private IndentedStringBuilder GenerateMultiDimensionalArrayCloneMethod(
+        string typeFullName,
+        string methodName,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
+    )
+    {
+        // Extract element type (everything before the first '[')
+        var bracketIndex = typeFullName.IndexOf('[');
+        var elementType = typeFullName.Substring(0, bracketIndex);
+        var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
+
+        builder.AppendLine("");
+        builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
+        builder.AppendLine(
+            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
+        );
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("if (original == null) return null;");
+
+        if (isImmutable)
+        {
+            // For immutable elements, Array.Clone() is sufficient
+            builder.AppendLine($"return (original.Clone() as {typeFullName});");
+        }
+        else
+        {
+            // Multi-dimensional arrays with mutable elements
+            // TODO: Implement proper deep cloning for multi-dimensional arrays with mutable elements
+            // For now, shallow copy with warning
+            builder.AppendLine(
+                $"// WARNING: Multi-dimensional arrays with mutable elements are shallow copied"
+            );
+            builder.AppendLine($"return (original.Clone() as {typeFullName});");
         }
 
         builder.DecreaseIndent();
