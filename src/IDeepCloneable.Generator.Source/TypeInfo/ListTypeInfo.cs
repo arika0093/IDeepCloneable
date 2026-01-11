@@ -8,6 +8,7 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal class ListTypeInfo : SpecialTypeInfo
 {
+    private const string ListFullName = "global::System.Collections.Generic.List";
     public override string TargetTypeStartWith => "global::System.Collections.Generic.List<";
 
     public override string GetMethodName(string typeFullName)
@@ -32,6 +33,7 @@ internal class ListTypeInfo : SpecialTypeInfo
         builder.AppendLine("{");
         builder.IncreaseIndent();
         GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator);
+        builder.AppendLine("return list;");
         builder.DecreaseIndent();
         builder.AppendLine("}");
 
@@ -51,11 +53,11 @@ internal class ListTypeInfo : SpecialTypeInfo
 
         if (isImmutable)
         {
-            builder.AppendLine($"return new {typeFullName}(original);");
+            builder.AppendLine($"var list = new {ListFullName}<{innerType}>(original);");
         }
         else
         {
-            builder.AppendLine($"var list = new {typeFullName}(original.Count);");
+            builder.AppendLine($"var list = new {ListFullName}<{innerType}>(original.Count);");
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
@@ -63,7 +65,6 @@ internal class ListTypeInfo : SpecialTypeInfo
             builder.AppendLine($"list.Add({cloneCall});");
             builder.DecreaseIndent();
             builder.AppendLine("}");
-            builder.AppendLine("return list;");
         }
         return builder;
     }
