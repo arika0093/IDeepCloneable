@@ -47,4 +47,16 @@ public abstract class CloneableGeneratorOptionsCore
     /// e.g. "DeepClone"
     /// </summary>
     public virtual string ImplementsMethodName => "DeepClone";
+
+    /// <summary>
+    /// The metadata name of the attribute that marks properties/fields to be ignored during cloning.
+    /// e.g. "CloneIgnoreAttribute"
+    /// </summary>
+    public virtual string CloneIgnoreAttributeName => "CloneIgnoreAttribute";
+
+    /// <summary>
+    /// The metadata name of the attribute that marks properties/fields to be shallow-copied during cloning.
+    /// e.g. "ShallowCloneAttribute"
+    /// </summary>
+    public virtual string ShallowCloneAttributeName => "ShallowCloneAttribute";
 }
