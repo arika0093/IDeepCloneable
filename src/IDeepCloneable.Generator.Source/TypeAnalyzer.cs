@@ -143,12 +143,23 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
         // Extract generic type parameters
         var genericTypeParameters = string.Empty;
+        var genericTypeConstraints = new List<string>();
         if (typeSymbol.IsGenericType)
         {
             var typeParams = typeSymbol.TypeParameters;
             if (typeParams.Length > 0)
             {
                 genericTypeParameters = string.Join(", ", typeParams.Select(tp => tp.Name));
+                
+                // Extract constraints for each type parameter
+                foreach (var typeParam in typeParams)
+                {
+                    var constraints = BuildConstraintString(typeParam);
+                    if (!string.IsNullOrEmpty(constraints))
+                    {
+                        genericTypeConstraints.Add(constraints);
+                    }
+                }
             }
         }
 
@@ -177,6 +188,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             HasCopyConstructor = hasCopyConstructor,
             HasCircularReference = false, // Will be updated later in circular reference detection
             GenericTypeParameters = genericTypeParameters,
+            GenericTypeConstraints = new EquatableArray<string>(genericTypeConstraints),
             ImplementedInterfaces = new EquatableArray<string>(implementedInterfaces),
         };
     }
@@ -444,6 +456,46 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             || fullName.Contains("System.Collections.Immutable.ImmutableHashSet<")
             || fullName.Contains("System.Collections.Immutable.ImmutableDictionary<")
             || fullName.Contains("[]");
+    }
+
+    /// <summary>
+    /// Builds a constraint string for a type parameter (e.g., "where T : IDeepCloneable&lt;T&gt;").
+    /// Returns empty string if there are no constraints or constraints don't include IDeepCloneable.
+    /// </summary>
+    private string BuildConstraintString(ITypeParameterSymbol typeParam)
+    {
+        var constraints = new List<string>();
+        
+        // Check for class/struct constraint
+        if (typeParam.HasReferenceTypeConstraint)
+        {
+            constraints.Add("class");
+        }
+        else if (typeParam.HasValueTypeConstraint)
+        {
+            constraints.Add("struct");
+        }
+        
+        // Check for type constraints
+        foreach (var constraintType in typeParam.ConstraintTypes)
+        {
+            var constraintTypeName = GetFullTypeName(constraintType);
+            constraints.Add(constraintTypeName);
+        }
+        
+        // Check for new() constraint
+        if (typeParam.HasConstructorConstraint)
+        {
+            constraints.Add("new()");
+        }
+        
+        if (constraints.Count == 0)
+        {
+            return string.Empty;
+        }
+        
+        // Build the constraint string
+        return $"where {typeParam.Name} : {string.Join(", ", constraints)}";
     }
 
     /// <summary>

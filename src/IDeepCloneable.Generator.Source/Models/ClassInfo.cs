@@ -61,6 +61,9 @@ public record ClassInfo : IEquatable<ClassInfo>
     /// <summary>Generic type parameters (e.g., "T" for MyClass&lt;T&gt;, "TKey, TValue" for MyClass&lt;TKey, TValue&gt;).</summary>
     public required string GenericTypeParameters { get; init; }
 
+    /// <summary>Generic type parameter constraints as a dictionary (e.g., "T" -> "where T : IDeepCloneable&lt;T&gt;").</summary>
+    public required EquatableArray<string> GenericTypeConstraints { get; init; }
+
     /// <summary>List of implemented interface full names.</summary>
     public required EquatableArray<string> ImplementedInterfaces { get; init; }
 

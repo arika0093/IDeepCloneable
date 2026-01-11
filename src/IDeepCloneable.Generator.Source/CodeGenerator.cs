@@ -173,6 +173,9 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         IndentedStringBuilder builder
     )
     {
+        // Set current class info for constraint checking
+        _currentClassInfo = classInfo;
+        
         var visibility = classInfo.NeedsDeepCloneMethod ? "internal" : "private";
         var methodName =
             CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
@@ -182,6 +185,11 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         var genericParams = string.IsNullOrEmpty(classInfo.GenericTypeParameters)
             ? string.Empty
             : $"<{classInfo.GenericTypeParameters}>";
+        
+        // Include generic type constraints if present
+        var constraintsStr = classInfo.GenericTypeConstraints.Count > 0
+            ? " " + string.Join(" ", classInfo.GenericTypeConstraints)
+            : string.Empty;
 
         builder.AppendLine("");
 
@@ -193,7 +201,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                 $"""
                 private static global::System.Collections.Concurrent.ConcurrentDictionary<int, {classInfo.FullClassName}> {cacheFieldName} = new();
                 {CodeTemplateContents.EditorBrowsableAttribute}
-                {visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original, bool clearCache = false)
+                {visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original, bool clearCache = false){constraintsStr}
                 """
             );
         }
@@ -201,7 +209,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         {
             builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
             builder.AppendLine(
-                $"{visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original)"
+                $"{visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original){constraintsStr}"
             );
         }
 
@@ -549,12 +557,22 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             return valueExpression;
         }
 
-        // For type parameters, use shallow copy (assign directly)
-        // We can't deep clone unconstrained type parameters without adding constraints
-        // which would require constraint propagation throughout the call chain
+        // For type parameters, check if they have IDeepCloneable constraint
+        // If yes, we can call DeepClone() directly
+        // If no, we need runtime type checking (or shallow copy for now)
         if (CodeGenerationUtility.IsSimpleTypeParameter(typeFullName))
         {
-            return valueExpression;
+            // Check if this type parameter has IDeepCloneable constraint
+            if (_currentClassInfo != null && HasDeepCloneableConstraint(typeFullName, _currentClassInfo))
+            {
+                // Type parameter has IDeepCloneable constraint, can call DeepClone directly
+                return $"{valueExpression}?.DeepClone()";
+            }
+            else
+            {
+                // No constraint - for now use shallow copy (will be updated later for runtime checking)
+                return valueExpression;
+            }
         }
 
         // Check special types using SpecialTypeInfo (includes arrays)
@@ -678,6 +696,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             HasCopyConstructor = false,
             HasCircularReference = false,
             GenericTypeParameters = string.Empty,
+            GenericTypeConstraints = new EquatableArray<string>([]),
             ImplementedInterfaces = new EquatableArray<string>([]),
         };
     }
@@ -803,12 +822,17 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         var genericParams = string.IsNullOrEmpty(classInfo.GenericTypeParameters)
             ? string.Empty
             : $"<{classInfo.GenericTypeParameters}>";
+        
+        // Include generic type constraints if present
+        var constraintsStr = classInfo.GenericTypeConstraints.Count > 0
+            ? " " + string.Join(" ", classInfo.GenericTypeConstraints)
+            : string.Empty;
 
         var implementInterface = !string.IsNullOrWhiteSpace(options.ImplementedInterfaceName)
             ? $" : {options.ImplementedInterfaceName}<{classInfo.FullClassName}>"
             : string.Empty;
         builder.AppendLine(
-            $"partial {typeKeyword} {classInfo.ClassName}{genericParams}{implementInterface}"
+            $"partial {typeKeyword} {classInfo.ClassName}{genericParams}{implementInterface}{constraintsStr}"
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
@@ -881,4 +905,29 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
         return builder.ToString();
     }
+
+    /// <summary>
+    /// Checks if a type parameter (e.g., "T") has an IDeepCloneable constraint in the given class.
+    /// </summary>
+    private bool HasDeepCloneableConstraint(string typeParamName, ClassInfo classInfo)
+    {
+        foreach (var constraint in classInfo.GenericTypeConstraints)
+        {
+            // Check if this constraint is for the given type parameter
+            if (constraint.StartsWith($"where {typeParamName} :", StringComparison.Ordinal))
+            {
+                // Check if the constraint includes IDeepCloneable
+                if (constraint.Contains("IDeepCloneable", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Gets the ClassInfo for the current class being processed (used to check constraints).
+    /// </summary>
+    private ClassInfo? _currentClassInfo;
 }
