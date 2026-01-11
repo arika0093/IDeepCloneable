@@ -60,6 +60,7 @@ internal static partial class DeepCloneableExtensions
         return clone;
     }
 
+    // Obviously, the implementation here is similar to ListTypeInfo
     private static List<T> ListTCloneInternal<T>(this List<T> original)
     {
         if (original == null) return null;
@@ -113,6 +114,7 @@ internal static partial class DeepCloneableExtensions
         clone.Items = ListTCloneInternal_TCloneable(original.Items);
         return clone;
     }
+
     private static List<T> ListTCloneInternal_TCloneable<T>(this List<T> original) where T : IDeepCloneable<T>
     {
         if (original == null) return null;
