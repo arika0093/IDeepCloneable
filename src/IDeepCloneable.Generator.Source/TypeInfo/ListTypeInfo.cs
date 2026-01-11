@@ -24,9 +24,6 @@ internal class ListTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
-
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
@@ -34,6 +31,22 @@ internal class ListTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
+        GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator);
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+
+        return builder;
+    }
+
+    public static IndentedStringBuilder GenerateCloneMethodLogicPart(
+        string typeFullName,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
+    )
+    {
+        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+        var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
@@ -52,10 +65,6 @@ internal class ListTypeInfo : SpecialTypeInfo
             builder.AppendLine("}");
             builder.AppendLine("return list;");
         }
-
-        builder.DecreaseIndent();
-        builder.AppendLine("}");
-
         return builder;
     }
 }

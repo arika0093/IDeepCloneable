@@ -52,6 +52,12 @@ public record ClassInfo : IEquatable<ClassInfo>
     /// <summary>Whether this type already has a DeepClone method defined (manually or generated).</summary>
     public required bool AlreadyHasDeepClone { get; init; }
 
+    /// <summary>Whether this type has a copy constructor (Type(Type other)).</summary>
+    public required bool HasCopyConstructor { get; init; }
+
+    /// <summary>Whether this type is involved in a circular reference pattern.</summary>
+    public required bool HasCircularReference { get; init; }
+
     /// <summary>Whether this type can be treated as immutable for cloning purposes.</summary>
     public bool IsImmutableUsable => IsValueType && IsAllImmutable && !IsCollection;
 }

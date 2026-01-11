@@ -24,9 +24,6 @@ internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
-        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
-
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
@@ -34,30 +31,13 @@ internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
-        builder.AppendLine("if (original == null) return null;");
-
-        if (isImmutable)
-        {
-            // ReadOnlyCollection wraps a List, but we can just create a new one with the same items
-            builder.AppendLine(
-                $"return new {typeFullName}(new global::System.Collections.Generic.List<{innerType}>(original));"
-            );
-        }
-        else
-        {
-            builder.AppendLine(
-                $"var list = new global::System.Collections.Generic.List<{innerType}>(original.Count);"
-            );
-            builder.AppendLine("foreach (var item in original)");
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
-            var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
-            builder.AppendLine($"list.Add({cloneCall});");
-            builder.DecreaseIndent();
-            builder.AppendLine("}");
-            builder.AppendLine($"return new {typeFullName}(list);");
-        }
-
+        // ReadOnlyCollection wraps a List, but we can just create a new one with the same items
+        ListTypeInfo.GenerateCloneMethodLogicPart(
+            typeFullName,
+            allClassInfos,
+            builder,
+            codeGenerator
+        );
         builder.DecreaseIndent();
         builder.AppendLine("}");
 
