@@ -21,9 +21,10 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
             return false;
 
         // Check if the type name itself is IEnumerable<T> or implements it
-        return classInfo.FullClassName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal) || 
-               classInfo.ImplementedInterfaces.Any(i => 
-                   i.StartsWith(TargetTypeStartWith, StringComparison.Ordinal));
+        return classInfo.FullClassName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal)
+            || classInfo.ImplementedInterfaces.Any(i =>
+                i.StartsWith(TargetTypeStartWith, StringComparison.Ordinal)
+            );
     }
 
     public override string GetMethodName(string typeFullName)

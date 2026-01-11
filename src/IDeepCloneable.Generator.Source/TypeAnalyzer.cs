@@ -153,8 +153,8 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         }
 
         // Extract implemented interfaces
-        var implementedInterfaces = typeSymbol.AllInterfaces
-            .Select(i => GetFullTypeName(i))
+        var implementedInterfaces = typeSymbol
+            .AllInterfaces.Select(i => GetFullTypeName(i))
             .ToList();
 
         return new ClassInfo

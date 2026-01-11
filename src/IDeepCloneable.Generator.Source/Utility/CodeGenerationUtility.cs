@@ -118,9 +118,9 @@ internal static class CodeGenerationUtility
     {
         var trimmed = typeFullName.Trim().Replace("global::", "");
         // Type parameters are single identifiers without dots, colons, brackets, or other special characters
-        return !trimmed.Contains(".") 
-            && !trimmed.Contains("::") 
-            && !trimmed.Contains("<") 
+        return !trimmed.Contains(".")
+            && !trimmed.Contains("::")
+            && !trimmed.Contains("<")
             && !trimmed.Contains("[")
             && !trimmed.Contains(" ")
             && trimmed.Length > 0

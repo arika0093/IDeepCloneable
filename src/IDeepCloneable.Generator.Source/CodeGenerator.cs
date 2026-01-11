@@ -641,7 +641,10 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     /// Finds ClassInfo for a type or creates a minimal one for special type matching.
     /// This is used when checking if a type matches a special type handler.
     /// </summary>
-    private ClassInfo GetOrCreateMinimalClassInfo(string typeFullName, List<ClassInfo> allClassInfos)
+    private ClassInfo GetOrCreateMinimalClassInfo(
+        string typeFullName,
+        List<ClassInfo> allClassInfos
+    )
     {
         // First try to find exact match
         var exactMatch = allClassInfos.FirstOrDefault(c => c.FullClassName == typeFullName);
