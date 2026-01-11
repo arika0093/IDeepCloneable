@@ -74,10 +74,10 @@ public class ArrayCloneTests
         clone.Items.ShouldNotBeNull();
         if (clone.Items[0] != null)
         {
-            clone.Items[0].Name = "Modified";
+            clone!.Items[0]!.Name = "Modified";
         }
 
-        original.Items[0].Name.ShouldBe("Original");
+        original!.Items[0]!.Name.ShouldBe("Original");
     }
 
     [Fact]
