@@ -119,9 +119,39 @@ Performance is a concern, right? In benchmarks for [medium-sized models](./bench
 Detailed results can be found in [benchmark/results](benchmark/results) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
 
 ## Customize (For end users)
-As you can see from the generated code, you can simply implement the `IDeepCloneable<T>.DeepClone()` method yourself.
+### Shallow Clone
+By default, all properties are deeply cloned. However, you can specify that certain properties should be shallowly cloned by using the `[ShallowClone]` attribute.
 
 ```csharp
+[DeepCloneable]
+public partial class Person
+{
+    public string Name { get; set; }
+
+    [ShallowClone] // <- add this attribute
+    public Address Address { get; set; }
+}
+```
+
+### Ignore Clone
+If you want to exclude certain properties from being cloned, you can use the `[IgnoreClone]` attribute.
+
+```csharp
+[DeepCloneable]
+public partial class Person
+{
+    public string Name { get; set; }
+
+    [IgnoreClone] // <- add this attribute
+    public int TempId { get; set; }
+}
+```
+
+### Manual Implementation
+If you want to provide your own implementation of the `DeepClone()` method, you can do so by implementing the `IDeepCloneable<T>` interface directly.
+
+```csharp
+// no attribute needed
 public class Person : IDeepCloneable<Person>
 {
     public string Name { get; set; }
