@@ -58,6 +58,9 @@ public record ClassInfo : IEquatable<ClassInfo>
     /// <summary>Whether this type is involved in a circular reference pattern.</summary>
     public required bool HasCircularReference { get; init; }
 
+    /// <summary>Generic type parameters (e.g., "T" for MyClass&lt;T&gt;, "TKey, TValue" for MyClass&lt;TKey, TValue&gt;).</summary>
+    public required string GenericTypeParameters { get; init; }
+
     /// <summary>Whether this type can be treated as immutable for cloning purposes.</summary>
     public bool IsImmutableUsable => IsValueType && IsAllImmutable && !IsCollection;
 }

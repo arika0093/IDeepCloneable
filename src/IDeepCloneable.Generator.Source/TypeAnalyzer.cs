@@ -141,6 +141,17 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             && SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, typeSymbol)
         );
 
+        // Extract generic type parameters
+        var genericTypeParameters = string.Empty;
+        if (typeSymbol.IsGenericType)
+        {
+            var typeParams = typeSymbol.TypeParameters;
+            if (typeParams.Length > 0)
+            {
+                genericTypeParameters = string.Join(", ", typeParams.Select(tp => tp.Name));
+            }
+        }
+
         return new ClassInfo
         {
             ClassName = typeSymbol.Name,
@@ -160,6 +171,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             AlreadyHasDeepClone = alreadyHasDeepClone,
             HasCopyConstructor = hasCopyConstructor,
             HasCircularReference = false, // Will be updated later in circular reference detection
+            GenericTypeParameters = genericTypeParameters,
         };
     }
 
