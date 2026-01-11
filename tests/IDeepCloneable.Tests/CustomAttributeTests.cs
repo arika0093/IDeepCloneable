@@ -106,11 +106,7 @@ public class CustomAttributeTests
     {
         // Test that collections marked with [ShallowClone] are shallow-copied
         var sharedList = new List<string> { "A", "B", "C" };
-        var original = new ClassWithShallowList
-        {
-            Name = "Test",
-            ShallowList = sharedList,
-        };
+        var original = new ClassWithShallowList { Name = "Test", ShallowList = sharedList };
 
         var clone = original.DeepClone();
 
@@ -149,11 +145,7 @@ public class CustomAttributeTests
     {
         // Test [ShallowClone] on record types
         var nestedObject = new NestedObject { Value = "Shared" };
-        var original = new RecordWithShallowClone
-        {
-            Name = "Test",
-            ShallowNested = nestedObject,
-        };
+        var original = new RecordWithShallowClone { Name = "Test", ShallowNested = nestedObject };
 
         var clone = original.DeepClone();
 

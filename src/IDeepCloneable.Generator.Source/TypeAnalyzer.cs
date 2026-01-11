@@ -215,10 +215,12 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             {
                 // Check for custom attributes
                 var attributes = memberSymbol.GetAttributes();
-                var isCloneIgnored = attributes.Any(attr => 
-                    attr.AttributeClass?.Name == options.CloneIgnoreAttributeName);
-                var isShallowClone = attributes.Any(attr => 
-                    attr.AttributeClass?.Name == options.ShallowCloneAttributeName);
+                var isCloneIgnored = attributes.Any(attr =>
+                    attr.AttributeClass?.Name == options.CloneIgnoreAttributeName
+                );
+                var isShallowClone = attributes.Any(attr =>
+                    attr.AttributeClass?.Name == options.ShallowCloneAttributeName
+                );
 
                 var isImmutable = IsImmutableType(memberType);
                 // If marked with ShallowClone, treat as immutable (no deep clone needed)
