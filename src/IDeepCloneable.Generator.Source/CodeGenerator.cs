@@ -25,6 +25,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         new ImmutableArrayTypeInfo(),
         new ImmutableHashSetTypeInfo(),
         new ImmutableDictionaryTypeInfo(),
+        new IEnumerableTypeInfo(), // Fallback for unknown IEnumerable types (must be last)
     ];
 
     /// <summary>
