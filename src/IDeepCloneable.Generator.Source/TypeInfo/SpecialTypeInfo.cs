@@ -16,6 +16,10 @@ internal abstract class SpecialTypeInfo
     public virtual bool IsMatch(string typeFullName) =>
         typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
 
+    /// <summary>Checks if the given type matches this special type, with access to class metadata.</summary>
+    public virtual bool IsMatch(ClassInfo classInfo) =>
+        IsMatch(classInfo.FullClassName);
+
     /// <summary>Generates the method name for cloning this special type.</summary>
     public abstract string GetMethodName(string typeFullName);
 

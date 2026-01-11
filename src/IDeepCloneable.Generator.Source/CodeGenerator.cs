@@ -109,7 +109,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             bool isSpecialType = false;
             foreach (var specialTypeInfo in SpecialTypeInfos)
             {
-                if (specialTypeInfo.IsMatch(classInfo.FullClassName))
+                if (specialTypeInfo.IsMatch(classInfo))
                 {
                     isSpecialType = true;
                     break;
