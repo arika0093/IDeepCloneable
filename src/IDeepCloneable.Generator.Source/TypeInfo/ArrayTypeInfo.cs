@@ -153,7 +153,10 @@ internal class ArrayTypeInfo : SpecialTypeInfo
             }
 
             // Create clone array
-            var commaPart = string.Join(",", Enumerable.Range(0, dimensionCount).Select(i => $"l{i}"));
+            var commaPart = string.Join(
+                ",",
+                Enumerable.Range(0, dimensionCount).Select(i => $"l{i}")
+            );
             builder.AppendLine($"var clone = new {elementType}[{commaPart}];");
 
             // Create clone each element
@@ -166,7 +169,11 @@ internal class ArrayTypeInfo : SpecialTypeInfo
 
             var originalAccessors = Enumerable.Range(0, dimensionCount).Select(i => $"i{i}");
             var originalAccessorText = $"[{string.Join(",", originalAccessors)}]";
-            var generateCall = codeGenerator.GenerateTypeCloneCall(elementType, $"original{originalAccessorText}", allClassInfos);
+            var generateCall = codeGenerator.GenerateTypeCloneCall(
+                elementType,
+                $"original{originalAccessorText}",
+                allClassInfos
+            );
             builder.AppendLine($"clone{originalAccessorText} = {generateCall};");
 
             for (int i = 0; i < dimensionCount; i++)
