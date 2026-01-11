@@ -305,38 +305,6 @@ public partial class ClassWithPrimitiveArray
     public int[] Numbers { get; set; } = [];
 }
 
-// TODO
-// [DeepCloneable]
-// public partial class ClassWithIEnumerable
-// {
-//     public IEnumerable<int> Items { get; set; } = [];
-//     public CustomEnumerable<string> CustomItems { get; set; } = new([]);
-// }
-
-// Custom IEnumerable implementation for testing
-public class CustomEnumerable<T> : IEnumerable<T>
-{
-    private readonly T[] _items;
-
-    public CustomEnumerable(T[] items)
-    {
-        _items = items;
-    }
-
-    public IEnumerator<T> GetEnumerator()
-    {
-        foreach (var item in _items)
-        {
-            yield return item;
-        }
-    }
-
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
-    }
-}
-
 [DeepCloneable]
 public partial class ClassWithMultipleRequired
 {
