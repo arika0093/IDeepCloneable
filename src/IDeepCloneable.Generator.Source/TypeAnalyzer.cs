@@ -365,6 +365,12 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             _ => displayString,
         };
 
+        // Don't add global:: prefix for type parameters (they are not in any namespace)
+        if (typeSymbol.TypeKind == TypeKind.TypeParameter)
+        {
+            return displayString;
+        }
+
         return "global::" + displayString;
     }
 

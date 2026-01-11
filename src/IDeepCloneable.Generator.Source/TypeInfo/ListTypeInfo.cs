@@ -25,14 +25,29 @@ internal class ListTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+        var isTypeParameter = CodeGenerationUtility.IsSimpleTypeParameter(innerType);
+        
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
-        );
+        
+        if (isTypeParameter)
+        {
+            // Generate generic method for type parameters
+            builder.AppendLine(
+                $"private static {ListFullName}<{innerType}> {methodName}<{innerType}>(this {ListFullName}<{innerType}> original)"
+            );
+        }
+        else
+        {
+            builder.AppendLine(
+                $"private static {typeFullName} {methodName}(this {typeFullName} original)"
+            );
+        }
+        
         builder.AppendLine("{");
         builder.IncreaseIndent();
-        GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator);
+        GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator, isTypeParameter);
         builder.AppendLine("return list;");
         builder.DecreaseIndent();
         builder.AppendLine("}");
@@ -44,7 +59,8 @@ internal class ListTypeInfo : SpecialTypeInfo
         string typeFullName,
         List<ClassInfo> allClassInfos,
         IndentedStringBuilder builder,
-        CodeGenerator codeGenerator
+        CodeGenerator codeGenerator,
+        bool isTypeParameter = false
     )
     {
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
@@ -54,6 +70,19 @@ internal class ListTypeInfo : SpecialTypeInfo
         if (isImmutable)
         {
             builder.AppendLine($"var list = new {ListFullName}<{innerType}>(original);");
+        }
+        else if (isTypeParameter)
+        {
+            // For type parameters, generate code that casts to IDeepCloneable<T> and calls DeepClone
+            // This assumes the type parameter implements IDeepCloneable (will throw at runtime if not)
+            builder.AppendLine($"var list = new {ListFullName}<{innerType}>(original.Count);");
+            builder.AppendLine("foreach (var item in original)");
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            // Cast to IDeepCloneable and call DeepClone - use null-forgiving operator to handle nullability
+            builder.AppendLine($"    list.Add(((global::IDeepCloneable<{innerType}>)(object)item!).DeepClone());");
+            builder.DecreaseIndent();
+            builder.AppendLine("}");
         }
         else
         {

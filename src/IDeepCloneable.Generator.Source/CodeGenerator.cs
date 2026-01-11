@@ -566,7 +566,8 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             if (_currentClassInfo != null && HasDeepCloneableConstraint(typeFullName, _currentClassInfo))
             {
                 // Type parameter has IDeepCloneable constraint, can call DeepClone directly
-                return $"{valueExpression}?.DeepClone()";
+                // Use explicit cast instead of 'as' to work with both value and reference types
+                return $"{valueExpression}.DeepClone()";
             }
             else
             {
@@ -582,6 +583,15 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             if (specialTypeInfo.IsMatch(classInfoForMatching))
             {
                 var methodName = specialTypeInfo.GetMethodName(typeFullName);
+                
+                // For collection types with type parameter inner types (e.g., List<T>),
+                // we need to call the generic method with the type parameter
+                var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+                if (CodeGenerationUtility.IsSimpleTypeParameter(innerType))
+                {
+                    return $"{methodName}<{innerType}>({valueExpression})";
+                }
+                
                 return $"{methodName}({valueExpression})";
             }
         }
@@ -769,7 +779,8 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
                         // Extract inner type(s) and add to queue for processing
                         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-                        if (innerType != typeFullName && !string.IsNullOrEmpty(innerType))
+                        // Don't recursively process simple type parameters
+                        if (innerType != typeFullName && !string.IsNullOrEmpty(innerType) && !CodeGenerationUtility.IsSimpleTypeParameter(innerType))
                         {
                             typesToProcess.Enqueue(innerType);
                         }
@@ -916,7 +927,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             // Check if this constraint is for the given type parameter
             if (constraint.StartsWith($"where {typeParamName} :", StringComparison.Ordinal))
             {
-                // Check if the constraint includes IDeepCloneable
+                // Check if the constraint includes IDeepCloneable (with or without global:: prefix)
                 if (constraint.Contains("IDeepCloneable", StringComparison.Ordinal))
                 {
                     return true;

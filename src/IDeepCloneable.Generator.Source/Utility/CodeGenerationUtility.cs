@@ -117,6 +117,13 @@ internal static class CodeGenerationUtility
     public static bool IsSimpleTypeParameter(string typeFullName)
     {
         var trimmed = typeFullName.Trim().Replace("global::", "");
+        
+        // If it's an immutable type (primitive, string, etc.), it's not a type parameter
+        if (IsTypeImmutable(typeFullName))
+        {
+            return false;
+        }
+        
         // Type parameters are single identifiers without dots, colons, brackets, or other special characters
         return !trimmed.Contains(".")
             && !trimmed.Contains("::")
