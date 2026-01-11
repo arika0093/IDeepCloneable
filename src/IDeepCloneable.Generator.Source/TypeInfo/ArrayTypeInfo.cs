@@ -11,10 +11,10 @@ internal class ArrayTypeInfo : SpecialTypeInfo
 {
     public override string TargetTypeStartWith => ""; // Arrays don't have a fixed prefix
 
-    public override bool IsMatch(string typeFullName)
+    public override bool IsMatch(ClassInfo classInfo)
     {
         // Match if the type contains array brackets
-        return typeFullName.Contains("[") && typeFullName.Contains("]");
+        return classInfo.FullClassName.Contains("[") && classInfo.FullClassName.Contains("]");
     }
 
     public override string GetMethodName(string typeFullName)

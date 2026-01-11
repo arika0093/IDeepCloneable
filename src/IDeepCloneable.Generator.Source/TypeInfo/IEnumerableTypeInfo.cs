@@ -21,7 +21,7 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
             return false;
 
         // Check if the type name itself is IEnumerable<T> or implements it
-        return base.IsMatch(classInfo.FullClassName) || 
+        return classInfo.FullClassName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal) || 
                classInfo.ImplementedInterfaces.Any(i => 
                    i.StartsWith(TargetTypeStartWith, StringComparison.Ordinal));
     }

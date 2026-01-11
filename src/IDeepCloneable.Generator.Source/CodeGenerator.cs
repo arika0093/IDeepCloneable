@@ -558,9 +558,10 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         }
 
         // Check special types using SpecialTypeInfo (includes arrays)
+        var classInfoForMatching = GetOrCreateMinimalClassInfo(typeFullName, allClassInfos);
         foreach (var specialTypeInfo in SpecialTypeInfos)
         {
-            if (specialTypeInfo.IsMatch(typeFullName))
+            if (specialTypeInfo.IsMatch(classInfoForMatching))
             {
                 var methodName = specialTypeInfo.GetMethodName(typeFullName);
                 return $"{methodName}({valueExpression})";
@@ -637,6 +638,48 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     }
 
     /// <summary>
+    /// Finds ClassInfo for a type or creates a minimal one for special type matching.
+    /// This is used when checking if a type matches a special type handler.
+    /// </summary>
+    private ClassInfo GetOrCreateMinimalClassInfo(string typeFullName, List<ClassInfo> allClassInfos)
+    {
+        // First try to find exact match
+        var exactMatch = allClassInfos.FirstOrDefault(c => c.FullClassName == typeFullName);
+        if (exactMatch != null)
+            return exactMatch;
+
+        // Try to find generic definition match
+        var genericMatch = FindMatchingGenericClassInfo(typeFullName, allClassInfos);
+        if (genericMatch != null)
+            return genericMatch;
+
+        // Create minimal ClassInfo for special type matching
+        // This is used for framework types like IEnumerable<int>, arrays, etc.
+        return new ClassInfo
+        {
+            ClassName = typeFullName.Split('.').LastOrDefault() ?? typeFullName,
+            FullClassName = typeFullName,
+            Namespace = string.Empty,
+            ContainingTypeNames = new EquatableArray<string>([]),
+            Properties = new EquatableArray<PropertyInfo>([]),
+            IsNullable = false,
+            IsRecord = false,
+            IsValueType = false,
+            IsAllImmutable = false,
+            IsCollection = false,
+            NeedsDeepCloneMethod = false,
+            IsAbstract = false,
+            IsSealed = false,
+            BaseHasDeepClone = false,
+            AlreadyHasDeepClone = false,
+            HasCopyConstructor = false,
+            HasCircularReference = false,
+            GenericTypeParameters = string.Empty,
+            ImplementedInterfaces = new EquatableArray<string>([]),
+        };
+    }
+
+    /// <summary>
     /// Extracts generic type arguments from a type name (e.g., "string" from "MyClass<string>")
     /// </summary>
     private List<string> ExtractGenericTypeArguments(string typeFullName)
@@ -684,9 +727,10 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             var typeFullName = typesToProcess.Dequeue();
 
             // Check special types using SpecialTypeInfo (now includes arrays)
+            var classInfoForMatching = GetOrCreateMinimalClassInfo(typeFullName, classInfos);
             foreach (var specialTypeInfo in SpecialTypeInfos)
             {
-                if (specialTypeInfo.IsMatch(typeFullName))
+                if (specialTypeInfo.IsMatch(classInfoForMatching))
                 {
                     var methodName = specialTypeInfo.GetMethodName(typeFullName);
 

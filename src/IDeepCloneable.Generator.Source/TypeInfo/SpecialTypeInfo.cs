@@ -12,13 +12,9 @@ internal abstract class SpecialTypeInfo
     /// <summary>Target type prefix to match against.</summary>
     public abstract string TargetTypeStartWith { get; }
 
-    /// <summary>Checks if the given type matches this special type.</summary>
-    public virtual bool IsMatch(string typeFullName) =>
-        typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
-
     /// <summary>Checks if the given type matches this special type, with access to class metadata.</summary>
     public virtual bool IsMatch(ClassInfo classInfo) =>
-        IsMatch(classInfo.FullClassName);
+        classInfo.FullClassName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
 
     /// <summary>Generates the method name for cloning this special type.</summary>
     public abstract string GetMethodName(string typeFullName);
