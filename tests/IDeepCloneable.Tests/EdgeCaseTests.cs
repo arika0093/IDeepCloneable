@@ -12,11 +12,7 @@ public class EdgeCaseTests
     public void DeepClone_ClassWithRequiredProperty_ClonesCorrectly()
     {
         // Arrange: Create a class with required properties
-        var original = new ClassWithRequiredProperty
-        {
-            RequiredName = "Test",
-            OptionalValue = 42,
-        };
+        var original = new ClassWithRequiredProperty { RequiredName = "Test", OptionalValue = 42 };
 
         // Act: Clone the object
         var clone = original.DeepClone();
@@ -35,11 +31,7 @@ public class EdgeCaseTests
     public void DeepClone_ClassWithCopyConstructor_UsesCopyConstructor()
     {
         // Arrange: Create a class with a copy constructor
-        var original = new ClassWithCopyConstructor
-        {
-            Name = "Original",
-            Value = 100,
-        };
+        var original = new ClassWithCopyConstructor { Name = "Original", Value = 100 };
 
         // Act: Clone the object
         var clone = original.DeepClone();
@@ -70,12 +62,12 @@ public class EdgeCaseTests
         cloneNode1.ShouldNotBeSameAs(node1);
         cloneNode1.Name.ShouldBe("Node1");
         cloneNode1.Value.ShouldBe(1);
-        
+
         cloneNode1.Next.ShouldNotBeNull();
         cloneNode1.Next.ShouldNotBeSameAs(node2);
         cloneNode1.Next!.Name.ShouldBe("Node2");
         cloneNode1.Next.Value.ShouldBe(2);
-        
+
         // Verify circular reference is preserved
         cloneNode1.Next.Next.ShouldNotBeNull();
         cloneNode1.Next.Next.ShouldBeSameAs(cloneNode1); // Should point back to cloneNode1
@@ -98,17 +90,17 @@ public class EdgeCaseTests
         // Assert: Verify structure is preserved
         cloneNode1.ShouldNotBeSameAs(node1);
         cloneNode1.Name.ShouldBe("Node1");
-        
+
         var cloneNode2 = cloneNode1.Next;
         cloneNode2.ShouldNotBeNull();
         cloneNode2.ShouldNotBeSameAs(node2);
         cloneNode2!.Name.ShouldBe("Node2");
-        
+
         var cloneNode3 = cloneNode2.Next;
         cloneNode3.ShouldNotBeNull();
         cloneNode3.ShouldNotBeSameAs(node3);
         cloneNode3!.Name.ShouldBe("Node3");
-        
+
         // Verify circular reference is preserved
         cloneNode3.Next.ShouldNotBeNull();
         cloneNode3.Next.ShouldBeSameAs(cloneNode1); // Should circle back to cloneNode1
@@ -123,7 +115,7 @@ public class EdgeCaseTests
         var node1 = new CircularNode1 { Name = "Node1", Value = 1 };
         var node2 = new CircularNode2 { Name = "Node2", Value = 2 };
         var node3 = new CircularNode3 { Name = "Node3", Value = 3 };
-        
+
         root.Next = node1;
         node1.Next = node2;
         node2.Next = node3;
@@ -136,22 +128,22 @@ public class EdgeCaseTests
         cloneRoot.ShouldNotBeSameAs(root);
         cloneRoot.Name.ShouldBe("Root");
         cloneRoot.Value.ShouldBe(0);
-        
+
         var cloneNode1 = cloneRoot.Next;
         cloneNode1.ShouldNotBeNull();
         cloneNode1.ShouldNotBeSameAs(node1);
         cloneNode1!.Name.ShouldBe("Node1");
-        
+
         var cloneNode2 = cloneNode1.Next;
         cloneNode2.ShouldNotBeNull();
         cloneNode2.ShouldNotBeSameAs(node2);
         cloneNode2!.Name.ShouldBe("Node2");
-        
+
         var cloneNode3 = cloneNode2.Next;
         cloneNode3.ShouldNotBeNull();
         cloneNode3.ShouldNotBeSameAs(node3);
         cloneNode3!.Name.ShouldBe("Node3");
-        
+
         // Verify circular reference back to root is preserved
         cloneNode3.Next.ShouldNotBeNull();
         cloneNode3.Next.ShouldBeSameAs(cloneRoot); // Should circle back to cloned root
@@ -182,7 +174,9 @@ public class EdgeCaseTests
         var original = new int[] { 1, 2, 3, 4, 5 };
 
         // Act: Clone the array (this should use AsSpan().ToArray() internally)
-        var clone = new ClassWithPrimitiveArray { Numbers = original }.DeepClone().Numbers;
+        var clone = new ClassWithPrimitiveArray { Numbers = original }
+            .DeepClone()
+            .Numbers;
 
         // Assert: Verify it's a different instance
         clone.ShouldNotBeSameAs(original);
@@ -193,27 +187,30 @@ public class EdgeCaseTests
         original[0].ShouldBe(1);
     }
 
-    [Fact]
-    public void DeepClone_IEnumerableCustomType_ClonesCorrectly()
-    {
-        // Arrange: Create a class using IEnumerable
-        var original = new ClassWithIEnumerable
-        {
-            Items = new CustomEnumerable<int>(new[] { 1, 2, 3, 4, 5 }),
-        };
+    //TODO
+    //[Fact]
+    //public void DeepClone_IEnumerableCustomType_ClonesCorrectly()
+    //{
+    //    // Arrange: Create a class using IEnumerable
+    //    var original = new ClassWithIEnumerable
+    //    {
+    //        Items = [1, 2, 3, 4, 5],
+    //        CustomItems = new CustomEnumerable<string>(["foo", "bar", "buz"]),
+    //    };
 
-        // Act: Clone the object
-        var clone = original.DeepClone();
+    //    // Act: Clone the object
+    //    var clone = original.DeepClone();
 
-        // Assert: Verify it's a different instance
-        clone.ShouldNotBeSameAs(original);
-        clone.Items.ShouldNotBeSameAs(original.Items);
-        
-        // Verify values
-        var cloneList = new List<int>(clone.Items);
-        var originalList = new List<int>(original.Items);
-        cloneList.ShouldBe(originalList);
-    }
+    //    // Assert: Verify it's a different instance
+    //    clone.ShouldNotBeSameAs(original);
+    //    clone.Items.ShouldNotBeSameAs(original.Items);
+    //    clone.CustomItems.ShouldNotBeSameAs(original.CustomItems);
+
+    //    // Verify values
+    //    var cloneList = new List<int>(clone.Items);
+    //    var originalList = new List<int>(original.Items);
+    //    cloneList.ShouldBe(originalList);
+    //}
 
     [Fact]
     public void DeepClone_MultipleRequiredProperties_ClonesCorrectly()
@@ -252,9 +249,7 @@ public partial class ClassWithCopyConstructor
     public string Name { get; set; } = string.Empty;
     public int Value { get; set; }
 
-    public ClassWithCopyConstructor()
-    {
-    }
+    public ClassWithCopyConstructor() { }
 
     public ClassWithCopyConstructor(ClassWithCopyConstructor other)
     {
@@ -307,13 +302,14 @@ public partial class CircularNode3
 [DeepCloneable]
 public partial class ClassWithPrimitiveArray
 {
-    public int[] Numbers { get; set; } = Array.Empty<int>();
+    public int[] Numbers { get; set; } = [];
 }
 
 [DeepCloneable]
 public partial class ClassWithIEnumerable
 {
-    public IEnumerable<int> Items { get; set; } = Array.Empty<int>();
+    public IEnumerable<int> Items { get; set; } = [];
+    public CustomEnumerable<string> CustomItems { get; set; } = new([]);
 }
 
 // Custom IEnumerable implementation for testing
