@@ -144,15 +144,17 @@ internal class ArrayTypeInfo : SpecialTypeInfo
             // Multi-dimensional arrays with mutable elements - deep clone each element
             // Extract dimensions from type (e.g., [,] is 2D, [,,] is 3D)
             var dimensionCount = typeFullName.Where(c => c == ',').Count() + 1;
-            
+
             // Create new array with same dimensions
             builder.AppendLine($"var lengths = new int[{dimensionCount}];");
             for (int i = 0; i < dimensionCount; i++)
             {
                 builder.AppendLine($"lengths[{i}] = original.GetLength({i});");
             }
-            builder.AppendLine($"var clone = global::System.Array.CreateInstance(typeof({elementType}), lengths) as {typeFullName};");
-            
+            builder.AppendLine(
+                $"var clone = global::System.Array.CreateInstance(typeof({elementType}), lengths) as {typeFullName};"
+            );
+
             // Walk through all elements using indices
             builder.AppendLine($"var indices = new int[{dimensionCount}];");
             builder.AppendLine($"var totalElements = 1;");
@@ -163,7 +165,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
             builder.AppendLine("for (int i = 0; i < totalElements; i++)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
-            
+
             // Calculate multi-dimensional indices from flat index
             builder.AppendLine("var temp = i;");
             for (int dim = dimensionCount - 1; dim >= 0; dim--)
@@ -174,7 +176,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                     builder.AppendLine($"temp /= lengths[{dim}];");
                 }
             }
-            
+
             // Clone the element
             var cloneCall = codeGenerator.GenerateTypeCloneCall(
                 elementType,
@@ -182,7 +184,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                 allClassInfos
             );
             builder.AppendLine($"clone.SetValue({cloneCall}, indices);");
-            
+
             builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return clone;");

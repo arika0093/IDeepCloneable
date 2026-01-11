@@ -135,16 +135,11 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         }
 
         // Check if this type has a copy constructor (Type(Type other))
-        var hasCopyConstructor = typeSymbol
-            .Constructors
-            .Any(ctor =>
-                !ctor.IsStatic
-                && ctor.Parameters.Length == 1
-                && SymbolEqualityComparer.Default.Equals(
-                    ctor.Parameters[0].Type,
-                    typeSymbol
-                )
-            );
+        var hasCopyConstructor = typeSymbol.Constructors.Any(ctor =>
+            !ctor.IsStatic
+            && ctor.Parameters.Length == 1
+            && SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, typeSymbol)
+        );
 
         return new ClassInfo
         {
@@ -425,7 +420,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
     {
         // Build a type dependency graph
         var typeDependencies = new Dictionary<string, HashSet<string>>();
-        
+
         foreach (var classInfo in allClassInfos)
         {
             if (!typeDependencies.ContainsKey(classInfo.FullClassName))
