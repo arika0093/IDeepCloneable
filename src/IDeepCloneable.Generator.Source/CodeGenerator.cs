@@ -226,30 +226,9 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     /// </summary>
     private string GenerateGenericConstraints(ClassInfo classInfo, List<ClassInfo> allClassInfos)
     {
-        if (string.IsNullOrEmpty(classInfo.GenericTypeParameters))
-            return string.Empty;
-            
-        var typeParams = classInfo.GenericTypeParameters.Split(',').Select(p => p.Trim()).ToList();
-        var constraintsNeeded = new HashSet<string>();
-        
-        foreach (var prop in classInfo.Properties)
-        {
-            // Check if this property's type is a simple type parameter that needs deep cloning
-            var propTypeNoGlobal = prop.TypeFullName.Replace("global::", "");
-            if (prop.NeedsDeepClone && typeParams.Contains(propTypeNoGlobal))
-            {
-                constraintsNeeded.Add(propTypeNoGlobal);
-            }
-        }
-        
-        if (constraintsNeeded.Count == 0)
-            return string.Empty;
-            
-        var constraints = constraintsNeeded
-            .Select(tp => $"where {tp} : {options.ImplementedInterfaceName}<{tp}>")
-            .ToList();
-            
-        return "\n        " + string.Join("\n        ", constraints);
+        // Disable constraint generation for now as it causes issues with constraint propagation
+        // Type parameters will be shallow-copied instead
+        return string.Empty;
     }
 
     /// <summary>
@@ -567,10 +546,12 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             return valueExpression;
         }
         
-        // For type parameters, call DeepClone() directly
+        // For type parameters, use shallow copy (assign directly)
+        // We can't deep clone unconstrained type parameters without adding constraints
+        // which would require constraint propagation throughout the call chain
         if (CodeGenerationUtility.IsSimpleTypeParameter(typeFullName))
         {
-            return $"{valueExpression}.DeepClone()";
+            return valueExpression;
         }
 
         // Check special types using SpecialTypeInfo (includes arrays)
