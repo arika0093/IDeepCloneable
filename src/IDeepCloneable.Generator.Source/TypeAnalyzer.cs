@@ -152,6 +152,11 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             }
         }
 
+        // Extract implemented interfaces
+        var implementedInterfaces = typeSymbol.AllInterfaces
+            .Select(i => GetFullTypeName(i))
+            .ToList();
+
         return new ClassInfo
         {
             ClassName = typeSymbol.Name,
@@ -172,6 +177,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             HasCopyConstructor = hasCopyConstructor,
             HasCircularReference = false, // Will be updated later in circular reference detection
             GenericTypeParameters = genericTypeParameters,
+            ImplementedInterfaces = new EquatableArray<string>(implementedInterfaces),
         };
     }
 

@@ -13,12 +13,17 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
 {
     public override string TargetTypeStartWith => "global::System.Collections.Generic.IEnumerable<";
 
-    public override bool IsMatch(string typeFullName)
+    public override bool IsMatch(ClassInfo classInfo)
     {
-        // TODO:
-        // Modify IsMatch to accept not only the fullname but also a list of implemented interfaces,
-        // and check whether the type implements IEnumerable<T>.
-        return base.IsMatch(typeFullName);
+        // Only match if the type itself is IEnumerable<T>, not implementers
+        // Implementers with [DeepCloneable] should use their own clone methods
+        if (classInfo.NeedsDeepCloneMethod)
+            return false;
+
+        // Check if the type name itself is IEnumerable<T> or implements it
+        return base.IsMatch(classInfo.FullClassName) || 
+               classInfo.ImplementedInterfaces.Any(i => 
+                   i.StartsWith(TargetTypeStartWith, StringComparison.Ordinal));
     }
 
     public override string GetMethodName(string typeFullName)
