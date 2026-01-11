@@ -35,9 +35,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
             return GenerateMultiDimensionalArrayCloneMethod(
                 typeFullName,
                 methodName,
-                allClassInfos,
-                builder,
-                codeGenerator
+                builder
             );
         }
         else
@@ -114,9 +112,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
     private IndentedStringBuilder GenerateMultiDimensionalArrayCloneMethod(
         string typeFullName,
         string methodName,
-        List<ClassInfo> allClassInfos,
-        IndentedStringBuilder builder,
-        CodeGenerator codeGenerator
+        IndentedStringBuilder builder
     )
     {
         // Extract element type (everything before the first '[')
