@@ -118,7 +118,7 @@ Performance is a concern, right? In benchmarks for [medium-sized models](./bench
 
 Detailed results can be found in [benchmark/results](benchmark/results) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
 
-## Customize (For end users)
+## Features (for end users)
 ### Shallow Clone
 By default, all properties are deeply cloned. However, you can specify that certain properties should be shallowly cloned by using the `[ShallowClone]` attribute.
 
@@ -145,6 +145,28 @@ public partial class Person
     [IgnoreClone] // <- add this attribute
     public int TempId { get; set; }
 }
+```
+
+### Circular Reference
+By default, This library supports object graphs with circular references.
+
+```csharp
+[DeepCloneable]
+public partial class Node
+{
+    public string Name { get; set; }
+    public Node Next { get; set; }
+}
+
+var node1 = new Node { Name = "Node1" };
+var node2 = new Node { Name = "Node2" };
+node1.Next = node2;
+node2.Next = node1;
+
+var clonedNode1 = node1.DeepClone();
+// clonedNode1 != node1
+// clonedNode1.Next != node2
+// clonedNode1.Next.Next == clonedNode1
 ```
 
 ### Manual Implementation
