@@ -8,6 +8,6 @@ AMD EPYC 7763 2.45GHz, 1 CPU, 4 logical and 2 physical cores
 
 
 ```
-| Method         | Mean     | Error     | StdDev    | Ratio | RatioSD | Code Size | Gen0   | Gen1   | Allocated | Alloc Ratio |
-|--------------- |---------:|----------:|----------:|------:|--------:|----------:|-------:|-------:|----------:|------------:|
-| IDeepCloneable | 1.130 μs | 0.0185 μs | 0.0265 μs |  1.00 |    0.03 |     824 B | 0.2880 | 0.0038 |   4.73 KB |        1.00 |
+| Method         | Mean     | Error     | StdDev    | Ratio | Code Size | Gen0   | Gen1   | Allocated | Alloc Ratio |
+|--------------- |---------:|----------:|----------:|------:|----------:|-------:|-------:|----------:|------------:|
+| IDeepCloneable | 1.116 μs | 0.0104 μs | 0.0097 μs |  1.00 |     817 B | 0.2880 | 0.0038 |   4.73 KB |        1.00 |
