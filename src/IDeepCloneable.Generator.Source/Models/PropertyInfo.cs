@@ -24,4 +24,10 @@ public record PropertyInfo : IEquatable<PropertyInfo>
 
     /// <summary>Whether this property is marked as required.</summary>
     public required bool IsRequired { get; init; }
+
+    /// <summary>Whether this property/field is marked with [CloneIgnore] attribute.</summary>
+    public required bool IsCloneIgnored { get; init; }
+
+    /// <summary>Whether this property/field is marked with [ShallowClone] attribute.</summary>
+    public required bool IsShallowClone { get; init; }
 }

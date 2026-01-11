@@ -253,7 +253,17 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
             foreach (var prop in classInfo.Properties)
             {
-                if (prop.NeedsDeepClone)
+                // For properties marked with [CloneIgnore], explicitly set to default
+                if (prop.IsCloneIgnored)
+                {
+                    builder.AppendLine($"{prop.Name} = default,");
+                }
+                // For [ShallowClone], just copy the reference
+                else if (prop.IsShallowClone)
+                {
+                    builder.AppendLine($"{prop.Name} = original.{prop.Name},");
+                }
+                else if (prop.NeedsDeepClone)
                 {
                     var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
                     builder.AppendLine($"{prop.Name} = {cloneCall},");
@@ -337,10 +347,21 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             builder.AppendLine($"{cacheFieldName}[hashCode] = clone;");
         }
 
-        // Override properties with deep clones
+        // Override properties with deep clones or handle special attributes
         foreach (var prop in classInfo.Properties)
         {
-            if (!prop.IsImmutable)
+            // Skip properties marked with [CloneIgnore] - they keep default/copied value
+            if (prop.IsCloneIgnored)
+            {
+                // Set to default value to ignore the copy constructor's value
+                builder.AppendLine($"clone.{prop.Name} = default;");
+            }
+            // For [ShallowClone], just copy the reference (already done by copy constructor)
+            else if (prop.IsShallowClone)
+            {
+                // No action needed - copy constructor already copied the reference
+            }
+            else if (!prop.IsImmutable)
             {
                 var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
                 builder.AppendLine($"clone.{prop.Name} = {cloneCall};");
@@ -368,8 +389,17 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
         foreach (var prop in requiredProps)
         {
-            var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
-            builder.AppendLine($"{prop.Name} = {cloneCall},");
+            // Skip properties marked with [CloneIgnore] - they keep default value
+            if (prop.IsCloneIgnored)
+            {
+                // Required properties can't be skipped in initializer, set to default
+                builder.AppendLine($"{prop.Name} = default,");
+            }
+            else
+            {
+                var cloneCall = GeneratePropertyCloneCall(prop, allClassInfos);
+                builder.AppendLine($"{prop.Name} = {cloneCall},");
+            }
         }
 
         builder.DecreaseIndent();
@@ -383,7 +413,16 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         // Set non-required properties
         foreach (var prop in nonRequiredProps)
         {
-            if (prop.IsImmutable)
+            // Skip properties marked with [CloneIgnore]
+            if (prop.IsCloneIgnored)
+                continue;
+
+            // For [ShallowClone], just copy the reference
+            if (prop.IsShallowClone)
+            {
+                builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
+            }
+            else if (prop.IsImmutable)
             {
                 builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
             }
@@ -414,7 +453,16 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
         foreach (var prop in classInfo.Properties)
         {
-            if (prop.IsImmutable)
+            // Skip properties marked with [CloneIgnore]
+            if (prop.IsCloneIgnored)
+                continue;
+
+            // For [ShallowClone], just copy the reference
+            if (prop.IsShallowClone)
+            {
+                builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
+            }
+            else if (prop.IsImmutable)
             {
                 builder.AppendLine($"clone.{prop.Name} = original.{prop.Name};");
             }

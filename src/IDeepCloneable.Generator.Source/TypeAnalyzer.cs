@@ -177,6 +177,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             ITypeSymbol? memberType = null;
             string? memberName = null;
             bool isRequired = false;
+            ISymbol? memberSymbol = null;
 
             if (member is IPropertySymbol propSymbol && !propSymbol.IsStatic)
             {
@@ -195,6 +196,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 memberType = propSymbol.Type;
                 memberName = propSymbol.Name;
                 isRequired = propSymbol.IsRequired;
+                memberSymbol = propSymbol;
             }
             else if (
                 member is IFieldSymbol fieldSymbol
@@ -206,12 +208,22 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 memberType = fieldSymbol.Type;
                 memberName = fieldSymbol.Name;
                 isRequired = fieldSymbol.IsRequired;
+                memberSymbol = fieldSymbol;
             }
 
-            if (memberType != null && memberName != null)
+            if (memberType != null && memberName != null && memberSymbol != null)
             {
+                // Check for custom attributes
+                var attributes = memberSymbol.GetAttributes();
+                var isCloneIgnored = attributes.Any(attr => 
+                    attr.AttributeClass?.Name == options.CloneIgnoreAttributeName);
+                var isShallowClone = attributes.Any(attr => 
+                    attr.AttributeClass?.Name == options.ShallowCloneAttributeName);
+
                 var isImmutable = IsImmutableType(memberType);
-                var needsDeepClone = !isImmutable;
+                // If marked with ShallowClone, treat as immutable (no deep clone needed)
+                // If marked with CloneIgnore, it doesn't need deep clone either (will be skipped)
+                var needsDeepClone = !isImmutable && !isShallowClone && !isCloneIgnored;
 
                 properties.Add(
                     new PropertyInfo
@@ -222,10 +234,13 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                         NeedsDeepClone = needsDeepClone,
                         IsImmutable = isImmutable,
                         IsRequired = isRequired,
+                        IsCloneIgnored = isCloneIgnored,
+                        IsShallowClone = isShallowClone,
                     }
                 );
 
                 // Extract child types for further processing
+                // Only add child types if they need deep cloning (not ignored, not shallow)
                 if (needsDeepClone)
                 {
                     ExtractChildTypes(memberType, childTypes);
