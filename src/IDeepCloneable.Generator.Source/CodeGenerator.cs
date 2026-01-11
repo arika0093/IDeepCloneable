@@ -106,16 +106,11 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         if (hasCircularReferences)
         {
             // Add static cache field for circular reference handling
-            builder.AppendLine(
-                "// Cache for handling circular references during cloning"
-            );
-            builder.AppendLine(
-                "[global::System.ThreadStatic]"
-            );
-            builder.AppendLine(
-                "internal static global::System.Collections.Generic.Dictionary<int, object>? _cloneCache;"
-            );
-            builder.AppendLine("");
+            builder.AppendLine("""
+                // Cache for handling circular references during cloning
+                private static global::System.Collections.Generic.ConcurrentDictionary<int, object>? _cloneCache;
+                
+                """);
         }
 
         // Generate CloneInternal methods for each class
@@ -226,7 +221,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     )
     {
         builder.AppendLine("// Check static cache for circular references");
-        builder.AppendLine("_cloneCache ??= new global::System.Collections.Generic.Dictionary<int, object>();");
+        builder.AppendLine("_cloneCache ??= new global::System.Collections.Generic.ConcurrentDictionary<int, object>();");
         builder.AppendLine("var hashCode = original.GetHashCode();");
         builder.AppendLine("if (_cloneCache.TryGetValue(hashCode, out var cached))");
         builder.AppendLine("{");
