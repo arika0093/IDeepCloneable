@@ -162,7 +162,6 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         var cacheFieldName = $"_cloneCache_{methodName}";
 
         builder.AppendLine("");
-        builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
 
         // Method signature with optional clearCache parameter for circular reference handling
         if (classInfo.HasCircularReference)
@@ -171,12 +170,14 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             builder.AppendLine(
                 $"""
                 private static global::System.Collections.Concurrent.ConcurrentDictionary<int, {classInfo.FullClassName}> {cacheFieldName} = new();
+                {CodeTemplateContents.EditorBrowsableAttribute}
                 {visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original, bool clearCache = false)
                 """
             );
         }
         else
         {
+            builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
             builder.AppendLine(
                 $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
             );
@@ -289,7 +290,12 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         // Determine how to create the instance
         if (classInfo.HasCopyConstructor)
         {
-            builder = GenerateCopyConstructorClone(classInfo, allClassInfos, builder);
+            builder = GenerateCopyConstructorClone(
+                classInfo,
+                allClassInfos,
+                cacheFieldName,
+                builder
+            );
         }
         else if (requiredProps.Any())
         {
@@ -298,19 +304,19 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                 requiredProps,
                 nonRequiredProps,
                 allClassInfos,
+                cacheFieldName,
                 builder
             );
         }
         else
         {
-            builder = GenerateDefaultConstructorClone(classInfo, allClassInfos, builder);
+            builder = GenerateDefaultConstructorClone(
+                classInfo,
+                allClassInfos,
+                cacheFieldName,
+                builder
+            );
         }
-        // For circular references, add to static cache after creation
-        if (classInfo.HasCircularReference)
-        {
-            builder.AppendLine($"{cacheFieldName}[hashCode] = clone;");
-        }
-
         builder.AppendLine("return clone;");
         return builder;
     }
@@ -321,11 +327,16 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     private IndentedStringBuilder GenerateCopyConstructorClone(
         ClassInfo classInfo,
         List<ClassInfo> allClassInfos,
+        string cacheFieldName,
         IndentedStringBuilder builder
     )
     {
         // Use copy constructor
         builder.AppendLine($"var clone = new {classInfo.FullClassName}(original);");
+        if (classInfo.HasCircularReference)
+        {
+            builder.AppendLine($"{cacheFieldName}[hashCode] = clone;");
+        }
 
         // Override properties with deep clones
         foreach (var prop in classInfo.Properties)
@@ -347,6 +358,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         List<PropertyInfo> requiredProps,
         List<PropertyInfo> nonRequiredProps,
         List<ClassInfo> allClassInfos,
+        string cacheFieldName,
         IndentedStringBuilder builder
     )
     {
@@ -363,6 +375,11 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
         builder.DecreaseIndent();
         builder.AppendLine("};");
+
+        if (classInfo.HasCircularReference)
+        {
+            builder.AppendLine($"{cacheFieldName}[hashCode] = clone;");
+        }
 
         // Set non-required properties
         foreach (var prop in nonRequiredProps)
@@ -386,10 +403,15 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     private IndentedStringBuilder GenerateDefaultConstructorClone(
         ClassInfo classInfo,
         List<ClassInfo> allClassInfos,
+        string cacheFieldName,
         IndentedStringBuilder builder
     )
     {
         builder.AppendLine($"var clone = new {classInfo.FullClassName}();");
+        if (classInfo.HasCircularReference)
+        {
+            builder.AppendLine($"{cacheFieldName}[hashCode] = clone;");
+        }
 
         foreach (var prop in classInfo.Properties)
         {
