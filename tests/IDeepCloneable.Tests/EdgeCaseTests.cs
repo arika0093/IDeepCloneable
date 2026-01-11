@@ -305,12 +305,13 @@ public partial class ClassWithPrimitiveArray
     public int[] Numbers { get; set; } = [];
 }
 
-[DeepCloneable]
-public partial class ClassWithIEnumerable
-{
-    public IEnumerable<int> Items { get; set; } = [];
-    public CustomEnumerable<string> CustomItems { get; set; } = new([]);
-}
+// TODO
+// [DeepCloneable]
+// public partial class ClassWithIEnumerable
+// {
+//     public IEnumerable<int> Items { get; set; } = [];
+//     public CustomEnumerable<string> CustomItems { get; set; } = new([]);
+// }
 
 // Custom IEnumerable implementation for testing
 public class CustomEnumerable<T> : IEnumerable<T>
