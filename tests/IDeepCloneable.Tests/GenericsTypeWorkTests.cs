@@ -4,9 +4,7 @@ using System.Text;
 
 namespace IDeepCloneable.Tests;
 
-public class GenericsTypeWorkTests
-{
-}
+public class GenericsTypeWorkTests { }
 
 // TODO
 // [DeepCloneable]
