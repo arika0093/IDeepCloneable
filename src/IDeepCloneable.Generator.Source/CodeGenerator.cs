@@ -165,9 +165,6 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         var genericParams = string.IsNullOrEmpty(classInfo.GenericTypeParameters)
             ? string.Empty
             : $"<{classInfo.GenericTypeParameters}>";
-        
-        // Generate constraints for generic type parameters that need deep cloning
-        var constraints = GenerateGenericConstraints(classInfo, allClassInfos);
 
         builder.AppendLine("");
 
@@ -179,7 +176,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                 $"""
                 private static global::System.Collections.Concurrent.ConcurrentDictionary<int, {classInfo.FullClassName}> {cacheFieldName} = new();
                 {CodeTemplateContents.EditorBrowsableAttribute}
-                {visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original, bool clearCache = false){constraints}
+                {visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original, bool clearCache = false)
                 """
             );
         }
@@ -187,7 +184,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         {
             builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
             builder.AppendLine(
-                $"{visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original){constraints}"
+                $"{visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original)"
             );
         }
 
@@ -218,17 +215,6 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         builder.AppendLine("}");
 
         return builder;
-    }
-    
-    /// <summary>
-    /// Generates generic type constraints for type parameters that need deep cloning.
-    /// For example, if a property of type T needs deep cloning, adds "where T : global::IDeepCloneable<T>"
-    /// </summary>
-    private string GenerateGenericConstraints(ClassInfo classInfo, List<ClassInfo> allClassInfos)
-    {
-        // Disable constraint generation for now as it causes issues with constraint propagation
-        // Type parameters will be shallow-copied instead
-        return string.Empty;
     }
 
     /// <summary>
