@@ -187,31 +187,6 @@ public class EdgeCaseTests
         original[0].ShouldBe(1);
     }
 
-    //TODO
-    //[Fact]
-    //public void DeepClone_IEnumerableCustomType_ClonesCorrectly()
-    //{
-    //    // Arrange: Create a class using IEnumerable
-    //    var original = new ClassWithIEnumerable
-    //    {
-    //        Items = [1, 2, 3, 4, 5],
-    //        CustomItems = new CustomEnumerable<string>(["foo", "bar", "buz"]),
-    //    };
-
-    //    // Act: Clone the object
-    //    var clone = original.DeepClone();
-
-    //    // Assert: Verify it's a different instance
-    //    clone.ShouldNotBeSameAs(original);
-    //    clone.Items.ShouldNotBeSameAs(original.Items);
-    //    clone.CustomItems.ShouldNotBeSameAs(original.CustomItems);
-
-    //    // Verify values
-    //    var cloneList = new List<int>(clone.Items);
-    //    var originalList = new List<int>(original.Items);
-    //    cloneList.ShouldBe(originalList);
-    //}
-
     [Fact]
     public void DeepClone_MultipleRequiredProperties_ClonesCorrectly()
     {
