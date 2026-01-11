@@ -21,4 +21,7 @@ public record PropertyInfo : IEquatable<PropertyInfo>
 
     /// <summary>Whether this is a value type or immutable type.</summary>
     public required bool IsImmutable { get; init; }
+
+    /// <summary>Whether this property is marked as required.</summary>
+    public required bool IsRequired { get; init; }
 }

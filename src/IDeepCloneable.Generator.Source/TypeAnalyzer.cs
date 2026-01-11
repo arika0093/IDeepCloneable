@@ -60,6 +60,9 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 }
             }
 
+            // Detect circular references after all types are collected
+            DetectCircularReferences(classInfoList);
+
             return new EquatableArray<ClassInfo>(classInfoList);
         }
         catch
@@ -131,6 +134,13 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             current = current.BaseType;
         }
 
+        // Check if this type has a copy constructor (Type(Type other))
+        var hasCopyConstructor = typeSymbol.Constructors.Any(ctor =>
+            !ctor.IsStatic
+            && ctor.Parameters.Length == 1
+            && SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, typeSymbol)
+        );
+
         return new ClassInfo
         {
             ClassName = typeSymbol.Name,
@@ -148,6 +158,8 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             IsSealed = typeSymbol.IsSealed,
             BaseHasDeepClone = baseHasDeepClone,
             AlreadyHasDeepClone = alreadyHasDeepClone,
+            HasCopyConstructor = hasCopyConstructor,
+            HasCircularReference = false, // Will be updated later in circular reference detection
         };
     }
 
@@ -164,6 +176,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         {
             ITypeSymbol? memberType = null;
             string? memberName = null;
+            bool isRequired = false;
 
             if (member is IPropertySymbol propSymbol && !propSymbol.IsStatic)
             {
@@ -181,6 +194,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
                 memberType = propSymbol.Type;
                 memberName = propSymbol.Name;
+                isRequired = propSymbol.IsRequired;
             }
             else if (
                 member is IFieldSymbol fieldSymbol
@@ -191,6 +205,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             {
                 memberType = fieldSymbol.Type;
                 memberName = fieldSymbol.Name;
+                isRequired = fieldSymbol.IsRequired;
             }
 
             if (memberType != null && memberName != null)
@@ -206,6 +221,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                         IsNullable = memberType.NullableAnnotation == NullableAnnotation.Annotated,
                         NeedsDeepClone = needsDeepClone,
                         IsImmutable = isImmutable,
+                        IsRequired = isRequired,
                     }
                 );
 
@@ -393,5 +409,114 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             || fullName.Contains("System.Collections.Immutable.ImmutableHashSet<")
             || fullName.Contains("System.Collections.Immutable.ImmutableDictionary<")
             || fullName.Contains("[]");
+    }
+
+    /// <summary>
+    /// Detects circular references in the object graph.
+    /// Marks types involved in circular reference patterns with HasCircularReference flag.
+    /// A circular reference occurs when: T1 -> T2 -> T3 -> T1
+    /// </summary>
+    private void DetectCircularReferences(List<ClassInfo> allClassInfos)
+    {
+        // Build a type dependency graph
+        var typeDependencies = new Dictionary<string, HashSet<string>>();
+
+        foreach (var classInfo in allClassInfos)
+        {
+            if (!typeDependencies.ContainsKey(classInfo.FullClassName))
+            {
+                typeDependencies[classInfo.FullClassName] = new HashSet<string>();
+            }
+
+            // Add direct property type dependencies (excluding collections and primitives)
+            foreach (var prop in classInfo.Properties)
+            {
+                if (prop.NeedsDeepClone && !IsCollectionPropertyType(prop.TypeFullName))
+                {
+                    typeDependencies[classInfo.FullClassName].Add(prop.TypeFullName);
+                }
+            }
+        }
+
+        // Detect cycles using DFS
+        var typesInCycle = new HashSet<string>();
+        var visited = new HashSet<string>();
+        var recursionStack = new HashSet<string>();
+
+        foreach (var typeName in typeDependencies.Keys)
+        {
+            if (!visited.Contains(typeName))
+            {
+                DetectCyclesDFS(typeName, typeDependencies, visited, recursionStack, typesInCycle);
+            }
+        }
+
+        // Update ClassInfo objects with circular reference flag
+        for (int i = 0; i < allClassInfos.Count; i++)
+        {
+            if (typesInCycle.Contains(allClassInfos[i].FullClassName))
+            {
+                // Create a new ClassInfo with updated HasCircularReference flag
+                var old = allClassInfos[i];
+                allClassInfos[i] = old with { HasCircularReference = true };
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper method to detect cycles using depth-first search.
+    /// </summary>
+    private void DetectCyclesDFS(
+        string typeName,
+        Dictionary<string, HashSet<string>> graph,
+        HashSet<string> visited,
+        HashSet<string> recursionStack,
+        HashSet<string> typesInCycle
+    )
+    {
+        visited.Add(typeName);
+        recursionStack.Add(typeName);
+
+        if (graph.TryGetValue(typeName, out var dependencies))
+        {
+            foreach (var dependency in dependencies)
+            {
+                if (!visited.Contains(dependency))
+                {
+                    DetectCyclesDFS(dependency, graph, visited, recursionStack, typesInCycle);
+                }
+                else if (recursionStack.Contains(dependency))
+                {
+                    // Cycle detected - mark all types in the recursion stack as circular
+                    foreach (var typeInStack in recursionStack)
+                    {
+                        typesInCycle.Add(typeInStack);
+                    }
+                    typesInCycle.Add(dependency);
+                }
+            }
+        }
+
+        recursionStack.Remove(typeName);
+    }
+
+    /// <summary>
+    /// Checks if a property type is a collection type (to exclude from direct circular reference detection).
+    /// </summary>
+    private bool IsCollectionPropertyType(string typeFullName)
+    {
+        return typeFullName.Contains("System.Collections.Generic.List<")
+            || typeFullName.Contains("System.Collections.Generic.Dictionary<")
+            || typeFullName.Contains("System.Collections.Generic.HashSet<")
+            || typeFullName.Contains("System.Collections.Generic.SortedSet<")
+            || typeFullName.Contains("System.Collections.Generic.Stack<")
+            || typeFullName.Contains("System.Collections.Generic.Queue<")
+            || typeFullName.Contains("System.Collections.ObjectModel.ObservableCollection<")
+            || typeFullName.Contains("System.Collections.ObjectModel.ReadOnlyCollection<")
+            || typeFullName.Contains("System.Collections.Immutable.ImmutableList<")
+            || typeFullName.Contains("System.Collections.Immutable.ImmutableArray<")
+            || typeFullName.Contains("System.Collections.Immutable.ImmutableHashSet<")
+            || typeFullName.Contains("System.Collections.Immutable.ImmutableDictionary<")
+            || typeFullName.Contains("[]");
     }
 }
