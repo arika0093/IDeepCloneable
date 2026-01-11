@@ -25,6 +25,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         new ImmutableArrayTypeInfo(),
         new ImmutableHashSetTypeInfo(),
         new ImmutableDictionaryTypeInfo(),
+        new IEnumerableTypeInfo(),
     ];
 
     /// <summary>
@@ -40,29 +41,46 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         if (classInfos.Count == 0)
             return;
 
-        // Generate DeepCloneExtensions.g.cs
-        var extensionsCode = GenerateDeepCloneExtensions(classInfos);
-        context.AddSource($"{options.ExtensionsExportFileName}.g.cs", extensionsCode);
-
-        // Generate partial class implementations for each type that needs DeepClone method
-        // Skip types that already have DeepClone method defined (manual or from other generators)
-        // Use full class name to avoid collisions when classes have the same simple name in different namespaces
-        var generatedFiles = new HashSet<string>();
-        foreach (
-            var classInfo in classInfos.Where(c => c.NeedsDeepCloneMethod && !c.AlreadyHasDeepClone)
-        )
+        try
         {
-            var partialClassCode = GeneratePartialClass(classInfo);
-            // Use sanitized full class name to ensure uniqueness
-            var fileName =
-                $"{CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName)}.{options.ImplementsMethodName}.g.cs";
+            // Generate DeepCloneExtensions.g.cs
+            var extensionsCode = GenerateDeepCloneExtensions(classInfos);
+            context.AddSource($"{options.ExtensionsExportFileName}.g.cs", extensionsCode);
 
-            // Additional safety check to avoid duplicate file names
-            if (!generatedFiles.Contains(fileName))
+            // Generate partial class implementations for each type that needs DeepClone method
+            // Skip types that already have DeepClone method defined (manual or from other generators)
+            // Use full class name to avoid collisions when classes have the same simple name in different namespaces
+            var generatedFiles = new HashSet<string>();
+            foreach (
+                var classInfo in classInfos.Where(c =>
+                    c.NeedsDeepCloneMethod && !c.AlreadyHasDeepClone
+                )
+            )
             {
-                generatedFiles.Add(fileName);
-                context.AddSource(fileName, partialClassCode);
+                var partialClassCode = GeneratePartialClass(classInfo);
+                // Use sanitized full class name to ensure uniqueness
+                var fileName =
+                    $"{CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName)}.{options.ImplementsMethodName}.g.cs";
+
+                // Additional safety check to avoid duplicate file names
+                if (!generatedFiles.Contains(fileName))
+                {
+                    generatedFiles.Add(fileName);
+                    context.AddSource(fileName, partialClassCode);
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            // Log the exception or handle it as needed
+            context.AddSource(
+                "IDeepCloneable_Generator_Error.g.cs",
+                $"""
+                /* Error during code generation
+                {ex}
+                */
+                """
+            );
         }
     }
 
@@ -108,7 +126,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             bool isSpecialType = false;
             foreach (var specialTypeInfo in SpecialTypeInfos)
             {
-                if (specialTypeInfo.IsMatch(classInfo.FullClassName))
+                if (specialTypeInfo.IsMatch(classInfo))
                 {
                     isSpecialType = true;
                     break;
@@ -160,6 +178,11 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
         var cacheFieldName = $"_cloneCache_{methodName}";
 
+        // Include generic type parameters in method signature if present
+        var genericParams = string.IsNullOrEmpty(classInfo.GenericTypeParameters)
+            ? string.Empty
+            : $"<{classInfo.GenericTypeParameters}>";
+
         builder.AppendLine("");
 
         // Method signature with optional clearCache parameter for circular reference handling
@@ -170,7 +193,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                 $"""
                 private static global::System.Collections.Concurrent.ConcurrentDictionary<int, {classInfo.FullClassName}> {cacheFieldName} = new();
                 {CodeTemplateContents.EditorBrowsableAttribute}
-                {visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original, bool clearCache = false)
+                {visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original, bool clearCache = false)
                 """
             );
         }
@@ -178,7 +201,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         {
             builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
             builder.AppendLine(
-                $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
+                $"{visibility} static {classInfo.FullClassName} {methodName}{genericParams}(this {classInfo.FullClassName} original)"
             );
         }
 
@@ -496,7 +519,13 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                     propertyAccess,
                     allClassInfos
                 );
-                return $"{propertyAccess} != null ? {cloneCall} : null";
+                // For type parameters, use default(T) instead of null
+                // Type parameters don't need global:: prefix
+                var typeForDefault = prop.TypeFullName.Replace("global::", "");
+                var nullValue = CodeGenerationUtility.IsSimpleTypeParameter(prop.TypeFullName)
+                    ? $"default({typeForDefault})"
+                    : "null";
+                return $"{propertyAccess} != null ? {cloneCall} : {nullValue}";
             }
         }
         else
@@ -520,19 +549,159 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             return valueExpression;
         }
 
+        // For type parameters, use shallow copy (assign directly)
+        // We can't deep clone unconstrained type parameters without adding constraints
+        // which would require constraint propagation throughout the call chain
+        if (CodeGenerationUtility.IsSimpleTypeParameter(typeFullName))
+        {
+            return valueExpression;
+        }
+
         // Check special types using SpecialTypeInfo (includes arrays)
+        var classInfoForMatching = GetOrCreateMinimalClassInfo(typeFullName, allClassInfos);
         foreach (var specialTypeInfo in SpecialTypeInfos)
         {
-            if (specialTypeInfo.IsMatch(typeFullName))
+            if (specialTypeInfo.IsMatch(classInfoForMatching))
             {
                 var methodName = specialTypeInfo.GetMethodName(typeFullName);
                 return $"{methodName}({valueExpression})";
             }
         }
 
-        // Regular type - all types use the same simple call now (cache is static)
-        var sanitizedName = CodeGenerationUtility.SanitizeTypeName(typeFullName);
-        return $"{sanitizedName}_CloneInternal({valueExpression})";
+        // Regular type - need to find the matching ClassInfo to get the correct generic parameters
+        // For generic types, we need to use the method based on the generic definition, not the concrete type
+        // e.g., CustomEnumerable<string> should call CustomEnumerable_T__CloneInternal<string>
+
+        // First, try to find a matching ClassInfo
+        var matchingClassInfo = FindMatchingGenericClassInfo(typeFullName, allClassInfos);
+
+        string sanitizedName;
+        List<string> genericArgs;
+
+        if (matchingClassInfo != null)
+        {
+            // Use the generic definition's full name for the method name
+            sanitizedName = CodeGenerationUtility.SanitizeTypeName(matchingClassInfo.FullClassName);
+            // Use the actual type's arguments for the call
+            genericArgs = ExtractGenericTypeArguments(typeFullName);
+        }
+        else
+        {
+            // Fall back to the original behavior for non-generic or unknown types
+            sanitizedName = CodeGenerationUtility.SanitizeTypeName(typeFullName);
+            genericArgs = ExtractGenericTypeArguments(typeFullName);
+        }
+
+        var genericArgsStr =
+            genericArgs.Count > 0 ? $"<{string.Join(", ", genericArgs)}>" : string.Empty;
+
+        return $"{sanitizedName}_CloneInternal{genericArgsStr}({valueExpression})";
+    }
+
+    /// <summary>
+    /// Finds a matching ClassInfo for a potentially concrete generic type.
+    /// E.g., for "CustomEnumerable<string>", finds the ClassInfo for "CustomEnumerable<T>"
+    /// </summary>
+    private ClassInfo? FindMatchingGenericClassInfo(
+        string typeFullName,
+        List<ClassInfo> allClassInfos
+    )
+    {
+        // Extract the base type name without generic arguments
+        var baseTypeName = ExtractBaseTypeName(typeFullName);
+
+        foreach (var classInfo in allClassInfos)
+        {
+            var classBaseTypeName = ExtractBaseTypeName(classInfo.FullClassName);
+            if (
+                baseTypeName == classBaseTypeName
+                && !string.IsNullOrEmpty(classInfo.GenericTypeParameters)
+            )
+            {
+                return classInfo;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts the base type name without generic arguments.
+    /// E.g., "global::MyNamespace.MyClass<string, int>" -> "global::MyNamespace.MyClass"
+    /// </summary>
+    private string ExtractBaseTypeName(string typeFullName)
+    {
+        var genericStart = typeFullName.IndexOf('<');
+        if (genericStart < 0)
+            return typeFullName;
+        return typeFullName.Substring(0, genericStart);
+    }
+
+    /// <summary>
+    /// Finds ClassInfo for a type or creates a minimal one for special type matching.
+    /// This is used when checking if a type matches a special type handler.
+    /// </summary>
+    private ClassInfo GetOrCreateMinimalClassInfo(string typeFullName, List<ClassInfo> allClassInfos)
+    {
+        // First try to find exact match
+        var exactMatch = allClassInfos.FirstOrDefault(c => c.FullClassName == typeFullName);
+        if (exactMatch != null)
+            return exactMatch;
+
+        // Try to find generic definition match
+        var genericMatch = FindMatchingGenericClassInfo(typeFullName, allClassInfos);
+        if (genericMatch != null)
+            return genericMatch;
+
+        // Create minimal ClassInfo for special type matching
+        // This is used for framework types like IEnumerable<int>, arrays, etc.
+        return new ClassInfo
+        {
+            ClassName = typeFullName.Split('.').LastOrDefault() ?? typeFullName,
+            FullClassName = typeFullName,
+            Namespace = string.Empty,
+            ContainingTypeNames = new EquatableArray<string>([]),
+            Properties = new EquatableArray<PropertyInfo>([]),
+            IsNullable = false,
+            IsRecord = false,
+            IsValueType = false,
+            IsAllImmutable = false,
+            IsCollection = false,
+            NeedsDeepCloneMethod = false,
+            IsAbstract = false,
+            IsSealed = false,
+            BaseHasDeepClone = false,
+            AlreadyHasDeepClone = false,
+            HasCopyConstructor = false,
+            HasCircularReference = false,
+            GenericTypeParameters = string.Empty,
+            ImplementedInterfaces = new EquatableArray<string>([]),
+        };
+    }
+
+    /// <summary>
+    /// Extracts generic type arguments from a type name (e.g., "string" from "MyClass<string>")
+    /// </summary>
+    private List<string> ExtractGenericTypeArguments(string typeFullName)
+    {
+        var result = new List<string>();
+        var startIndex = typeFullName.IndexOf('<');
+        if (startIndex < 0)
+            return result;
+
+        var endIndex = typeFullName.LastIndexOf('>');
+        if (endIndex <= startIndex)
+            return result;
+
+        var typeArgsString = typeFullName.Substring(startIndex + 1, endIndex - startIndex - 1);
+        var typeArgs = CodeGenerationUtility.SplitGenericArgs(typeArgsString);
+
+        foreach (var typeArg in typeArgs)
+        {
+            result.Add(typeArg.Trim());
+        }
+
+        return result;
     }
 
     private IndentedStringBuilder GenerateCollectionCloneMethods(
@@ -558,9 +727,10 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             var typeFullName = typesToProcess.Dequeue();
 
             // Check special types using SpecialTypeInfo (now includes arrays)
+            var classInfoForMatching = GetOrCreateMinimalClassInfo(typeFullName, classInfos);
             foreach (var specialTypeInfo in SpecialTypeInfos)
             {
-                if (specialTypeInfo.IsMatch(typeFullName))
+                if (specialTypeInfo.IsMatch(classInfoForMatching))
                 {
                     var methodName = specialTypeInfo.GetMethodName(typeFullName);
 
@@ -626,10 +796,17 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             ? (classInfo.IsValueType ? "record struct" : "record")
             : (classInfo.IsValueType ? "struct" : "class");
 
+        // Include generic type parameters in partial class declaration if present
+        var genericParams = string.IsNullOrEmpty(classInfo.GenericTypeParameters)
+            ? string.Empty
+            : $"<{classInfo.GenericTypeParameters}>";
+
         var implementInterface = !string.IsNullOrWhiteSpace(options.ImplementedInterfaceName)
             ? $" : {options.ImplementedInterfaceName}<{classInfo.FullClassName}>"
             : string.Empty;
-        builder.AppendLine($"partial {typeKeyword} {classInfo.ClassName}{implementInterface}");
+        builder.AppendLine(
+            $"partial {typeKeyword} {classInfo.ClassName}{genericParams}{implementInterface}"
+        );
         builder.AppendLine("{");
         builder.IncreaseIndent();
         builder.AppendLine("/// <inheritdoc />");

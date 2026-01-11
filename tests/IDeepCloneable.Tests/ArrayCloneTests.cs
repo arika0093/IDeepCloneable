@@ -74,10 +74,10 @@ public class ArrayCloneTests
         clone.Items.ShouldNotBeNull();
         if (clone.Items[0] != null)
         {
-            clone.Items[0].Name = "Modified";
+            clone!.Items[0]!.Name = "Modified";
         }
 
-        original.Items[0].Name.ShouldBe("Original");
+        original!.Items[0]!.Name.ShouldBe("Original");
     }
 
     [Fact]
@@ -126,6 +126,59 @@ public class ArrayCloneTests
         clone.Matrix[1, 0].ShouldBe(3);
         clone.Matrix[1, 1].ShouldBe(4);
     }
+
+    [Fact]
+    public void DeepClone_MultiDimensionalRefClassArray_ClonesArray()
+    {
+        // Arrange
+        // [
+        //   [ [ A1, A2 ], [ B1, B2 ] ],
+        //   [ [ C1, C2 ], [ D1, D2 ] ],
+        // ]
+        var original = new ClassWithMultiDimensionalRefClassArray
+        {
+            Matrix = new SimpleClass[,,]
+            {
+                {
+                    {
+                        new SimpleClass { Name = "A1", Age = 1 },
+                        new SimpleClass { Name = "A2", Age = 2 },
+                    },
+                    {
+                        new SimpleClass { Name = "B1", Age = 3 },
+                        new SimpleClass { Name = "B2", Age = 4 },
+                    },
+                },
+                {
+                    {
+                        new SimpleClass { Name = "C1", Age = 5 },
+                        new SimpleClass { Name = "C2", Age = 6 },
+                    },
+                    {
+                        new SimpleClass { Name = "D1", Age = 7 },
+                        new SimpleClass { Name = "D2", Age = 8 },
+                    },
+                },
+            },
+        };
+        var clone = original.DeepClone();
+        clone.ShouldNotBeSameAs(original);
+        clone.Matrix.ShouldNotBeSameAs(original.Matrix);
+        for (var i = 0; i < original.Matrix.GetLength(0); i++)
+        {
+            for (var j = 0; j < original.Matrix.GetLength(1); j++)
+            {
+                for (var k = 0; k < original.Matrix.GetLength(2); k++)
+                {
+                    var originalItem = original.Matrix[i, j, k];
+                    var clonedItem = clone.Matrix[i, j, k];
+                    clonedItem.ShouldNotBeSameAs(originalItem);
+                    clonedItem.Name.ShouldBe(originalItem.Name);
+                    clonedItem.Age.ShouldBe(originalItem.Age);
+                }
+            }
+        }
+    }
 }
 
 [DeepCloneable]
@@ -154,4 +207,10 @@ public partial class ClassWithMultiDimensionalArray
 {
     public string Name { get; set; } = string.Empty;
     public int[,]? Matrix { get; set; }
+}
+
+[DeepCloneable]
+public partial class ClassWithMultiDimensionalRefClassArray
+{
+    public SimpleClass[,,] Matrix { get; set; } = new SimpleClass[0, 0, 0];
 }

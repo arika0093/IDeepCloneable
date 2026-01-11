@@ -38,6 +38,7 @@ internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
             builder,
             codeGenerator
         );
+        builder.AppendLine($"return new {typeFullName}(list);");
         builder.DecreaseIndent();
         builder.AppendLine("}");
 
