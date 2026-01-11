@@ -105,10 +105,11 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         var hasCircularReferences = classInfos.Any(c => c.HasCircularReference);
         if (hasCircularReferences)
         {
-            // Add static cache field for circular reference handling
+            // Add static cache field for circular reference handling - per type caching
             builder.AppendLine("""
-                // Cache for handling circular references during cloning
-                private static global::System.Collections.Generic.ConcurrentDictionary<int, object>? _cloneCache;
+                // Cache for handling circular references during cloning (per-type dictionary)
+                [global::System.ThreadStatic]
+                internal static global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Collections.Generic.Dictionary<int, object>>? _cloneCache;
                 
                 """);
         }
@@ -178,10 +179,19 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         builder.AppendLine("");
         builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
         
-        // Method signature - no cache parameter as it's now a static field
-        builder.AppendLine(
-            $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
-        );
+        // Method signature with optional clearCache parameter for circular reference handling
+        if (classInfo.HasCircularReference)
+        {
+            builder.AppendLine(
+                $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original, bool clearCache = false)"
+            );
+        }
+        else
+        {
+            builder.AppendLine(
+                $"{visibility} static {classInfo.FullClassName} {methodName}(this {classInfo.FullClassName} original)"
+            );
+        }
         
         builder.AppendLine("{");
         builder.IncreaseIndent();
@@ -213,17 +223,33 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     }
 
     /// <summary>
-    /// Generates circular reference checking logic using static cache.
+    /// Generates circular reference checking logic using static per-type cache.
     /// </summary>
     private IndentedStringBuilder GenerateCircularReferenceCheck(
         ClassInfo classInfo,
         IndentedStringBuilder builder
     )
     {
-        builder.AppendLine("// Check static cache for circular references");
-        builder.AppendLine("_cloneCache ??= new global::System.Collections.Generic.ConcurrentDictionary<int, object>();");
+        builder.AppendLine("// Clear cache if requested");
+        builder.AppendLine("if (clearCache)");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("_cloneCache = null;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+        builder.AppendLine("");
+        builder.AppendLine("// Check static cache for circular references (per-type)");
+        builder.AppendLine("_cloneCache ??= new global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Collections.Generic.Dictionary<int, object>>();");
+        builder.AppendLine($"var currentType = typeof({classInfo.FullClassName});");
+        builder.AppendLine("if (!_cloneCache.TryGetValue(currentType, out var typeCache))");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("typeCache = new global::System.Collections.Generic.Dictionary<int, object>();");
+        builder.AppendLine("_cloneCache[currentType] = typeCache;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
         builder.AppendLine("var hashCode = original.GetHashCode();");
-        builder.AppendLine("if (_cloneCache.TryGetValue(hashCode, out var cached))");
+        builder.AppendLine("if (typeCache.TryGetValue(hashCode, out var cached))");
         builder.AppendLine("{");
         builder.IncreaseIndent();
         builder.AppendLine($"return ({classInfo.FullClassName})cached;");
@@ -314,7 +340,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         // For circular references, add to static cache immediately after creation
         if (classInfo.HasCircularReference)
         {
-            builder.AppendLine("_cloneCache[hashCode] = clone;");
+            builder.AppendLine("typeCache[hashCode] = clone;");
         }
         
         // Override properties with deep clones
@@ -357,7 +383,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         // For circular references, add to static cache after creation
         if (classInfo.HasCircularReference)
         {
-            builder.AppendLine("_cloneCache[hashCode] = clone;");
+            builder.AppendLine("typeCache[hashCode] = clone;");
         }
         
         // Set non-required properties
@@ -390,7 +416,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         // For circular references, add to static cache immediately after creation
         if (classInfo.HasCircularReference)
         {
-            builder.AppendLine("_cloneCache[hashCode] = clone;");
+            builder.AppendLine("typeCache[hashCode] = clone;");
         }
 
         foreach (var prop in classInfo.Properties)
@@ -597,23 +623,25 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         }
         else
         {
-            // Concrete classes: clear cache if any type has circular references, then call CloneInternal
-            if (hasAnyCircularReferences)
+            // Concrete classes: pass clearCache=true if type has circular references
+            if (classInfo.HasCircularReference)
             {
                 builder.AppendLine(
                     $"{modifiers} {classInfo.FullClassName} {options.ImplementsMethodName}()"
                 );
-                builder.AppendLine("{");
-                builder.IncreaseIndent();
-                builder.AppendLine("// Clear cache for new deep clone operation to handle circular references");
-                builder.AppendLine($"global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}._cloneCache = null;");
-                builder.AppendLine($"return global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}.{sanitizedName}_CloneInternal(this);");
-                builder.DecreaseIndent();
-                builder.AppendLine("}");
+                builder.AppendLine($"    => global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}.{sanitizedName}_CloneInternal(this, clearCache: true);");
+            }
+            else if (hasAnyCircularReferences)
+            {
+                // Other types that don't have circular references but exist in a codebase with circular refs
+                builder.AppendLine(
+                    $"{modifiers} {classInfo.FullClassName} {options.ImplementsMethodName}()"
+                );
+                builder.AppendLine($"    => global::{options.ExtensionsNamespace}.{options.ExtensionsClassName}.{sanitizedName}_CloneInternal(this);");
             }
             else
             {
-                // No circular references, use simple expression body
+                // No circular references in entire codebase, use simple expression body
                 builder.AppendLine(
                     $"{modifiers} {classInfo.FullClassName} {options.ImplementsMethodName}()"
                 );

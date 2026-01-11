@@ -14,14 +14,15 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
     public override string TargetTypeStartWith => "global::System.Collections.Generic.IEnumerable<";
 
     /// <summary>
-    /// Checks if the type is IEnumerable&lt;T&gt; or implements IEnumerable&lt;T&gt;.
-    /// This is a fallback handler, so it matches types that implement the interface.
+    /// Checks if the type is IEnumerable&lt;T&gt;.
+    /// This is a fallback handler for IEnumerable types not covered by specific handlers.
+    /// Only matches exact IEnumerable&lt;T&gt; type, not types that implement it.
     /// </summary>
     public override bool IsMatch(string typeFullName)
     {
-        // Match if it's exactly IEnumerable<T> or contains IEnumerable<T> (implementing types)
-        return typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal)
-            || typeFullName.Contains("IEnumerable<");
+        // Only match exact IEnumerable<T>, not implementing types
+        // This prevents matching List<T>, Dictionary<T>, etc. which are handled by specific handlers
+        return typeFullName.StartsWith(TargetTypeStartWith, StringComparison.Ordinal);
     }
 
     public override string GetMethodName(string typeFullName)
@@ -37,6 +38,10 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        // Extract inner type from IEnumerable<T>
+        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+        var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
+
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
@@ -44,12 +49,30 @@ internal class IEnumerableTypeInfo : SpecialTypeInfo
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
-        ListTypeInfo.GenerateCloneMethodLogicPart(
-            typeFullName,
-            allClassInfos,
-            builder,
-            codeGenerator
-        );
+        builder.AppendLine("if (original == null) return null;");
+
+        // For IEnumerable, convert to List<T> as we can't instantiate IEnumerable directly
+        if (isImmutable)
+        {
+            builder.AppendLine(
+                $"return new global::System.Collections.Generic.List<{innerType}>(original);"
+            );
+        }
+        else
+        {
+            builder.AppendLine(
+                $"var list = new global::System.Collections.Generic.List<{innerType}>();"
+            );
+            builder.AppendLine("foreach (var item in original)");
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
+            builder.AppendLine($"list.Add({cloneCall});");
+            builder.DecreaseIndent();
+            builder.AppendLine("}");
+            builder.AppendLine("return list;");
+        }
+
         builder.DecreaseIndent();
         builder.AppendLine("}");
 

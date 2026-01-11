@@ -117,12 +117,12 @@ public class EdgeCaseTests
     [Fact]
     public void DeepClone_ComplexCircularReferenceWithRoot_HandlesCorrectly()
     {
-        // Arrange: Create a more complex circular reference structure
+        // Arrange: Create a more complex circular reference structure with 4 different types
         // Root -> Node1 -> Node2 -> Node3 -> Root (circular back to root)
-        var root = new CircularNode { Name = "Root", Value = 0 };
-        var node1 = new CircularNode { Name = "Node1", Value = 1 };
-        var node2 = new CircularNode { Name = "Node2", Value = 2 };
-        var node3 = new CircularNode { Name = "Node3", Value = 3 };
+        var root = new CircularRoot { Name = "Root", Value = 0 };
+        var node1 = new CircularNode1 { Name = "Node1", Value = 1 };
+        var node2 = new CircularNode2 { Name = "Node2", Value = 2 };
+        var node3 = new CircularNode3 { Name = "Node3", Value = 3 };
         
         root.Next = node1;
         node1.Next = node2;
@@ -269,6 +269,39 @@ public partial class CircularNode
     public string Name { get; set; } = string.Empty;
     public int Value { get; set; }
     public CircularNode? Next { get; set; }
+}
+
+// Classes for complex circular reference test with 4 different types
+[DeepCloneable]
+public partial class CircularRoot
+{
+    public string Name { get; set; } = string.Empty;
+    public int Value { get; set; }
+    public CircularNode1? Next { get; set; }
+}
+
+[DeepCloneable]
+public partial class CircularNode1
+{
+    public string Name { get; set; } = string.Empty;
+    public int Value { get; set; }
+    public CircularNode2? Next { get; set; }
+}
+
+[DeepCloneable]
+public partial class CircularNode2
+{
+    public string Name { get; set; } = string.Empty;
+    public int Value { get; set; }
+    public CircularNode3? Next { get; set; }
+}
+
+[DeepCloneable]
+public partial class CircularNode3
+{
+    public string Name { get; set; } = string.Empty;
+    public int Value { get; set; }
+    public CircularRoot? Next { get; set; }
 }
 
 [DeepCloneable]
