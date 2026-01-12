@@ -100,9 +100,11 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         {
             // Check for [DeepCloneable] attribute
             var hasAttribute = current
-                    .GetAttributes()
-                    .Select(attr => attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
-                    .Any(attrName => attrName == $"global::{options.AttributeMetadataName}");
+                .GetAttributes()
+                .Select(attr =>
+                    attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                )
+                .Any(attrName => attrName == $"global::{options.AttributeMetadataName}");
             if (hasAttribute)
             {
                 baseHasDeepClone = true;
