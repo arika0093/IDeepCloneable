@@ -20,13 +20,13 @@ public class CollectionCloneTests
         var clone = original.DeepClone();
 
         clone.ShouldNotBeSameAs(original);
-        clone.Items.ShouldNotBeSameAs(original.Items);
-        clone.Items.Count.ShouldBe(2);
+        clone.Items!.ShouldNotBeSameAs(original.Items);
+        clone.Items!.Count.ShouldBe(2);
 
-        clone.Items[0].ShouldNotBeSameAs(original.Items[0]);
-        clone.Items[0].Value.ShouldBe("Item1");
-        clone.Items[1].ShouldNotBeSameAs(original.Items[1]);
-        clone.Items[1].Value.ShouldBe("Item2");
+        clone.Items![0].ShouldNotBeSameAs(original.Items![0]);
+        clone.Items![0].Value.ShouldBe("Item1");
+        clone.Items![1].ShouldNotBeSameAs(original.Items[1]);
+        clone.Items![1].Value.ShouldBe("Item2");
     }
 
     [Fact]
@@ -39,9 +39,9 @@ public class CollectionCloneTests
         };
 
         var clone = original.DeepClone();
-        clone.Items[0].Value = "Modified";
+        clone.Items![0].Value = "Modified";
 
-        original.Items[0].Value.ShouldBe("Original");
+        original.Items![0].Value.ShouldBe("Original");
     }
 
     [Fact]
@@ -63,8 +63,8 @@ public class CollectionCloneTests
         var clone = original.DeepClone();
 
         clone.ShouldNotBeSameAs(original);
-        clone.Numbers.ShouldNotBeSameAs(original.Numbers);
-        clone.Numbers.ShouldBe([1, 2, 3]);
+        clone.Numbers!.ShouldNotBeSameAs(original.Numbers);
+        clone.Numbers!.ShouldBe([1, 2, 3]);
     }
 }
 

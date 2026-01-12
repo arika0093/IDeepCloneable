@@ -48,8 +48,8 @@ public class DeepCloneTests
         var clone = original.DeepClone();
 
         clone.ShouldNotBeSameAs(original);
-        clone.Nested.ShouldNotBeSameAs(original.Nested);
-        clone.Nested.Value.ShouldBe(original.Nested.Value);
+        clone.Nested!.ShouldNotBeSameAs(original.Nested);
+        clone.Nested!.Value.ShouldBe(original.Nested!.Value);
     }
 
     [Fact]
@@ -62,9 +62,9 @@ public class DeepCloneTests
         };
 
         var clone = original.DeepClone();
-        clone.Nested.Value = "Modified Nested";
+        clone.Nested!.Value = "Modified Nested";
 
-        original.Nested.Value.ShouldBe("Original Nested");
+        original.Nested!.Value.ShouldBe("Original Nested");
     }
 
     [Fact]

@@ -36,19 +36,19 @@ public class ComplexNestedCloneTests
 
         // Assert: Verify it's a different instance at all levels
         clone.ShouldNotBeSameAs(original);
-        clone.Items.ShouldNotBeSameAs(original.Items);
-        clone.Items[0].ShouldNotBeSameAs(original.Items[0]);
-        clone.Items[0][0].ShouldNotBeSameAs(original.Items[0][0]);
+        clone.Items!.ShouldNotBeSameAs(original.Items);
+        clone.Items![0].ShouldNotBeSameAs(original.Items![0]);
+        clone.Items![0][0].ShouldNotBeSameAs(original.Items![0][0]);
 
         // Verify values are correct
         clone.Name.ShouldBe("Root");
-        clone.Items.Count.ShouldBe(2);
-        clone.Items[0].Count.ShouldBe(2);
-        clone.Items[0][0].ShouldBe([1, 2, 3]);
+        clone.Items!.Count.ShouldBe(2);
+        clone.Items![0].Count.ShouldBe(2);
+        clone.Items![0][0].ShouldBe([1, 2, 3]);
 
         // Verify modifying clone doesn't affect original
-        clone.Items[0][0][0] = 999;
-        original.Items[0][0][0].ShouldBe(1);
+        clone.Items![0][0][0] = 999;
+        original.Items![0][0][0].ShouldBe(1);
     }
 
     [Fact]
@@ -72,20 +72,20 @@ public class ComplexNestedCloneTests
 
         // Assert: Verify all levels are different instances
         clone.ShouldNotBeSameAs(original);
-        clone.Level2.ShouldNotBeSameAs(original.Level2);
-        clone.Level2.Level3.ShouldNotBeSameAs(original.Level2.Level3);
+        clone.Level2!.ShouldNotBeSameAs(original.Level2);
+        clone.Level2!.Level3!.ShouldNotBeSameAs(original.Level2!.Level3);
 
         // Verify values are correct
         clone.Name.ShouldBe("Level1");
         clone.Value.ShouldBe(100);
-        clone.Level2.Name.ShouldBe("Level2");
-        clone.Level2.Value.ShouldBe(200);
-        clone.Level2.Level3.Name.ShouldBe("Level3");
-        clone.Level2.Level3.Value.ShouldBe(300);
+        clone.Level2!.Name.ShouldBe("Level2");
+        clone.Level2!.Value.ShouldBe(200);
+        clone.Level2!.Level3!.Name.ShouldBe("Level3");
+        clone.Level2!.Level3!.Value.ShouldBe(300);
 
         // Verify modifying clone doesn't affect original
-        clone.Level2.Level3.Value = 999;
-        original.Level2.Level3.Value.ShouldBe(300);
+        clone.Level2!.Level3!.Value = 999;
+        original.Level2!.Level3!.Value.ShouldBe(300);
     }
 
     [Fact]
@@ -123,20 +123,20 @@ public class ComplexNestedCloneTests
 
         // Assert: Verify it's a different instance at all levels
         clone.ShouldNotBeSameAs(original);
-        clone.Items.ShouldNotBeSameAs(original.Items);
-        clone.Items[0].ShouldNotBeSameAs(original.Items[0]);
-        clone.Items[0].SubItems.ShouldNotBeSameAs(original.Items[0].SubItems);
-        clone.Items[0].SubItems[0].ShouldNotBeSameAs(original.Items[0].SubItems[0]);
+        clone.Items!.ShouldNotBeSameAs(original.Items);
+        clone.Items![0].ShouldNotBeSameAs(original.Items![0]);
+        clone.Items![0].SubItems!.ShouldNotBeSameAs(original.Items![0].SubItems);
+        clone.Items![0].SubItems![0].ShouldNotBeSameAs(original.Items![0].SubItems![0]);
 
         // Verify values are correct
         clone.Name.ShouldBe("Root");
-        clone.Items[0].Id.ShouldBe("Item1");
-        clone.Items[0].SubItems[0].Value.ShouldBe("Sub1-1");
-        clone.Items[0].SubItems[0].Data.ShouldBe(10);
+        clone.Items![0].Id.ShouldBe("Item1");
+        clone.Items![0].SubItems![0].Value.ShouldBe("Sub1-1");
+        clone.Items![0].SubItems![0].Data.ShouldBe(10);
 
         // Verify modifying clone doesn't affect original
-        clone.Items[0].SubItems[0].Data = 999;
-        original.Items[0].SubItems[0].Data.ShouldBe(10);
+        clone.Items![0].SubItems![0].Data = 999;
+        original.Items![0].SubItems![0].Data.ShouldBe(10);
     }
 
     [Fact]
@@ -166,17 +166,17 @@ public class ComplexNestedCloneTests
 
         // Assert: Verify all levels are different instances
         clone.ShouldNotBeSameAs(original);
-        clone.Groups.ShouldNotBeSameAs(original.Groups);
-        clone.Groups[0].ShouldNotBeSameAs(original.Groups[0]);
-        clone.Groups[0][0].ShouldNotBeSameAs(original.Groups[0][0]);
+        clone.Groups!.ShouldNotBeSameAs(original.Groups);
+        clone.Groups![0].ShouldNotBeSameAs(original.Groups![0]);
+        clone.Groups![0][0].ShouldNotBeSameAs(original.Groups![0][0]);
 
         // Verify values are correct
-        clone.Groups[0][0].Id.ShouldBe(1);
-        clone.Groups[0][0].Name.ShouldBe("Item1-1");
+        clone.Groups![0][0].Id.ShouldBe(1);
+        clone.Groups![0][0].Name.ShouldBe("Item1-1");
 
         // Verify modifying clone doesn't affect original
-        clone.Groups[0][0].Name = "Modified";
-        original.Groups[0][0].Name.ShouldBe("Item1-1");
+        clone.Groups![0][0].Name = "Modified";
+        original.Groups![0][0].Name.ShouldBe("Item1-1");
     }
 
     [Fact]
@@ -218,18 +218,18 @@ public class ComplexNestedCloneTests
 
         // Assert: Verify all levels are different instances
         clone.ShouldNotBeSameAs(original);
-        clone.Data.ShouldNotBeSameAs(original.Data);
-        clone.Data["key1"].ShouldNotBeSameAs(original.Data["key1"]);
-        clone.Data["key1"].Items.ShouldNotBeSameAs(original.Data["key1"].Items);
-        clone.Data["key1"].Items[0].ShouldNotBeSameAs(original.Data["key1"].Items[0]);
+        clone.Data!.ShouldNotBeSameAs(original.Data);
+        clone.Data!["key1"].ShouldNotBeSameAs(original.Data!["key1"]);
+        clone.Data!["key1"].Items!.ShouldNotBeSameAs(original.Data!["key1"].Items);
+        clone.Data!["key1"].Items![0].ShouldNotBeSameAs(original.Data!["key1"].Items![0]);
 
         // Verify values are correct
-        clone.Data["key1"].Items[0].Id.ShouldBe(1);
-        clone.Data["key1"].Items[0].Name.ShouldBe("Item1");
+        clone.Data!["key1"].Items![0].Id.ShouldBe(1);
+        clone.Data!["key1"].Items![0].Name.ShouldBe("Item1");
 
         // Verify modifying clone doesn't affect original
-        clone.Data["key1"].Items[0].Name = "Modified";
-        original.Data["key1"].Items[0].Name.ShouldBe("Item1");
+        clone.Data!["key1"].Items![0].Name = "Modified";
+        original.Data!["key1"].Items![0].Name.ShouldBe("Item1");
     }
 
     [Fact]
@@ -259,22 +259,22 @@ public class ComplexNestedCloneTests
 
         // Assert: Verify all objects are cloned
         clone.ShouldNotBeSameAs(original);
-        clone.Reference1.ShouldNotBeSameAs(original.Reference1);
-        clone.Reference2.ShouldNotBeSameAs(original.Reference2);
-        clone.Reference1.Level3.ShouldNotBeSameAs(original.Reference1.Level3);
-        clone.Reference2.Level3.ShouldNotBeSameAs(original.Reference2.Level3);
+        clone.Reference1!.ShouldNotBeSameAs(original.Reference1);
+        clone.Reference2!.ShouldNotBeSameAs(original.Reference2);
+        clone.Reference1!.Level3!.ShouldNotBeSameAs(original.Reference1!.Level3);
+        clone.Reference2!.Level3!.ShouldNotBeSameAs(original.Reference2!.Level3);
 
         // Note: In the original, Reference1.Level3 and Reference2.Level3 point to the same object
         // After cloning, they should be separate instances (standard deep clone behavior)
-        clone.Reference1.Level3.ShouldNotBeSameAs(clone.Reference2.Level3);
+        clone.Reference1!.Level3!.ShouldNotBeSameAs(clone.Reference2!.Level3);
 
         // Verify values are correct
-        clone.Reference1.Level3.Name.ShouldBe("Shared");
-        clone.Reference2.Level3.Name.ShouldBe("Shared");
+        clone.Reference1!.Level3!.Name.ShouldBe("Shared");
+        clone.Reference2!.Level3!.Name.ShouldBe("Shared");
 
         // Verify modifying one doesn't affect the other after cloning
-        clone.Reference1.Level3.Value = 999;
-        clone.Reference2.Level3.Value.ShouldBe(100);
+        clone.Reference1!.Level3!.Value = 999;
+        clone.Reference2!.Level3!.Value.ShouldBe(100);
     }
 
     [Fact]
@@ -296,9 +296,9 @@ public class ComplexNestedCloneTests
 
         // Assert: Verify structure is correct
         clone.ShouldNotBeSameAs(original);
-        clone.Items[0].SubItems.ShouldBeNull();
-        clone.Items[1].SubItems.ShouldNotBeNull();
-        clone.Items[1].SubItems.ShouldNotBeSameAs(original.Items[1].SubItems);
+        clone.Items![0].SubItems.ShouldBeNull();
+        clone.Items![1].SubItems.ShouldNotBeNull();
+        clone.Items![1].SubItems!.ShouldNotBeSameAs(original.Items![1].SubItems);
     }
 }
 

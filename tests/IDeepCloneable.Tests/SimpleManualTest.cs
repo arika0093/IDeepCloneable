@@ -30,10 +30,11 @@ public class SimpleManualTest
         var clone = original.DeepClone();
 
         // Assert
+
         clone.ShouldNotBeSameAs(original);
-        clone.Items.ShouldNotBeSameAs(original.Items);
-        clone.Items[0].ShouldNotBeSameAs(original.Items[0]);
-        clone.Items[0][0].ShouldNotBeSameAs(original.Items[0][0]);
+        clone.Items!.ShouldNotBeSameAs(original.Items);
+        clone.Items![0].ShouldNotBeSameAs(original.Items![0]);
+        clone.Items![0][0].ShouldNotBeSameAs(original.Items![0][0]);
 
         // Verify modifying clone doesn't affect original
         clone.Items[0][0][0] = 999;
@@ -61,15 +62,15 @@ public class SimpleManualTest
 
         // Assert
         clone.ShouldNotBeSameAs(original);
-        clone.Level2.ShouldNotBeSameAs(original.Level2);
-        clone.Level2.Level3.ShouldNotBeSameAs(original.Level2.Level3);
+        clone.Level2!.ShouldNotBeSameAs(original.Level2);
+        clone.Level2!.Level3!.ShouldNotBeSameAs(original.Level2!.Level3);
 
         // Verify values
-        clone.Level2.Level3.Value.ShouldBe(300);
+        clone.Level2!.Level3!.Value.ShouldBe(300);
 
         // Verify modifying clone doesn't affect original
-        clone.Level2.Level3.Value = 999;
-        original.Level2.Level3.Value.ShouldBe(300);
+        clone.Level2!.Level3!.Value = 999;
+        original.Level2!.Level3!.Value.ShouldBe(300);
     }
 }
 
