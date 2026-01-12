@@ -10,7 +10,7 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Base class for incremental source generators for automatic DeepClone implementation.
 /// </summary>
-public abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerator
+internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerator
     where TOptions : CloneableGeneratorOptionsCore, new()
 {
     /// <summary>

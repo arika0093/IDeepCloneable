@@ -10,7 +10,7 @@ namespace IDeepCloneable.Generator;
 /// An immutable array that implements value-based equality.
 /// This is used in incremental generators to ensure proper caching behavior.
 /// </summary>
-public readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnumerable<T>
+internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnumerable<T>
     where T : IEquatable<T>
 {
     private readonly T[] _array;

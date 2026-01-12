@@ -5,7 +5,7 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Represents metadata about a property or field.
 /// </summary>
-public record PropertyInfo : IEquatable<PropertyInfo>
+internal record PropertyInfo : IEquatable<PropertyInfo>
 {
     /// <summary>Name of the property/field.</summary>
     public required string Name { get; init; }

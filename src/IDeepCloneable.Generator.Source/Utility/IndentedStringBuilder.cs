@@ -6,7 +6,7 @@ using System.Text;
 /// </summary>
 /// <param name="IndentLevel">Initial indent level (0 or greater).</param>
 /// <remarks>Initializes a new instance of the <see cref="IndentedStringBuilder"/> class with an existing StringBuilder.</remarks>
-public class IndentedStringBuilder(StringBuilder stringBuilder, int indentLevel = 0)
+internal class IndentedStringBuilder(StringBuilder stringBuilder, int indentLevel = 0)
 {
     /// <summary>Initializes a new instance of the <see cref="IndentedStringBuilder"/> class.</summary>
     public IndentedStringBuilder(int indentLevel = 0)

@@ -5,7 +5,7 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Represents metadata about a class that needs deep cloning support.
 /// </summary>
-public record ClassInfo : IEquatable<ClassInfo>
+internal record ClassInfo : IEquatable<ClassInfo>
 {
     /// <summary>Simple class name without namespace.</summary>
     public required string ClassName { get; init; }

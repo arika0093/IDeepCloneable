@@ -14,6 +14,7 @@
   </metadata>
   <files>
     <file src="**\*.cs" target="contentFiles/cs/netstandard2.0/IDeepCloneable.Generator.Source/" exclude="obj/**" />
+    <file src="Resources\.editorconfig" target="contentFiles/cs/netstandard2.0/IDeepCloneable.Generator.Source/" />
     <file src="GeneratorSource.targets" target="build/IDeepCloneable.Generator.Source.targets" />
   </files>
 </package>

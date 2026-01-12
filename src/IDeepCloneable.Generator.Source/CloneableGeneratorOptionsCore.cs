@@ -3,7 +3,7 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Options for the Cloneable source generator.
 /// </summary>
-public abstract class CloneableGeneratorOptionsCore
+internal abstract class CloneableGeneratorOptionsCore
 {
     /// <summary>
     /// The metadata name of the attribute that marks types for DeepClone generation.
