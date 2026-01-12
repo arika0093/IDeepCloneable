@@ -600,7 +600,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
     /// <summary>
     /// Finds a matching ClassInfo for a potentially concrete generic type.
-    /// E.g., for "CustomEnumerable<string>", finds the ClassInfo for "CustomEnumerable<T>"
+    /// E.g., for "CustomEnumerable&lt;string&gt;", finds the ClassInfo for "CustomEnumerable&lt;T&gt;"
     /// </summary>
     private ClassInfo? FindMatchingGenericClassInfo(
         string typeFullName,
@@ -627,7 +627,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
     /// <summary>
     /// Extracts the base type name without generic arguments.
-    /// E.g., "global::MyNamespace.MyClass<string, int>" -> "global::MyNamespace.MyClass"
+    /// E.g., "global::MyNamespace.MyClass&lt;string, int&gt;" -> "global::MyNamespace.MyClass"
     /// </summary>
     private string ExtractBaseTypeName(string typeFullName)
     {
@@ -683,7 +683,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     }
 
     /// <summary>
-    /// Extracts generic type arguments from a type name (e.g., "string" from "MyClass<string>")
+    /// Extracts generic type arguments from a type name (e.g., "string" from "MyClass&lt;string&gt;")
     /// </summary>
     private List<string> ExtractGenericTypeArguments(string typeFullName)
     {

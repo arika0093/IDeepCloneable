@@ -112,7 +112,7 @@ internal static class CodeGenerationUtility
 
     /// <summary>
     /// Checks if a type name represents a simple type parameter (e.g., "T", "TKey", "TValue").
-    /// Type parameters don't contain ".", "::", or "<" characters.
+    /// Type parameters don't contain ".", "::", or "&lt;" characters.
     /// </summary>
     public static bool IsSimpleTypeParameter(string typeFullName)
     {
