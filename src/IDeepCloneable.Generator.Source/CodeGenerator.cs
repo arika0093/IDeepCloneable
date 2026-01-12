@@ -769,18 +769,35 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                     if (!generatedMethods.Contains(methodName))
                     {
                         generatedMethods.Add(methodName);
-                        builder = specialTypeInfo.GenerateCloneMethod(
-                            typeFullName,
-                            methodName,
-                            classInfos,
-                            builder,
-                            this
-                        );
-
-                        // Extract inner type(s) and add to queue for processing
+                        
+                        // Check if inner type is a type parameter
                         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+                        var isTypeParameter = CodeGenerationUtility.IsSimpleTypeParameter(innerType);
+                        
+                        // Use appropriate method based on whether inner type is a type parameter
+                        if (isTypeParameter)
+                        {
+                            builder = specialTypeInfo.GenerateCloneMethodWithParameter(
+                                typeFullName,
+                                methodName,
+                                classInfos,
+                                builder,
+                                this
+                            );
+                        }
+                        else
+                        {
+                            builder = specialTypeInfo.GenerateCloneMethod(
+                                typeFullName,
+                                methodName,
+                                classInfos,
+                                builder,
+                                this
+                            );
+                        }
+
                         // Don't recursively process simple type parameters
-                        if (innerType != typeFullName && !string.IsNullOrEmpty(innerType) && !CodeGenerationUtility.IsSimpleTypeParameter(innerType))
+                        if (innerType != typeFullName && !string.IsNullOrEmpty(innerType) && !isTypeParameter)
                         {
                             typesToProcess.Enqueue(innerType);
                         }

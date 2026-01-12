@@ -25,29 +25,39 @@ internal class ListTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        builder.AppendLine("");
+        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
+        builder.AppendLine(
+            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
+        );
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator, false);
+        builder.AppendLine("return list;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+
+        return builder;
+    }
+
+    public override IndentedStringBuilder GenerateCloneMethodWithParameter(
+        string typeFullName,
+        string methodName,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
+    )
+    {
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-        var isTypeParameter = CodeGenerationUtility.IsSimpleTypeParameter(innerType);
         
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        
-        if (isTypeParameter)
-        {
-            // Generate generic method for type parameters
-            builder.AppendLine(
-                $"private static {ListFullName}<{innerType}> {methodName}<{innerType}>(this {ListFullName}<{innerType}> original)"
-            );
-        }
-        else
-        {
-            builder.AppendLine(
-                $"private static {typeFullName} {methodName}(this {typeFullName} original)"
-            );
-        }
-        
+        builder.AppendLine(
+            $"private static {ListFullName}<{innerType}> {methodName}<{innerType}>(this {ListFullName}<{innerType}> original)"
+        );
         builder.AppendLine("{");
         builder.IncreaseIndent();
-        GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator, isTypeParameter);
+        GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator, true);
         builder.AppendLine("return list;");
         builder.DecreaseIndent();
         builder.AppendLine("}");

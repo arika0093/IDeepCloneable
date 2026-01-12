@@ -27,4 +27,20 @@ internal abstract class SpecialTypeInfo
         IndentedStringBuilder builder,
         CodeGenerator codeGenerator
     );
+
+    /// <summary>
+    /// Generates the clone method for this special type when the inner type is a type parameter.
+    /// Default implementation delegates to GenerateCloneMethod for types that don't support type parameters.
+    /// </summary>
+    public virtual IndentedStringBuilder GenerateCloneMethodWithParameter(
+        string typeFullName,
+        string methodName,
+        List<ClassInfo> allClassInfos,
+        IndentedStringBuilder builder,
+        CodeGenerator codeGenerator
+    )
+    {
+        // Default implementation: delegate to the regular method
+        return GenerateCloneMethod(typeFullName, methodName, allClassInfos, builder, codeGenerator);
+    }
 }
