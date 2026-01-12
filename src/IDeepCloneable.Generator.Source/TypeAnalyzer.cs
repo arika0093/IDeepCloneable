@@ -86,7 +86,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
         // Check if this type already has a DeepClone method
         var alreadyHasDeepClone = typeSymbol
-            .GetMembers("DeepClone")
+            .GetMembers(options.ImplementsMethodName)
             .OfType<IMethodSymbol>()
             .Any(m =>
                 m.Parameters.Length == 0
@@ -99,11 +99,11 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         while (current != null && current.SpecialType != SpecialType.System_Object)
         {
             // Check for [DeepCloneable] attribute
-            if (
-                current
+            var hasAttribute = current
                     .GetAttributes()
-                    .Any(attr => attr.AttributeClass?.Name == options.AttributeMetadataName)
-            )
+                    .Select(attr => attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
+                    .Any(attrName => attrName == $"global::{options.AttributeMetadataName}");
+            if (hasAttribute)
             {
                 baseHasDeepClone = true;
                 break;
@@ -113,7 +113,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             // Must have no parameters and return a compatible type
             if (
                 current
-                    .GetMembers("DeepClone")
+                    .GetMembers(options.ImplementsMethodName)
                     .OfType<IMethodSymbol>()
                     .Any(m =>
                         m.Parameters.Length == 0
