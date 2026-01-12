@@ -1,5 +1,0 @@
-root = true
-
-# Mark generated files and ignore all analyzer warnings/errors
-[*.cs]
-enerated_code = true
