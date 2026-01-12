@@ -80,9 +80,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         var properties = GetProperties(typeSymbol, compilation, out childTypes);
         var fullName = GetFullTypeName(typeSymbol);
 
-        var hasDeepCloneableAttribute = typeSymbol
-            .GetAttributes()
-            .Any(attr => attr.AttributeClass?.Name == options.AttributeMetadataName);
+        var hasDeepCloneableAttribute = IsImplementedInterface(typeSymbol);
 
         // Check if this type already has a DeepClone method
         var alreadyHasDeepClone = typeSymbol
@@ -99,12 +97,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         while (current != null && current.SpecialType != SpecialType.System_Object)
         {
             // Check for [DeepCloneable] attribute
-            var hasAttribute = current
-                .GetAttributes()
-                .Select(attr =>
-                    attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                )
-                .Any(attrName => attrName == $"global::{options.AttributeMetadataName}");
+            var hasAttribute = IsImplementedInterface(current);
             if (hasAttribute)
             {
                 baseHasDeepClone = true;
@@ -381,6 +374,16 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             containingType = containingType.ContainingType;
         }
         return containingTypes;
+    }
+
+    private bool IsImplementedInterface(INamedTypeSymbol typeSymbol)
+    {
+        return typeSymbol
+            .GetAttributes()
+            .Select(attr =>
+                attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            )
+            .Any(attrName => attrName == $"global::{options.AttributeMetadataName}");
     }
 
     private bool IsImmutableType(ITypeSymbol typeSymbol)
