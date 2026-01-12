@@ -1,6 +1,8 @@
 using System;
 using System.Text;
 
+namespace IDeepCloneable.Generator;
+
 /// <summary>
 /// Utility class for efficiently building indented strings.
 /// </summary>

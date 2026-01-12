@@ -40,22 +40,18 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
                 processedTypes.Add(fullName);
 
-                var classInfo = CreateClassInfo(
-                    currentType,
-                    context.SemanticModel.Compilation,
-                    out var childTypes
-                );
+                var classInfo = CreateClassInfo(currentType, out var childTypes);
                 if (classInfo != null)
                 {
                     classInfoList.Add(classInfo);
-
+                    foreach (
+                        var childType in childTypes.Where(childType =>
+                            !processedTypes.Contains(GetFullTypeName(childType))
+                        )
                     // Enqueue child types discovered during property analysis
-                    foreach (var childType in childTypes)
+                    )
                     {
-                        if (!processedTypes.Contains(GetFullTypeName(childType)))
-                        {
-                            typesToProcess.Enqueue(childType);
-                        }
+                        typesToProcess.Enqueue(childType);
                     }
                 }
             }
@@ -73,11 +69,10 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
     private ClassInfo? CreateClassInfo(
         INamedTypeSymbol typeSymbol,
-        Compilation compilation,
         out List<INamedTypeSymbol> childTypes
     )
     {
-        var properties = GetProperties(typeSymbol, compilation, out childTypes);
+        var properties = GetProperties(typeSymbol, out childTypes);
         var fullName = GetFullTypeName(typeSymbol);
 
         var hasDeepCloneableAttribute = IsImplementedInterface(typeSymbol);
@@ -178,7 +173,6 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
     private List<PropertyInfo> GetProperties(
         INamedTypeSymbol typeSymbol,
-        Compilation compilation,
         out List<INamedTypeSymbol> childTypes
     )
     {
@@ -351,7 +345,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         return "global::" + displayString;
     }
 
-    private string GetNamespace(INamedTypeSymbol typeSymbol)
+    private static string GetNamespace(INamedTypeSymbol typeSymbol)
     {
         // Return only the actual namespace, not containing types
         // Return empty string for global namespace
@@ -364,7 +358,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         return typeSymbol.ContainingNamespace.ToDisplayString();
     }
 
-    private List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
+    private static List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
     {
         var containingTypes = new List<string>();
         var containingType = typeSymbol.ContainingType;
@@ -482,13 +476,13 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         var typesInCycle = new HashSet<string>();
         var visited = new HashSet<string>();
         var recursionStack = new HashSet<string>();
-
-        foreach (var typeName in typeDependencies.Keys)
+        foreach (
+            var typeName in from typeName in typeDependencies.Keys
+            where !visited.Contains(typeName)
+            select typeName
+        )
         {
-            if (!visited.Contains(typeName))
-            {
-                DetectCyclesDFS(typeName, typeDependencies, visited, recursionStack, typesInCycle);
-            }
+            DetectCyclesDFS(typeName, typeDependencies, visited, recursionStack, typesInCycle);
         }
 
         // Update ClassInfo objects with circular reference flag

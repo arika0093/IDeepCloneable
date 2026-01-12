@@ -21,12 +21,12 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     /// <summary>
     /// Type analyzer instance.
     /// </summary>
-    private static readonly TypeAnalyzer _typeAnalyzer = new(options);
+    private readonly TypeAnalyzer _typeAnalyzer = new(options);
 
     /// <summary>
     /// Code generator instance.
     /// </summary>
-    private static readonly CodeGenerator _codeGenerator = new(options);
+    private readonly CodeGenerator _codeGenerator = new(options);
 
     /// <summary>
     /// Initializes the incremental generator.
@@ -72,14 +72,16 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     {
         var result = new List<ClassInfo>();
         var seenTypes = new HashSet<string>();
-        foreach (var classInfo in classInfos)
+        foreach (
+            var classInfo in from classInfo in classInfos
+            where !seenTypes.Contains(classInfo.FullClassName)
+            select classInfo
+        )
         {
-            if (!seenTypes.Contains(classInfo.FullClassName))
-            {
-                seenTypes.Add(classInfo.FullClassName);
-                result.Add(classInfo);
-            }
+            seenTypes.Add(classInfo.FullClassName);
+            result.Add(classInfo);
         }
+
         return result;
     }
 }

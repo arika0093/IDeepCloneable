@@ -57,7 +57,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
     /// Generates clone method for single-dimensional arrays.
     /// Uses AsSpan().ToArray() for immutable elements, deep clones mutable elements.
     /// </summary>
-    private IndentedStringBuilder GenerateSingleDimensionalArrayCloneMethod(
+    private static IndentedStringBuilder GenerateSingleDimensionalArrayCloneMethod(
         string typeFullName,
         string methodName,
         List<ClassInfo> allClassInfos,
@@ -112,7 +112,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
     /// Generates clone method for multi-dimensional arrays.
     /// Deep clones each element for mutable types, Array.Clone for immutable types.
     /// </summary>
-    private IndentedStringBuilder GenerateMultiDimensionalArrayCloneMethod(
+    private static IndentedStringBuilder GenerateMultiDimensionalArrayCloneMethod(
         string typeFullName,
         string methodName,
         List<ClassInfo> allClassInfos,

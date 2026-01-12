@@ -25,7 +25,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         new ImmutableArrayTypeInfo(),
         new ImmutableHashSetTypeInfo(),
         new ImmutableDictionaryTypeInfo(),
-        new IEnumerableTypeInfo(),
+        new EnumerableTypeInfo(),
     ];
 
     /// <summary>
@@ -124,13 +124,9 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         {
             // Check if this type is handled by a special type handler
             bool isSpecialType = false;
-            foreach (var specialTypeInfo in SpecialTypeInfos)
+            if (SpecialTypeInfos.Any(sp => sp.IsMatch(classInfo)))
             {
-                if (specialTypeInfo.IsMatch(classInfo))
-                {
-                    isSpecialType = true;
-                    break;
-                }
+                isSpecialType = true;
             }
 
             // Skip only if it's a value type AND all properties are immutable
@@ -159,7 +155,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     /// <summary>
     /// Determines whether to use 'with' syntax for cloning a record or value type.
     /// </summary>
-    private bool ShouldUseWithSyntax(ClassInfo classInfo)
+    private static bool ShouldUseWithSyntax(ClassInfo classInfo)
     {
         // Always use 'with' for reference type records to create a new instance
         // For value types, only use 'with' if there are mutable properties
@@ -215,7 +211,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             // For circular references, use static cache field
             if (classInfo.HasCircularReference)
             {
-                builder = GenerateCircularReferenceCheck(classInfo, cacheFieldName, builder);
+                builder = GenerateCircularReferenceCheck(cacheFieldName, builder);
             }
         }
 
@@ -237,8 +233,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     /// <summary>
     /// Generates circular reference checking logic using static per-type cache.
     /// </summary>
-    private IndentedStringBuilder GenerateCircularReferenceCheck(
-        ClassInfo classInfo,
+    private static IndentedStringBuilder GenerateCircularReferenceCheck(
         string cacheFieldName,
         IndentedStringBuilder builder
     )
@@ -559,13 +554,13 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
         // Check special types using SpecialTypeInfo (includes arrays)
         var classInfoForMatching = GetOrCreateMinimalClassInfo(typeFullName, allClassInfos);
-        foreach (var specialTypeInfo in SpecialTypeInfos)
+        var matchedSpecialType = SpecialTypeInfos.FirstOrDefault(st =>
+            st.IsMatch(classInfoForMatching)
+        );
+        if (matchedSpecialType != null)
         {
-            if (specialTypeInfo.IsMatch(classInfoForMatching))
-            {
-                var methodName = specialTypeInfo.GetMethodName(typeFullName);
-                return $"{methodName}({valueExpression})";
-            }
+            var methodName = matchedSpecialType.GetMethodName(typeFullName);
+            return $"{methodName}({valueExpression})";
         }
 
         // Regular type - need to find the matching ClassInfo to get the correct generic parameters
@@ -602,7 +597,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     /// Finds a matching ClassInfo for a potentially concrete generic type.
     /// E.g., for "CustomEnumerable&lt;string&gt;", finds the ClassInfo for "CustomEnumerable&lt;T&gt;"
     /// </summary>
-    private ClassInfo? FindMatchingGenericClassInfo(
+    private static ClassInfo? FindMatchingGenericClassInfo(
         string typeFullName,
         List<ClassInfo> allClassInfos
     )
@@ -629,7 +624,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     /// Extracts the base type name without generic arguments.
     /// E.g., "global::MyNamespace.MyClass&lt;string, int&gt;" -> "global::MyNamespace.MyClass"
     /// </summary>
-    private string ExtractBaseTypeName(string typeFullName)
+    private static string ExtractBaseTypeName(string typeFullName)
     {
         var genericStart = typeFullName.IndexOf('<');
         if (genericStart < 0)
@@ -685,7 +680,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
     /// <summary>
     /// Extracts generic type arguments from a type name (e.g., "string" from "MyClass&lt;string&gt;")
     /// </summary>
-    private List<string> ExtractGenericTypeArguments(string typeFullName)
+    private static List<string> ExtractGenericTypeArguments(string typeFullName)
     {
         var result = new List<string>();
         var startIndex = typeFullName.IndexOf('<');
@@ -731,43 +726,43 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
             // Check special types using SpecialTypeInfo (now includes arrays)
             var classInfoForMatching = GetOrCreateMinimalClassInfo(typeFullName, classInfos);
-            foreach (var specialTypeInfo in SpecialTypeInfos)
+            foreach (
+                var (specialTypeInfo, methodName) in from specialTypeInfo in SpecialTypeInfos
+                where specialTypeInfo.IsMatch(classInfoForMatching)
+                let methodName = specialTypeInfo.GetMethodName(typeFullName)
+                select (specialTypeInfo, methodName)
+            )
             {
-                if (specialTypeInfo.IsMatch(classInfoForMatching))
+                if (!generatedMethods.Contains(methodName))
                 {
-                    var methodName = specialTypeInfo.GetMethodName(typeFullName);
+                    generatedMethods.Add(methodName);
+                    builder = specialTypeInfo.GenerateCloneMethod(
+                        typeFullName,
+                        methodName,
+                        classInfos,
+                        builder,
+                        this
+                    );
 
-                    if (!generatedMethods.Contains(methodName))
+                    // Extract inner type(s) and add to queue for processing
+                    var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+                    if (innerType != typeFullName && !string.IsNullOrEmpty(innerType))
                     {
-                        generatedMethods.Add(methodName);
-                        builder = specialTypeInfo.GenerateCloneMethod(
-                            typeFullName,
-                            methodName,
-                            classInfos,
-                            builder,
-                            this
-                        );
+                        typesToProcess.Enqueue(innerType);
+                    }
 
-                        // Extract inner type(s) and add to queue for processing
-                        var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
-                        if (innerType != typeFullName && !string.IsNullOrEmpty(innerType))
+                    // For arrays, also extract and queue the element type
+                    if (typeFullName.Contains("[") && typeFullName.Contains("]"))
+                    {
+                        var bracketIndex = typeFullName.IndexOf('[');
+                        var elementType = typeFullName.Substring(0, bracketIndex);
+                        if (!string.IsNullOrEmpty(elementType))
                         {
-                            typesToProcess.Enqueue(innerType);
-                        }
-
-                        // For arrays, also extract and queue the element type
-                        if (typeFullName.Contains("[") && typeFullName.Contains("]"))
-                        {
-                            var bracketIndex = typeFullName.IndexOf('[');
-                            var elementType = typeFullName.Substring(0, bracketIndex);
-                            if (!string.IsNullOrEmpty(elementType))
-                            {
-                                typesToProcess.Enqueue(elementType);
-                            }
+                            typesToProcess.Enqueue(elementType);
                         }
                     }
-                    break;
                 }
+                break;
             }
         }
 
@@ -795,9 +790,13 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             builder.IncreaseIndent();
         }
 
-        var typeKeyword = classInfo.IsRecord
-            ? (classInfo.IsValueType ? "record struct" : "record")
-            : (classInfo.IsValueType ? "struct" : "class");
+        var typeKeyword = classInfo switch
+        {
+            { IsRecord: true, IsValueType: true } => "record struct",
+            { IsRecord: true, IsValueType: false } => "record",
+            { IsRecord: false, IsValueType: true } => "struct",
+            _ => "class",
+        };
 
         // Include generic type parameters in partial class declaration if present
         var genericParams = string.IsNullOrEmpty(classInfo.GenericTypeParameters)

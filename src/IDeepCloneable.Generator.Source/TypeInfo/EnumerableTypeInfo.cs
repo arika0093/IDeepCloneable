@@ -9,7 +9,7 @@ namespace IDeepCloneable.Generator;
 /// Special type handler for IEnumerable&lt;T&gt; collections.
 /// Clones IEnumerable&lt;T&gt; by materializing to List&lt;T&gt; with deep cloned elements.
 /// </summary>
-internal class IEnumerableTypeInfo : SpecialTypeInfo
+internal class EnumerableTypeInfo : SpecialTypeInfo
 {
     public override string TargetTypeStartWith => "global::System.Collections.Generic.IEnumerable<";
 
