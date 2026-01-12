@@ -1,4 +1,4 @@
-name: Format Code and Run Simple Benchmark
+name: Run Simple Benchmark
 
 on:
   workflow_dispatch:
@@ -15,34 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  format-code:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-
-      - name: Install dotnet-format tool
-        run: dotnet tool install -g csharpier
-
-      - name: Add Path to env
-        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Run csharpier format
-        run: csharpier format .
-
-      - name: Commit & Push
-        uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: "[skip-ci] chore: format code with csharpier"
-          branch: ${{ github.ref_name }}
-
   simple-benchmark:
-    needs: format-code
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -60,6 +33,9 @@ jobs:
       - name: Move Benchmark Result
         shell: bash
         run: mv -f BenchmarkDotNet.Artifacts/results/IDeepCloneable.Benchmark.CloneBenchmarks-report-github.md benchmark/results/performance-check.md
+
+      - name: Pull before commit
+        run: git pull origin ${{ github.ref_name }}
 
       - name: Commit & Push
         uses: stefanzweifel/git-auto-commit-action@v7
