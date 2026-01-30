@@ -766,7 +766,6 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
                         }
                     }
                 }
-                break;
             }
         }
 
