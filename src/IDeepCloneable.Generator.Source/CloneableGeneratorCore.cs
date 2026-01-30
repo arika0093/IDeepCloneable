@@ -137,6 +137,7 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
                 /// Properties or fields marked with this attribute will have their references copied directly
                 /// without creating a deep clone of the object.
                 /// </summary>
+                [global::Microsoft.CodeAnalysis.Embedded]
                 [global::System.AttributeUsage(
                     global::System.AttributeTargets.Property | global::System.AttributeTargets.Field,
                     Inherited = false,
@@ -155,6 +156,7 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
                 /// Marks a field or property to be ignored during DeepClone operations.
                 /// Properties or fields marked with this attribute will not be cloned and will retain their default values.
                 /// </summary>
+                [global::Microsoft.CodeAnalysis.Embedded]
                 [global::System.AttributeUsage(
                     global::System.AttributeTargets.Property | global::System.AttributeTargets.Field,
                     Inherited = false,
