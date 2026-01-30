@@ -628,9 +628,21 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         }
 
         var specialEntries = CollectSpecialTypeCloneEntries(classInfos);
-        directEntries.AddRange(
-            specialEntries.Where(entry => !ContainsTypeParameterReference(entry.TypeFullName))
-        );
+        foreach (var entry in specialEntries)
+        {
+            if (ContainsTypeParameterReference(entry.TypeFullName))
+            {
+                var openType = BuildOpenGenericTypeExpression(entry.TypeFullName);
+                if (!string.IsNullOrEmpty(openType))
+                {
+                    openGenericEntries.Add((openType, entry.MethodName));
+                }
+            }
+            else
+            {
+                directEntries.Add(entry);
+            }
+        }
 
         var uniqueDirectEntries = new List<(string TypeFullName, string MethodName)>();
         var seenDirectTypes = new HashSet<string>();

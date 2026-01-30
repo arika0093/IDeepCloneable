@@ -73,16 +73,22 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
     {
         try
         {
-            if (!TryGetGenerateDeepCloneableTarget(context, out var targetType))
+            var targetTypes = GetGenerateDeepCloneableTargets(context);
+            if (targetTypes.Count == 0)
                 return null;
 
             var classInfoList = new List<ClassInfo>();
             var processedTypes = new HashSet<string>();
             var typesToProcess = new Queue<INamedTypeSymbol>();
 
-            typesToProcess.Enqueue(targetType);
+            var rootTypeNames = new HashSet<string>(
+                targetTypes.Select(target => GetFullTypeName(target))
+            );
+            foreach (var targetType in targetTypes)
+            {
+                typesToProcess.Enqueue(targetType);
+            }
 
-            var isRoot = true;
             while (typesToProcess.Count > 0)
             {
                 var currentType = typesToProcess.Dequeue();
@@ -96,9 +102,8 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 var classInfo = CreateClassInfo(
                     currentType,
                     out var childTypes,
-                    forceNoDeepCloneMethod: isRoot
+                    forceNoDeepCloneMethod: rootTypeNames.Contains(fullName)
                 );
-                isRoot = false;
 
                 if (classInfo != null)
                 {
@@ -230,32 +235,31 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         };
     }
 
-    private bool TryGetGenerateDeepCloneableTarget(
-        GeneratorAttributeSyntaxContext context,
-        out INamedTypeSymbol targetType
+    private List<INamedTypeSymbol> GetGenerateDeepCloneableTargets(
+        GeneratorAttributeSyntaxContext context
     )
     {
-        targetType = null!;
-        var targetAttribute = context.Attributes.FirstOrDefault(attr =>
-            attr.AttributeClass?.Name == options.GenerateDeepCloneableAttributeName
-        );
-        if (targetAttribute == null)
-            return false;
-
-        if (targetAttribute.ConstructorArguments.Length == 0)
-            return false;
-
-        var typeArgument = targetAttribute.ConstructorArguments[0];
-        if (typeArgument.Kind != TypedConstantKind.Type)
-            return false;
-
-        if (typeArgument.Value is INamedTypeSymbol namedType)
+        var targets = new List<INamedTypeSymbol>();
+        foreach (
+            var targetAttribute in context.Attributes.Where(attr =>
+                attr.AttributeClass?.Name == options.GenerateDeepCloneableAttributeName
+            )
+        )
         {
-            targetType = namedType;
-            return true;
+            if (targetAttribute.ConstructorArguments.Length == 0)
+                continue;
+
+            var typeArgument = targetAttribute.ConstructorArguments[0];
+            if (typeArgument.Kind != TypedConstantKind.Type)
+                continue;
+
+            if (typeArgument.Value is INamedTypeSymbol namedType)
+            {
+                targets.Add(namedType);
+            }
         }
 
-        return false;
+        return targets;
     }
 
     private List<PropertyInfo> GetProperties(
