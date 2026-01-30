@@ -276,7 +276,7 @@ public interface IMyLibraryClass<T>
 ```
 
 ## Library Structure
-This consists of three libraries.
+This consists of two libraries.
 
 ### IDeepCloneable
 This is the library that defines the `IDeepCloneable<T>` interface and the `[DeepCloneable]` marker attribute.  
@@ -289,12 +289,6 @@ public interface IDeepCloneable<T>
     T DeepClone();
 }
 ```
-
-Additionally, it will automatically reference the `IDeepCloneable.Generator`.
-
-### IDeepCloneable.Generator
-This is the source generator library that automatically generates the `IDeepCloneable<T>.DeepClone()` method.
-There is no need to directly reference this library.
 
 ### IDeepCloneable.Generator.Source
 This library provides the source code for the source generator.

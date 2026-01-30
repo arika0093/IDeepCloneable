@@ -537,7 +537,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
     /// <summary>
     /// Checks if a property type is a collection type (to exclude from direct circular reference detection).
     /// </summary>
-    private bool IsCollectionPropertyType(string typeFullName)
+    private static bool IsCollectionPropertyType(string typeFullName)
     {
         return typeFullName.Contains("System.Collections.Generic.List<")
             || typeFullName.Contains("System.Collections.Generic.Dictionary<")

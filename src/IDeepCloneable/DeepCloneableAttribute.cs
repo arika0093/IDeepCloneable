@@ -1,3 +1,5 @@
+#pragma warning disable S3903 // "Types should be defined in named namespaces"
+
 using System;
 
 /// <summary>
