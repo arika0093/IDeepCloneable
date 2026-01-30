@@ -48,27 +48,8 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             context.AddSource($"{options.ExtensionsExportFileName}.g.cs", extensionsCode);
 
             // Generate partial class implementations for each type that needs DeepClone method
-            // Skip types that already have DeepClone method defined (manual or from other generators)
-            // Use full class name to avoid collisions when classes have the same simple name in different namespaces
-            var generatedFiles = new HashSet<string>();
-            foreach (
-                var classInfo in classInfos.Where(c =>
-                    c.NeedsDeepCloneMethod && !c.AlreadyHasDeepClone
-                )
-            )
-            {
-                var partialClassCode = GeneratePartialClass(classInfo);
-                // Use sanitized full class name to ensure uniqueness
-                var fileName =
-                    $"{CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName)}.{options.ImplementsMethodName}.g.cs";
-
-                // Additional safety check to avoid duplicate file names
-                if (!generatedFiles.Contains(fileName))
-                {
-                    generatedFiles.Add(fileName);
-                    context.AddSource(fileName, partialClassCode);
-                }
-            }
+            var partialClassCode = GenerateDeepCloneAllPartialClass(classInfos);
+            context.AddSource($"{options.PartialClassFileName}.g.cs", partialClassCode);
         }
         catch (Exception ex)
         {
@@ -152,6 +133,20 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         builder.DecreaseIndent();
         builder.AppendLine("}");
 
+        return builder.ToString();
+    }
+
+    private string GenerateDeepCloneAllPartialClass(List<ClassInfo> classInfos)
+    {
+        var builder = new IndentedStringBuilder();
+        builder = GenerateFileHeader(builder);
+        var targetClassInfos = classInfos.Where(c =>
+            c.NeedsDeepCloneMethod && !c.AlreadyHasDeepClone
+        );
+        foreach (var classInfo in targetClassInfos)
+        {
+            builder = GeneratePartialClass(builder, classInfo);
+        }
         return builder.ToString();
     }
 
@@ -772,11 +767,11 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         return builder;
     }
 
-    private string GeneratePartialClass(ClassInfo classInfo)
+    private IndentedStringBuilder GeneratePartialClass(
+        IndentedStringBuilder builder,
+        ClassInfo classInfo
+    )
     {
-        var builder = new IndentedStringBuilder();
-        builder = GenerateFileHeader(builder);
-
         // Generate namespace if present
         if (!string.IsNullOrEmpty(classInfo.Namespace))
         {
@@ -881,6 +876,6 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             builder.AppendLine("}");
         }
 
-        return builder.ToString();
+        return builder;
     }
 }
