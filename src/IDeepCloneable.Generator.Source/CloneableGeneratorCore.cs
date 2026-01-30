@@ -34,15 +34,28 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     public virtual void Initialize(IncrementalGeneratorInitializationContext context)
     {
         GenerateEmbbedAttributes(context);
-        var classDeclarations = context
+        var deepCloneableDeclarations = context
             .SyntaxProvider.ForAttributeWithMetadataName(
                 options.AttributeMetadataName,
                 predicate: static (node, _) => true,
                 transform: TransformFunc
             )
             .Where(static m => m.HasValue)
-            .SelectMany(static (m, _) => m!.Value)
-            .Collect();
+            .SelectMany(static (m, _) => m!.Value);
+
+        var generateCloneableDeclarations = context
+            .SyntaxProvider.ForAttributeWithMetadataName(
+                options.GenerateDeepCloneableAttributeName,
+                predicate: static (node, _) => true,
+                transform: TransformGenerateDeepCloneableFunc
+            )
+            .Where(static m => m.HasValue)
+            .SelectMany(static (m, _) => m!.Value);
+
+        var classDeclarations = deepCloneableDeclarations
+            .Collect()
+            .Combine(generateCloneableDeclarations.Collect())
+            .Select(static (pair, _) => pair.Left.AddRange(pair.Right));
 
         context.RegisterSourceOutput(
             classDeclarations,
@@ -59,6 +72,14 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     ) => _typeAnalyzer.GetRelationalAllClassInfo(ctx);
 
     /// <summary>
+    /// Transforms the syntax context for [GenerateDeepCloneable] into class information.
+    /// </summary>
+    protected virtual EquatableArray<ClassInfo>? TransformGenerateDeepCloneableFunc(
+        GeneratorAttributeSyntaxContext ctx,
+        CancellationToken cancellationToken
+    ) => _typeAnalyzer.GetRelationalAllClassInfoFromGenerateAttribute(ctx);
+
+    /// <summary>
     /// Executes the code generation process.
     /// </summary>
     protected virtual void Execute(
@@ -71,19 +92,32 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     /// </summary>
     protected List<ClassInfo> DropDuplicates(ImmutableArray<ClassInfo> classInfos)
     {
-        var result = new List<ClassInfo>();
-        var seenTypes = new HashSet<string>();
-        foreach (
-            var classInfo in from classInfo in classInfos
-            where !seenTypes.Contains(classInfo.FullClassName)
-            select classInfo
-        )
+        var map = new Dictionary<string, ClassInfo>();
+        foreach (var classInfo in classInfos)
         {
-            seenTypes.Add(classInfo.FullClassName);
-            result.Add(classInfo);
+            if (!map.TryGetValue(classInfo.FullClassName, out var existing))
+            {
+                map[classInfo.FullClassName] = classInfo;
+                continue;
+            }
+
+            // Prefer entries that require generating DeepClone methods.
+            if (!existing.NeedsDeepCloneMethod && classInfo.NeedsDeepCloneMethod)
+            {
+                map[classInfo.FullClassName] = classInfo;
+                continue;
+            }
+
+            // Merge minimal flags to avoid losing metadata across sources.
+            map[classInfo.FullClassName] = existing with
+            {
+                NeedsDeepCloneMethod =
+                    existing.NeedsDeepCloneMethod || classInfo.NeedsDeepCloneMethod,
+                BaseHasDeepClone = existing.BaseHasDeepClone || classInfo.BaseHasDeepClone,
+            };
         }
 
-        return result;
+        return map.Values.ToList();
     }
 
     /// <summary>
@@ -163,6 +197,41 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
                     AllowMultiple = false
                 )]
                 internal sealed class {{options.CloneIgnoreAttributeName}} : global::System.Attribute { }
+
+                """
+            );
+        }
+        if (!string.IsNullOrEmpty(options.GenerateDeepCloneableAttributeName))
+        {
+            // finally, add [GenerateDeepCloneableAttribute]
+            builder.AppendLine(
+                $$"""
+                /// <summary>
+                /// Registers a target type for DeepClone generation without requiring the target to be partial.
+                /// Use this to generate clone logic for types you can't modify.
+                /// </summary>
+                [global::Microsoft.CodeAnalysis.Embedded]
+                [global::System.AttributeUsage(
+                    global::System.AttributeTargets.Class | global::System.AttributeTargets.Struct,
+                    Inherited = false,
+                    AllowMultiple = true
+                )]
+                internal sealed class {{options.GenerateDeepCloneableAttributeName}} : global::System.Attribute
+                {
+                    /// <summary>
+                    /// The target type to generate deep clone logic for.
+                    /// </summary>
+                    public global::System.Type TargetType { get; }
+
+                    /// <summary>
+                    /// Registers the target type to be included in clone generation.
+                    /// </summary>
+                    /// <param name="targetType">The type to generate clone logic for.</param>
+                    public {{options.GenerateDeepCloneableAttributeName}}(global::System.Type targetType)
+                    {
+                        TargetType = targetType;
+                    }
+                }
 
                 """
             );

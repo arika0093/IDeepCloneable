@@ -67,9 +67,72 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         }
     }
 
+    public EquatableArray<ClassInfo>? GetRelationalAllClassInfoFromGenerateAttribute(
+        GeneratorAttributeSyntaxContext context
+    )
+    {
+        try
+        {
+            var targetTypes = GetGenerateDeepCloneableTargets(context);
+            if (targetTypes.Count == 0)
+                return null;
+
+            var classInfoList = new List<ClassInfo>();
+            var processedTypes = new HashSet<string>();
+            var typesToProcess = new Queue<INamedTypeSymbol>();
+
+            var rootTypeNames = new HashSet<string>(
+                targetTypes.Select(target => GetFullTypeName(target))
+            );
+            foreach (var targetType in targetTypes)
+            {
+                typesToProcess.Enqueue(targetType);
+            }
+
+            while (typesToProcess.Count > 0)
+            {
+                var currentType = typesToProcess.Dequeue();
+                var fullName = GetFullTypeName(currentType);
+
+                if (processedTypes.Contains(fullName))
+                    continue;
+
+                processedTypes.Add(fullName);
+
+                var classInfo = CreateClassInfo(
+                    currentType,
+                    out var childTypes,
+                    forceNoDeepCloneMethod: rootTypeNames.Contains(fullName)
+                );
+
+                if (classInfo != null)
+                {
+                    classInfoList.Add(classInfo);
+                    foreach (
+                        var childType in childTypes.Where(childType =>
+                            !processedTypes.Contains(GetFullTypeName(childType))
+                        )
+                    )
+                    {
+                        typesToProcess.Enqueue(childType);
+                    }
+                }
+            }
+
+            DetectCircularReferences(classInfoList);
+
+            return new EquatableArray<ClassInfo>(classInfoList);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private ClassInfo? CreateClassInfo(
         INamedTypeSymbol typeSymbol,
-        out List<INamedTypeSymbol> childTypes
+        out List<INamedTypeSymbol> childTypes,
+        bool forceNoDeepCloneMethod = false
     )
     {
         var properties = GetProperties(typeSymbol, out childTypes);
@@ -159,7 +222,8 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             IsValueType = typeSymbol.IsValueType,
             IsAllImmutable = properties.All(p => p.IsImmutable),
             IsCollection = IsCollectionType(typeSymbol),
-            NeedsDeepCloneMethod = hasDeepCloneableAttribute || baseHasDeepClone,
+            NeedsDeepCloneMethod =
+                !forceNoDeepCloneMethod && (hasDeepCloneableAttribute || baseHasDeepClone),
             IsAbstract = typeSymbol.IsAbstract,
             IsSealed = typeSymbol.IsSealed,
             BaseHasDeepClone = baseHasDeepClone,
@@ -169,6 +233,33 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             GenericTypeParameters = genericTypeParameters,
             ImplementedInterfaces = new EquatableArray<string>(implementedInterfaces),
         };
+    }
+
+    private List<INamedTypeSymbol> GetGenerateDeepCloneableTargets(
+        GeneratorAttributeSyntaxContext context
+    )
+    {
+        var targets = new List<INamedTypeSymbol>();
+        foreach (
+            var targetAttribute in context.Attributes.Where(attr =>
+                attr.AttributeClass?.Name == options.GenerateDeepCloneableAttributeName
+            )
+        )
+        {
+            if (targetAttribute.ConstructorArguments.Length == 0)
+                continue;
+
+            var typeArgument = targetAttribute.ConstructorArguments[0];
+            if (typeArgument.Kind != TypedConstantKind.Type)
+                continue;
+
+            if (typeArgument.Value is INamedTypeSymbol namedType)
+            {
+                targets.Add(namedType);
+            }
+        }
+
+        return targets;
     }
 
     private List<PropertyInfo> GetProperties(

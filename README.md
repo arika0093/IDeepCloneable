@@ -169,6 +169,32 @@ var clonedNode1 = node1.DeepClone();
 // clonedNode1.Next.Next == clonedNode1
 ```
 
+### Generic Types
+We also support classes that have generic types as members.
+If a member type implements `IDeepCloneable<T>`, it will be deep-cloned automatically.
+Otherwise, you must generate a `DeepClone` implementation for that type by applying the `[GenerateDeepCloneable]` attribute.
+
+```csharp
+[DeepCloneable]
+[GenerateDeepCloneable(typeof(MyCloneClass))] // <- add this attribute
+[GenerateDeepCloneable(typeof(MyOtherCloneWantClass))]
+public partial class GenericBox<T>
+{
+    public T? Value { get; set; } // you can use generic type T here
+}
+
+public class MyCloneClass
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class MyOtherCloneWantClass
+{
+    public DateTime Timestamp { get; set; }
+}
+```
+
 ### Manual Implementation
 If you want to provide your own implementation of the `DeepClone()` method, you can do so by implementing the `IDeepCloneable<T>` interface directly.
 
