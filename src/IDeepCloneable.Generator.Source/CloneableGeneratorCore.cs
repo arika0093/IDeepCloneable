@@ -89,7 +89,9 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     /// <summary>
     /// Generates embedded attribute classes if configured to do so.
     /// </summary>
-    protected virtual void GenerateEmbbedAttributes(IncrementalGeneratorInitializationContext context)
+    protected virtual void GenerateEmbbedAttributes(
+        IncrementalGeneratorInitializationContext context
+    )
     {
         if (!options.GenerateAttributes)
         {
