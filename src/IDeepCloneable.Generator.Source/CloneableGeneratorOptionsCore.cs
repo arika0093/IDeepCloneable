@@ -88,4 +88,11 @@ internal abstract class CloneableGeneratorOptionsCore
     /// e.g. "ShallowCloneAttribute"
     /// </summary>
     public virtual string ShallowCloneAttributeName => "ShallowCloneAttribute";
+
+    /// <summary>
+    /// The metadata name of the attribute that registers types for clone generation
+    /// without requiring the target to be partial.
+    /// e.g. "GenerateDeepCloneableAttribute"
+    /// </summary>
+    public virtual string GenerateDeepCloneableAttributeName => "GenerateDeepCloneableAttribute";
 }

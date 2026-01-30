@@ -99,6 +99,8 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         builder.AppendLine("{");
         builder.IncreaseIndent();
 
+        builder = GenerateCloneRuntimeHelpers(classInfos, builder);
+
         // Generate CloneInternal methods for each class
         // Even if all properties are immutable, we still need to clone reference types (classes)
         // Only skip truly immutable types (value types with immutable fields, strings, etc.)
@@ -547,7 +549,7 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         // which would require constraint propagation throughout the call chain
         if (CodeGenerationUtility.IsSimpleTypeParameter(typeFullName))
         {
-            return valueExpression;
+            return $"CloneByRuntimeType({valueExpression})";
         }
 
         // Check special types using SpecialTypeInfo (includes arrays)
@@ -589,6 +591,302 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
             genericArgs.Count > 0 ? $"<{string.Join(", ", genericArgs)}>" : string.Empty;
 
         return $"{sanitizedName}_CloneInternal{genericArgsStr}({valueExpression})";
+    }
+
+    private IndentedStringBuilder GenerateCloneRuntimeHelpers(
+        List<ClassInfo> classInfos,
+        IndentedStringBuilder builder
+    )
+    {
+        var directEntries = new List<(string TypeFullName, string MethodName)>();
+        var openGenericEntries = new List<(string OpenGenericType, string MethodName)>();
+
+        foreach (var classInfo in classInfos)
+        {
+            var isSpecialType = SpecialTypeInfos.Any(sp => sp.IsMatch(classInfo));
+            var skipGeneration =
+                classInfo.IsImmutableUsable || classInfo.IsAbstract || isSpecialType;
+
+            if (skipGeneration)
+                continue;
+
+            var methodName =
+                CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
+
+            if (!string.IsNullOrWhiteSpace(classInfo.GenericTypeParameters))
+            {
+                var openType = BuildOpenGenericTypeExpression(classInfo.FullClassName);
+                if (!string.IsNullOrEmpty(openType))
+                {
+                    openGenericEntries.Add((openType, methodName));
+                }
+            }
+            else if (!ContainsTypeParameterReference(classInfo.FullClassName))
+            {
+                directEntries.Add((classInfo.FullClassName, methodName));
+            }
+        }
+
+        var specialEntries = CollectSpecialTypeCloneEntries(classInfos);
+        directEntries.AddRange(
+            specialEntries.Where(entry => !ContainsTypeParameterReference(entry.TypeFullName))
+        );
+
+        var uniqueDirectEntries = new List<(string TypeFullName, string MethodName)>();
+        var seenDirectTypes = new HashSet<string>();
+        uniqueDirectEntries.AddRange(
+            directEntries.Where(entry => seenDirectTypes.Add(entry.TypeFullName))
+        );
+
+        var uniqueOpenGenericEntries = new List<(string OpenGenericType, string MethodName)>();
+        var seenOpenGenericTypes = new HashSet<string>();
+        uniqueOpenGenericEntries.AddRange(
+            openGenericEntries.Where(entry => seenOpenGenericTypes.Add(entry.OpenGenericType))
+        );
+
+        builder.AppendLine(
+            "private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Func<object, object>> _knownCloneMap = new()"
+        );
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        foreach (var entry in uniqueDirectEntries)
+        {
+            builder.AppendLine(
+                $"{{ typeof({entry.TypeFullName}), static value => {entry.MethodName}(({entry.TypeFullName})value) }},"
+            );
+        }
+        builder.DecreaseIndent();
+        builder.AppendLine("};");
+
+        if (uniqueOpenGenericEntries.Count > 0)
+        {
+            builder.AppendLine(
+                "private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Reflection.MethodInfo> _openGenericCloneMethods = new()"
+            );
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            foreach (var entry in uniqueOpenGenericEntries)
+            {
+                builder.AppendLine(
+                    $"{{ typeof({entry.OpenGenericType}), GetOpenGenericCloneMethod(\"{entry.MethodName}\") }},"
+                );
+            }
+            builder.DecreaseIndent();
+            builder.AppendLine("};");
+
+            builder.AppendLine(
+                "private static readonly global::System.Collections.Concurrent.ConcurrentDictionary<global::System.Type, global::System.Func<object, object>> _openGenericCloneCache = new();"
+            );
+
+            builder.AppendLine(
+                "private static global::System.Reflection.MethodInfo GetOpenGenericCloneMethod(string methodName)"
+            );
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            builder.AppendLine(
+                $"return typeof({options.ExtensionsClassName}).GetMethod(methodName, global::System.Reflection.BindingFlags.Static | global::System.Reflection.BindingFlags.NonPublic)!;"
+            );
+            builder.DecreaseIndent();
+            builder.AppendLine("}");
+        }
+
+        builder.AppendLine(
+            "private static bool TryCloneByKnownType(object value, out object clone)"
+        );
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("var type = value.GetType();");
+        builder.AppendLine("if (_knownCloneMap.TryGetValue(type, out var cloneFunc))");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("clone = cloneFunc(value);");
+        builder.AppendLine("return true;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+
+        if (openGenericEntries.Count > 0)
+        {
+            builder.AppendLine("if (type.IsGenericType)");
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            builder.AppendLine("var genericType = type.GetGenericTypeDefinition();");
+            builder.AppendLine(
+                "if (_openGenericCloneMethods.TryGetValue(genericType, out var method))"
+            );
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            builder.AppendLine("var closedClone = _openGenericCloneCache.GetOrAdd(type, t =>");
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+            builder.AppendLine("var args = t.GetGenericArguments();");
+            builder.AppendLine("var closedMethod = method.MakeGenericMethod(args);");
+            builder.AppendLine("return value => closedMethod.Invoke(null, new[] { value })!;");
+            builder.DecreaseIndent();
+            builder.AppendLine("});");
+            builder.AppendLine("clone = closedClone(value);");
+            builder.AppendLine("return true;");
+            builder.DecreaseIndent();
+            builder.AppendLine("}");
+            builder.DecreaseIndent();
+            builder.AppendLine("}");
+        }
+
+        builder.AppendLine("clone = default!;");
+        builder.AppendLine("return false;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+
+        builder.AppendLine("private static T CloneByRuntimeType<T>(T value)");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("if (value is null) return default!;");
+        builder.AppendLine("if (value is global::IDeepCloneable<T> cloneable)");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("return cloneable.DeepClone();");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+        builder.AppendLine("if (TryCloneByKnownType(value, out var clone))");
+        builder.AppendLine("{");
+        builder.IncreaseIndent();
+        builder.AppendLine("return (T)clone;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+        builder.AppendLine("return value;");
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
+
+        return builder;
+    }
+
+    private List<(string TypeFullName, string MethodName)> CollectSpecialTypeCloneEntries(
+        List<ClassInfo> classInfos
+    )
+    {
+        var entries = new List<(string TypeFullName, string MethodName)>();
+        var generatedMethods = new HashSet<string>();
+        var typesToProcess = new Queue<string>();
+
+        foreach (var classInfo in classInfos)
+        {
+            foreach (var prop in classInfo.Properties)
+            {
+                typesToProcess.Enqueue(prop.TypeFullName);
+            }
+        }
+
+        while (typesToProcess.Count > 0)
+        {
+            var typeFullName = typesToProcess.Dequeue();
+            var classInfoForMatching = GetOrCreateMinimalClassInfo(typeFullName, classInfos);
+
+            foreach (var specialTypeInfo in SpecialTypeInfos)
+            {
+                if (!specialTypeInfo.IsMatch(classInfoForMatching))
+                    continue;
+
+                var methodName = specialTypeInfo.GetMethodName(typeFullName);
+                if (generatedMethods.Add(methodName))
+                {
+                    entries.Add((typeFullName, methodName));
+
+                    var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
+                    if (innerType != typeFullName && !string.IsNullOrEmpty(innerType))
+                    {
+                        typesToProcess.Enqueue(innerType);
+                    }
+
+                    if (typeFullName.Contains("[") && typeFullName.Contains("]"))
+                    {
+                        var bracketIndex = typeFullName.IndexOf('[');
+                        var elementType = typeFullName.Substring(0, bracketIndex);
+                        if (!string.IsNullOrEmpty(elementType))
+                        {
+                            typesToProcess.Enqueue(elementType);
+                        }
+                    }
+                }
+            }
+        }
+
+        return entries;
+    }
+
+    private static bool ContainsTypeParameterReference(string typeFullName)
+    {
+        if (CodeGenerationUtility.IsSimpleTypeParameter(typeFullName))
+            return true;
+
+        if (typeFullName.Contains("["))
+        {
+            var bracketIndex = typeFullName.IndexOf('[');
+            if (bracketIndex > 0)
+            {
+                var elementType = typeFullName.Substring(0, bracketIndex);
+                return ContainsTypeParameterReference(elementType);
+            }
+        }
+
+        if (!typeFullName.Contains("<"))
+            return false;
+
+        return ExtractGenericTypeArguments(typeFullName)
+            .Any(arg => ContainsTypeParameterReference(arg));
+    }
+
+    private static string BuildOpenGenericTypeExpression(string typeFullName)
+    {
+        if (!typeFullName.Contains("<"))
+            return string.Empty;
+
+        var result = new System.Text.StringBuilder();
+        var depth = 0;
+        var argStart = -1;
+
+        for (int i = 0; i < typeFullName.Length; i++)
+        {
+            var c = typeFullName[i];
+            if (c == '<')
+            {
+                if (depth == 0)
+                {
+                    argStart = i + 1;
+                }
+                depth++;
+            }
+            else if (c == '>')
+            {
+                depth--;
+                if (depth == 0 && argStart >= 0)
+                {
+                    var inner = typeFullName.Substring(argStart, i - argStart);
+                    var commaCount = 0;
+                    var innerDepth = 0;
+                    foreach (var innerChar in inner)
+                    {
+                        if (innerChar == '<')
+                            innerDepth++;
+                        else if (innerChar == '>')
+                            innerDepth--;
+                        else if (innerChar == ',' && innerDepth == 0)
+                            commaCount++;
+                    }
+
+                    result.Append('<');
+                    for (int j = 0; j < commaCount; j++)
+                        result.Append(',');
+                    result.Append('>');
+                    argStart = -1;
+                }
+            }
+
+            if (depth == 0 && c != '>')
+            {
+                result.Append(c);
+            }
+        }
+
+        return result.ToString();
     }
 
     /// <summary>
