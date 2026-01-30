@@ -6,6 +6,12 @@ namespace IDeepCloneable.Generator;
 internal abstract class CloneableGeneratorOptionsCore
 {
     /// <summary>
+    /// The name of the source generator.
+    /// e.g. "IDeepCloneableGenerator"
+    /// </summary>
+    public virtual string GeneratorName => "IDeepCloneableGenerator";
+
+    /// <summary>
     /// The metadata name of the attribute that marks types for DeepClone generation.
     /// e.g. "DeepCloneableAttribute"
     /// </summary>
@@ -28,7 +34,7 @@ internal abstract class CloneableGeneratorOptionsCore
     /// The name of the file to export the extension methods to.
     /// e.g. "DeepCloneableExtensions" (without .g.cs)
     /// </summary>
-    public virtual string ExtensionsExportFileName => "DeepCloneableExtensions";
+    public virtual string ExtensionsExportFileName => $"{GeneratorName}.Extensions";
 
     /// <summary>
     /// The namespace for the generated extension methods.
@@ -47,6 +53,23 @@ internal abstract class CloneableGeneratorOptionsCore
     /// e.g. "DeepClone"
     /// </summary>
     public virtual string ImplementsMethodName => "DeepClone";
+
+    /// <summary>
+    /// Whether to generate the attribute classes used for marking types and members.
+    /// </summary>
+    public virtual bool GenerateAttributes => true;
+
+    /// <summary>
+    /// The name of the file to export the attribute classes to.
+    /// e.g. "IDeepCloneableGenerator.Attributes" (without .g.cs)
+    /// </summary>
+    public virtual string AttributeExportFileName => $"{GeneratorName}.Attributes";
+
+    /// <summary>
+    /// The namespace to use for the generated attribute classes.
+    /// If null, export to the global namespace.
+    /// </summary>
+    public virtual string? ExportAttributeNamespace => null;
 
     /// <summary>
     /// The metadata name of the attribute that marks properties/fields to be ignored during cloning.

@@ -43,6 +43,13 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
 
         try
         {
+            // Generate embbedded attributes
+            var attributesCode = GenerateEmbbedAttributes();
+            if (attributesCode != null)
+            {
+                context.AddSource($"{options.AttributeExportFileName}.g.cs", attributesCode);
+            }
+
             // Generate DeepCloneExtensions.g.cs
             var extensionsCode = GenerateDeepCloneExtensions(classInfos);
             context.AddSource($"{options.ExtensionsExportFileName}.g.cs", extensionsCode);
@@ -101,6 +108,79 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         return builder;
     }
 
+    private string? GenerateEmbbedAttributes()
+    {
+        if (!options.GenerateAttributes)
+        {
+            return null;
+        }
+
+        var builder = new IndentedStringBuilder();
+        builder = GenerateFileHeader(builder);
+
+        // first, add EmbeddedAttribute
+        builder.AppendLine("""
+            namespace Microsoft.CodeAnalysis
+            {
+                internal sealed partial class EmbeddedAttribute : global::System.Attribute { }
+            }
+        
+            """);
+        
+        if (options.ExportAttributeNamespace != null)
+        {
+            builder.AppendLine($"namespace {options.ExportAttributeNamespace}");
+            builder.AppendLine("{");
+            builder.IncreaseIndent();
+        }
+
+        // next, add [ShallowCloneAttribute] and [CloneIgnoreAttribute]
+        if (!string.IsNullOrEmpty(options.ShallowCloneAttributeName))
+        {
+            builder.AppendLine($$"""
+                /// <summary>
+                /// Marks a field or property to be shallow-copied during DeepClone operations.
+                /// Properties or fields marked with this attribute will have their references copied directly
+                /// without creating a deep clone of the object.
+                /// </summary>
+                [global::System.AttributeUsage(
+                    global::System.AttributeTargets.Property | global::System.AttributeTargets.Field,
+                    Inherited = false,
+                    AllowMultiple = false
+                )]
+                internal sealed class {{options.ShallowCloneAttributeName}} : global::System.Attribute { }
+                
+                """);
+        }
+        if (!string.IsNullOrEmpty(options.CloneIgnoreAttributeName))
+        {
+            builder.AppendLine($$"""
+                /// <summary>
+                /// Marks a field or property to be ignored during DeepClone operations.
+                /// Properties or fields marked with this attribute will not be cloned and will retain their default values.
+                /// </summary>
+                [global::System.AttributeUsage(
+                    global::System.AttributeTargets.Property | global::System.AttributeTargets.Field,
+                    Inherited = false,
+                    AllowMultiple = false
+                )]
+                internal sealed class {{options.CloneIgnoreAttributeName}} : global::System.Attribute { }
+                
+                """);
+        }
+
+        if (options.ExportAttributeNamespace != null)
+        {
+            builder.DecreaseIndent();
+            builder.AppendLine("}");
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Generates the DeepCloneExtensions class with CloneInternal methods.
+    /// </summary>
     private string GenerateDeepCloneExtensions(List<ClassInfo> classInfos)
     {
         var builder = new IndentedStringBuilder();
