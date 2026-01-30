@@ -210,6 +210,7 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
                 /// Registers a target type for DeepClone generation without requiring the target to be partial.
                 /// Use this to generate clone logic for types you can't modify.
                 /// </summary>
+                [global::Microsoft.CodeAnalysis.Embedded]
                 [global::System.AttributeUsage(
                     global::System.AttributeTargets.Class | global::System.AttributeTargets.Struct,
                     Inherited = false,
