@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -553,10 +554,20 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 typeDependencies[classInfo.FullClassName] = new HashSet<string>();
             }
 
-            // Add direct property type dependencies (excluding collections and primitives)
+            // Add direct property type dependencies (for collections, add element types)
             foreach (var prop in classInfo.Properties)
             {
-                if (prop.NeedsDeepClone && !IsCollectionPropertyType(prop.TypeFullName))
+                if (!prop.NeedsDeepClone)
+                    continue;
+
+                if (IsCollectionPropertyType(prop.TypeFullName))
+                {
+                    foreach (var elementType in ExtractCollectionElementTypes(prop.TypeFullName))
+                    {
+                        typeDependencies[classInfo.FullClassName].Add(elementType);
+                    }
+                }
+                else
                 {
                     typeDependencies[classInfo.FullClassName].Add(prop.TypeFullName);
                 }
@@ -643,5 +654,27 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             || typeFullName.Contains("System.Collections.Immutable.ImmutableHashSet<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableDictionary<")
             || typeFullName.Contains("[]");
+    }
+
+    private static IEnumerable<string> ExtractCollectionElementTypes(string typeFullName)
+    {
+        var arrayBracket = typeFullName.IndexOf('[');
+        if (arrayBracket >= 0)
+        {
+            var elementType = typeFullName.Substring(0, arrayBracket);
+            if (!string.IsNullOrWhiteSpace(elementType))
+                return new[] { elementType };
+        }
+
+        var genericStart = typeFullName.IndexOf('<');
+        var genericEnd = typeFullName.LastIndexOf('>');
+        if (genericStart < 0 || genericEnd <= genericStart)
+            return Array.Empty<string>();
+
+        var genericArgs = typeFullName.Substring(genericStart + 1, genericEnd - genericStart - 1);
+        return CodeGenerationUtility
+            .SplitGenericArgs(genericArgs)
+            .Select(arg => arg.Trim())
+            .Where(arg => !string.IsNullOrWhiteSpace(arg));
     }
 }
