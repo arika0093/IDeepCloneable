@@ -4,15 +4,15 @@ using Microsoft.CodeAnalysis;
 namespace IDeepCloneable.Generator;
 
 /// <summary>
-/// Special type handler for Queue&lt;T&gt; collections.
+/// Special type handler for LinkedList&lt;T&gt; collections.
 /// </summary>
-internal class QueueTypeInfo : SpecialTypeInfo
+internal class LinkedListTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.Generic.Queue<";
+    public override string TargetTypeStartWith => "global::System.Collections.Generic.LinkedList<";
 
     public override string GetMethodName(string typeFullName)
     {
-        return "CloneQueue_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
+        return "CloneLinkedList_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(
@@ -42,15 +42,15 @@ internal class QueueTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var queue = new {typeFullName}(original.Count);");
+            builder.AppendLine($"var list = new {typeFullName}();");
             builder.AppendLine("foreach (var item in original)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
-            builder.AppendLine($"queue.Enqueue({cloneCall});");
+            builder.AppendLine($"list.AddLast({cloneCall});");
             builder.DecreaseIndent();
             builder.AppendLine("}");
-            builder.AppendLine("return queue;");
+            builder.AppendLine("return list;");
         }
 
         builder.DecreaseIndent();

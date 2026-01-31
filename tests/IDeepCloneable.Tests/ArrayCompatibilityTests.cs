@@ -139,8 +139,31 @@ public class ArrayCompatibilityTests
         clone.Multi3[1, 1, 0].ShouldBe(4);
     }
 
-    [Fact(Skip = "Non-zero-based array cloning is not supported by IDeepCloneable.")]
-    public void NonZeroBased_Array_Should_Be_Cloned() { }
+    [Fact]
+    public void NonZeroBased_Array_Should_Be_Cloned()
+    {
+        var original = new ArrayWrapper();
+        var array = (int[,])
+            System.Array.CreateInstance(typeof(int), new[] { 2, 2 }, new[] { 1, 1 });
+        array[1, 1] = 1;
+        array[1, 2] = 2;
+        array[2, 1] = 3;
+        array[2, 2] = 4;
+        original.Multi2 = array;
+
+        var clone = original.DeepClone();
+
+        clone.Multi2.ShouldNotBeSameAs(original.Multi2);
+        clone.Multi2.ShouldNotBeNull();
+        clone.Multi2!.GetLowerBound(0).ShouldBe(1);
+        clone.Multi2.GetLowerBound(1).ShouldBe(1);
+        clone.Multi2.GetUpperBound(0).ShouldBe(2);
+        clone.Multi2.GetUpperBound(1).ShouldBe(2);
+        clone.Multi2[1, 1].ShouldBe(1);
+        clone.Multi2[1, 2].ShouldBe(2);
+        clone.Multi2[2, 1].ShouldBe(3);
+        clone.Multi2[2, 2].ShouldBe(4);
+    }
 }
 
 [DeepCloneable]

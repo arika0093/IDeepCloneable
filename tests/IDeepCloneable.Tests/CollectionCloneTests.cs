@@ -68,7 +68,7 @@ public class CollectionCloneTests
         clone.Numbers!.ShouldBe([1, 2, 3]);
     }
 
-    [Fact(Skip = "PriorityQueue cloning is not supported by IDeepCloneable.")]
+    [Fact]
     public void DeepClone_PriorityQueue_CreatesDeepCopy()
     {
         var original = new ClassWithPriorityQueue { Items = new PriorityQueue<string, int>() };
@@ -85,7 +85,7 @@ public class CollectionCloneTests
         clone.Items.Dequeue().ShouldBe("High");
     }
 
-    [Fact(Skip = "BlockingCollection cloning is not supported by IDeepCloneable.")]
+    [Fact]
     public void DeepClone_BlockingCollection_CreatesDeepCopy()
     {
         var original = new ClassWithBlockingCollection { Items = new BlockingCollection<int>() };
@@ -102,7 +102,7 @@ public class CollectionCloneTests
         clone.Items.Take().ShouldBe(1);
     }
 
-    [Fact(Skip = "ConcurrentStack cloning is not supported by IDeepCloneable.")]
+    [Fact]
     public void DeepClone_ConcurrentStack_CreatesDeepCopy()
     {
         var original = new ClassWithConcurrentStack { Items = new ConcurrentStack<int>() };
@@ -118,7 +118,7 @@ public class CollectionCloneTests
         clone.Items.Count.ShouldBe(3);
     }
 
-    [Fact(Skip = "ConcurrentQueue cloning is not supported by IDeepCloneable.")]
+    [Fact]
     public void DeepClone_ConcurrentQueue_CreatesDeepCopy()
     {
         var original = new ClassWithConcurrentQueue { Items = new ConcurrentQueue<int>() };
@@ -134,7 +134,7 @@ public class CollectionCloneTests
         clone.Items.Count.ShouldBe(3);
     }
 
-    [Fact(Skip = "LinkedList cloning is not supported by IDeepCloneable.")]
+    [Fact]
     public void DeepClone_LinkedList_CreatesDeepCopy()
     {
         var original = new ClassWithLinkedList { Items = new LinkedList<int>() };
@@ -168,34 +168,29 @@ public partial class ClassWithValueList
 [DeepCloneable]
 public partial class ClassWithPriorityQueue
 {
-    [ShallowClone]
     public PriorityQueue<string, int>? Items { get; set; }
 }
 
 [DeepCloneable]
 public partial class ClassWithBlockingCollection
 {
-    [ShallowClone]
     public BlockingCollection<int>? Items { get; set; }
 }
 
 [DeepCloneable]
 public partial class ClassWithConcurrentStack
 {
-    [ShallowClone]
     public ConcurrentStack<int>? Items { get; set; }
 }
 
 [DeepCloneable]
 public partial class ClassWithConcurrentQueue
 {
-    [ShallowClone]
     public ConcurrentQueue<int>? Items { get; set; }
 }
 
 [DeepCloneable]
 public partial class ClassWithLinkedList
 {
-    [ShallowClone]
     public LinkedList<int>? Items { get; set; }
 }

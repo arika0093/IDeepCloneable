@@ -133,10 +133,28 @@ public class CircularCompatibilityTests
         cloneNode3.Next.ShouldBeSameAs(cloneRoot); // Should circle back to cloned root
     }
 
-    [Fact(
-        Skip = "Collection-based circular references currently trigger recursion without cache support."
-    )]
-    public void CircularReference_In_Collections_Should_Be_Cloned() { }
+    [Fact]
+    public void CircularReference_In_Collections_Should_Be_Cloned()
+    {
+        var parent = new CircularParent { Name = "Parent" };
+        var child1 = new CircularChild { Name = "Child1", Parent = parent };
+        var child2 = new CircularChild { Name = "Child2", Parent = parent };
+        parent.Children.Add(child1);
+        parent.Children.Add(child2);
+
+        var clone = parent.DeepClone();
+
+        clone.ShouldNotBeSameAs(parent);
+        clone.Name.ShouldBe("Parent");
+        clone.Children.ShouldNotBeNull();
+        clone.Children.Count.ShouldBe(2);
+        clone.Children[0].ShouldNotBeSameAs(parent.Children[0]);
+        clone.Children[1].ShouldNotBeSameAs(parent.Children[1]);
+        clone.Children[0].Name.ShouldBe("Child1");
+        clone.Children[1].Name.ShouldBe("Child2");
+        clone.Children[0].Parent.ShouldBeSameAs(clone);
+        clone.Children[1].Parent.ShouldBeSameAs(clone);
+    }
 }
 
 [DeepCloneable]

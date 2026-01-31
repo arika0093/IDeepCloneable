@@ -249,7 +249,9 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 && attr.ConstructorArguments[0].Kind == TypedConstantKind.Type
                 && attr.ConstructorArguments[0].Value is INamedTypeSymbol
             )
-            .Select(attr => (attr as INamedTypeSymbol)!)
+            .Select(attr => attr.ConstructorArguments[0].Value as INamedTypeSymbol)
+            .Where(target => target != null)
+            .Select(target => target!)
             .ToList();
 
         return targets;
@@ -541,9 +543,10 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
         foreach (var classInfo in allClassInfos)
         {
-            if (!typeDependencies.ContainsKey(classInfo.FullClassName))
+            var normalizedName = NormalizeTypeName(classInfo.FullClassName);
+            if (!typeDependencies.ContainsKey(normalizedName))
             {
-                typeDependencies[classInfo.FullClassName] = new HashSet<string>();
+                typeDependencies[normalizedName] = new HashSet<string>();
             }
 
             // Add direct property type dependencies (for collections, add element types)
@@ -556,12 +559,14 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 {
                     foreach (var elementType in ExtractCollectionElementTypes(prop.TypeFullName))
                     {
-                        typeDependencies[classInfo.FullClassName].Add(elementType);
+                        typeDependencies[normalizedName].Add(NormalizeTypeName(elementType));
                     }
                 }
                 else
                 {
-                    typeDependencies[classInfo.FullClassName].Add(prop.TypeFullName);
+                    typeDependencies[normalizedName].Add(
+                        NormalizeTypeName(prop.TypeFullName)
+                    );
                 }
             }
         }
@@ -582,13 +587,18 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         // Update ClassInfo objects with circular reference flag
         for (int i = 0; i < allClassInfos.Count; i++)
         {
-            if (typesInCycle.Contains(allClassInfos[i].FullClassName))
+            if (typesInCycle.Contains(NormalizeTypeName(allClassInfos[i].FullClassName)))
             {
                 // Create a new ClassInfo with updated HasCircularReference flag
                 var old = allClassInfos[i];
                 allClassInfos[i] = old with { HasCircularReference = true };
             }
         }
+    }
+
+    private static string NormalizeTypeName(string typeFullName)
+    {
+        return typeFullName.Replace("global::", string.Empty).Trim();
     }
 
     /// <summary>
@@ -639,8 +649,13 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             || typeFullName.Contains("System.Collections.Generic.SortedSet<")
             || typeFullName.Contains("System.Collections.Generic.Stack<")
             || typeFullName.Contains("System.Collections.Generic.Queue<")
+            || typeFullName.Contains("System.Collections.Generic.PriorityQueue<")
+            || typeFullName.Contains("System.Collections.Generic.LinkedList<")
             || typeFullName.Contains("System.Collections.ObjectModel.ObservableCollection<")
             || typeFullName.Contains("System.Collections.ObjectModel.ReadOnlyCollection<")
+            || typeFullName.Contains("System.Collections.Concurrent.BlockingCollection<")
+            || typeFullName.Contains("System.Collections.Concurrent.ConcurrentStack<")
+            || typeFullName.Contains("System.Collections.Concurrent.ConcurrentQueue<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableList<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableArray<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableHashSet<")

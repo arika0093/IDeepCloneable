@@ -4,15 +4,16 @@ using Microsoft.CodeAnalysis;
 namespace IDeepCloneable.Generator;
 
 /// <summary>
-/// Special type handler for Queue&lt;T&gt; collections.
+/// Special type handler for ConcurrentStack&lt;T&gt; collections.
 /// </summary>
-internal class QueueTypeInfo : SpecialTypeInfo
+internal class ConcurrentStackTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.Generic.Queue<";
+    public override string TargetTypeStartWith =>
+        "global::System.Collections.Concurrent.ConcurrentStack<";
 
     public override string GetMethodName(string typeFullName)
     {
-        return "CloneQueue_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
+        return "CloneConcurrentStack_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(
@@ -35,22 +36,28 @@ internal class QueueTypeInfo : SpecialTypeInfo
         builder.AppendLine("{");
         builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
+        builder.AppendLine("var array = original.ToArray();");
+        builder.AppendLine("global::System.Array.Reverse(array);");
 
         if (isImmutable)
         {
-            builder.AppendLine($"return new {typeFullName}(original);");
+            builder.AppendLine($"return new {typeFullName}(array);");
         }
         else
         {
-            builder.AppendLine($"var queue = new {typeFullName}(original.Count);");
-            builder.AppendLine("foreach (var item in original)");
+            builder.AppendLine($"var stack = new {typeFullName}();");
+            builder.AppendLine("for (int i = 0; i < array.Length; i++)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
-            var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
-            builder.AppendLine($"queue.Enqueue({cloneCall});");
+            var cloneCall = codeGenerator.GenerateTypeCloneCall(
+                innerType,
+                "array[i]",
+                allClassInfos
+            );
+            builder.AppendLine($"stack.Push({cloneCall});");
             builder.DecreaseIndent();
             builder.AppendLine("}");
-            builder.AppendLine("return queue;");
+            builder.AppendLine("return stack;");
         }
 
         builder.DecreaseIndent();
