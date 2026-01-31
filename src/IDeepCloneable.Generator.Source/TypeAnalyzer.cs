@@ -240,25 +240,17 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         GeneratorAttributeSyntaxContext context
     )
     {
-        var targets = new List<INamedTypeSymbol>();
-        foreach (
-            var targetAttribute in context.Attributes.Where(attr =>
+        var targets = context
+            .Attributes.Where(attr =>
                 attr.AttributeClass?.Name == options.GenerateDeepCloneableAttributeName
             )
-        )
-        {
-            if (targetAttribute.ConstructorArguments.Length == 0)
-                continue;
-
-            var typeArgument = targetAttribute.ConstructorArguments[0];
-            if (typeArgument.Kind != TypedConstantKind.Type)
-                continue;
-
-            if (typeArgument.Value is INamedTypeSymbol namedType)
-            {
-                targets.Add(namedType);
-            }
-        }
+            .Where(attr =>
+                attr.ConstructorArguments.Length > 0
+                && attr.ConstructorArguments[0].Kind == TypedConstantKind.Type
+                && attr.ConstructorArguments[0].Value is INamedTypeSymbol
+            )
+            .Select(attr => (attr as INamedTypeSymbol)!)
+            .ToList();
 
         return targets;
     }
