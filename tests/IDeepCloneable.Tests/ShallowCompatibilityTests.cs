@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace IDeepCloneable.Tests.FastClonerCompat;
+namespace IDeepCloneable.Tests;
 
 public class ShallowCompatibilityTests
 {

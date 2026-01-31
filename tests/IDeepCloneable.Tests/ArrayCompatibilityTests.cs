@@ -1,6 +1,4 @@
-using System;
-
-namespace IDeepCloneable.Tests.FastClonerCompat;
+namespace IDeepCloneable.Tests;
 
 public class ArrayCompatibilityTests
 {
@@ -43,7 +41,7 @@ public class ArrayCompatibilityTests
     {
         var original = new ArrayWrapper
         {
-            ClassItems = [new ArrayClassItem(1), new ArrayClassItem(2)]
+            ClassItems = [new ArrayClassItem(1), new ArrayClassItem(2)],
         };
 
         var clone = original.DeepClone();
@@ -59,7 +57,10 @@ public class ArrayCompatibilityTests
     [Fact]
     public void StructArray_Should_Be_Cloned()
     {
-        var original = new ArrayWrapper { StructItems = [new SimpleStruct(1), new SimpleStruct(2)] };
+        var original = new ArrayWrapper
+        {
+            StructItems = [new SimpleStruct(1), new SimpleStruct(2)],
+        };
 
         var clone = original.DeepClone();
 
@@ -112,8 +113,14 @@ public class ArrayCompatibilityTests
             },
             Multi3 = new[,,]
             {
-                { { 1 }, { 2 } },
-                { { 3 }, { 4 } },
+                {
+                    { 1 },
+                    { 2 },
+                },
+                {
+                    { 3 },
+                    { 4 },
+                },
             },
         };
 
@@ -131,6 +138,9 @@ public class ArrayCompatibilityTests
         clone.Multi3[1, 0, 0].ShouldBe(3);
         clone.Multi3[1, 1, 0].ShouldBe(4);
     }
+
+    [Fact(Skip = "Non-zero-based array cloning is not supported by IDeepCloneable.")]
+    public void NonZeroBased_Array_Should_Be_Cloned() { }
 }
 
 [DeepCloneable]
