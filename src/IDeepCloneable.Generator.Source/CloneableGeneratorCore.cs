@@ -52,9 +52,9 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
             .Combine(generateCloneableDeclarations.Collect())
             .Select(static (pair, _) => pair.Left.AddRange(pair.Right));
 
-        var environment = context
-            .CompilationProvider
-            .Select(static (compilation, _) => GenerationEnvironment.Create(compilation));
+        var environment = context.CompilationProvider.Select(
+            static (compilation, _) => GenerationEnvironment.Create(compilation)
+        );
 
         context.RegisterSourceOutput(
             classDeclarations.Combine(environment),

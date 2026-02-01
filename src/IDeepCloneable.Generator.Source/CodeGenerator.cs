@@ -8,7 +8,10 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Generates source code for deep cloning functionality.
 /// </summary>
-internal class CodeGenerator(CloneableGeneratorOptionsCore options, GenerationEnvironment environment)
+internal class CodeGenerator(
+    CloneableGeneratorOptionsCore options,
+    GenerationEnvironment environment
+)
 {
     private static readonly List<SpecialTypeInfo> SpecialTypeInfos =
     [
