@@ -8,7 +8,7 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Generates source code for deep cloning functionality.
 /// </summary>
-internal class CodeGenerator(CloneableGeneratorOptionsCore options)
+internal class CodeGenerator(CloneableGeneratorOptionsCore options, GenerationEnvironment environment)
 {
     private static readonly List<SpecialTypeInfo> SpecialTypeInfos =
     [
@@ -32,6 +32,8 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         new ImmutableDictionaryTypeInfo(),
         new EnumerableTypeInfo(),
     ];
+
+    public bool SupportsArrayAsSpan { get; } = environment.SupportsArrayAsSpan;
 
     /// <summary>
     /// Generates source code for deep cloning.

@@ -24,11 +24,6 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     private readonly TypeAnalyzer _typeAnalyzer = new(options);
 
     /// <summary>
-    /// Code generator instance.
-    /// </summary>
-    private readonly CodeGenerator _codeGenerator = new(options);
-
-    /// <summary>
     /// Initializes the incremental generator.
     /// </summary>
     public virtual void Initialize(IncrementalGeneratorInitializationContext context)
@@ -57,9 +52,13 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
             .Combine(generateCloneableDeclarations.Collect())
             .Select(static (pair, _) => pair.Left.AddRange(pair.Right));
 
+        var environment = context
+            .CompilationProvider
+            .Select(static (compilation, _) => GenerationEnvironment.Create(compilation));
+
         context.RegisterSourceOutput(
-            classDeclarations,
-            (spc, sources) => Execute(DropDuplicates(sources), spc)
+            classDeclarations.Combine(environment),
+            (spc, pair) => Execute(DropDuplicates(pair.Left), pair.Right, spc)
         );
     }
 
@@ -84,8 +83,13 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     /// </summary>
     protected virtual void Execute(
         List<ClassInfo> allClassInfos,
+        GenerationEnvironment environment,
         SourceProductionContext context
-    ) => _codeGenerator.Execute(allClassInfos, context);
+    )
+    {
+        var codeGenerator = new CodeGenerator(options, environment);
+        codeGenerator.Execute(allClassInfos, context);
+    }
 
     /// <summary>
     /// Drops duplicate ClassInfo entries based on FullClassName.

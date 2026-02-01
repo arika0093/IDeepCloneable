@@ -55,7 +55,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
 
     /// <summary>
     /// Generates clone method for single-dimensional arrays.
-    /// Uses AsSpan().ToArray() for immutable elements, deep clones mutable elements.
+    /// Uses AsSpan().ToArray() for immutable elements when supported, deep clones mutable elements.
     /// </summary>
     private static IndentedStringBuilder GenerateSingleDimensionalArrayCloneMethod(
         string typeFullName,
@@ -82,8 +82,15 @@ internal class ArrayTypeInfo : SpecialTypeInfo
 
         if (isImmutable)
         {
-            // Use AsSpan().ToArray() for fast cloning of immutable/primitive elements
-            builder.AppendLine($"return original.AsSpan().ToArray();");
+            if (codeGenerator.SupportsArrayAsSpan)
+            {
+                // Use AsSpan().ToArray() for fast cloning of immutable/primitive elements
+                builder.AppendLine("return original.AsSpan().ToArray();");
+            }
+            else
+            {
+                builder.AppendLine($"return (original.Clone() as {typeFullName});");
+            }
         }
         else
         {
