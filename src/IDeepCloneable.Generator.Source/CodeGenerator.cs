@@ -19,8 +19,13 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         new SortedSetTypeInfo(),
         new StackTypeInfo(),
         new QueueTypeInfo(),
+        new PriorityQueueTypeInfo(),
+        new LinkedListTypeInfo(),
         new ObservableCollectionTypeInfo(),
         new ReadOnlyCollectionTypeInfo(),
+        new BlockingCollectionTypeInfo(),
+        new ConcurrentStackTypeInfo(),
+        new ConcurrentQueueTypeInfo(),
         new ImmutableListTypeInfo(),
         new ImmutableArrayTypeInfo(),
         new ImmutableHashSetTypeInfo(),
@@ -568,7 +573,13 @@ internal class CodeGenerator(CloneableGeneratorOptionsCore options)
         // e.g., CustomEnumerable<string> should call CustomEnumerable_T__CloneInternal<string>
 
         // First, try to find a matching ClassInfo
-        var matchingClassInfo = FindMatchingGenericClassInfo(typeFullName, allClassInfos);
+        var matchingClassInfo =
+            allClassInfos.FirstOrDefault(c => c.FullClassName == typeFullName)
+            ?? FindMatchingGenericClassInfo(typeFullName, allClassInfos);
+        if (matchingClassInfo != null && matchingClassInfo.IsImmutableUsable)
+        {
+            return valueExpression;
+        }
 
         string sanitizedName;
         List<string> genericArgs;

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace IDeepCloneable.Tests;
 
 /// <summary>
@@ -59,6 +61,25 @@ public class GenericRuntimeCloneTests
         clone.Value2.Child.ShouldNotBeSameAs(original.Value2.Child);
         clone.Value2.Child!.Name.ShouldBe("child2");
     }
+
+    [Fact]
+    public void DeepClone_GenericCollection_ClonesItems()
+    {
+        var original = new GenericCollectionBox<RuntimeCloneable>
+        {
+            Items = [new RuntimeCloneable { Id = 10 }, new RuntimeCloneable { Id = 20 }],
+        };
+
+        var clone = original.DeepClone();
+
+        clone.ShouldNotBeSameAs(original);
+        clone.Items.ShouldNotBeSameAs(original.Items);
+        clone.Items!.Count.ShouldBe(2);
+        clone.Items[0].ShouldNotBeSameAs(original.Items[0]);
+        clone.Items[0].Id.ShouldBe(10);
+        clone.Items[1].ShouldNotBeSameAs(original.Items[1]);
+        clone.Items[1].Id.ShouldBe(20);
+    }
 }
 
 [DeepCloneable]
@@ -73,6 +94,12 @@ public partial class GenericTwoBox<T1, T2>
 {
     public T1? Value1 { get; set; }
     public T2? Value2 { get; set; }
+}
+
+[DeepCloneable]
+public partial class GenericCollectionBox<T>
+{
+    public List<T>? Items { get; set; }
 }
 
 [DeepCloneable]

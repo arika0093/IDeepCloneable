@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -239,25 +240,19 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         GeneratorAttributeSyntaxContext context
     )
     {
-        var targets = new List<INamedTypeSymbol>();
-        foreach (
-            var targetAttribute in context.Attributes.Where(attr =>
+        var targets = context
+            .Attributes.Where(attr =>
                 attr.AttributeClass?.Name == options.GenerateDeepCloneableAttributeName
             )
-        )
-        {
-            if (targetAttribute.ConstructorArguments.Length == 0)
-                continue;
-
-            var typeArgument = targetAttribute.ConstructorArguments[0];
-            if (typeArgument.Kind != TypedConstantKind.Type)
-                continue;
-
-            if (typeArgument.Value is INamedTypeSymbol namedType)
-            {
-                targets.Add(namedType);
-            }
-        }
+            .Where(attr =>
+                attr.ConstructorArguments.Length > 0
+                && attr.ConstructorArguments[0].Kind == TypedConstantKind.Type
+                && attr.ConstructorArguments[0].Value is INamedTypeSymbol
+            )
+            .Select(attr => attr.ConstructorArguments[0].Value as INamedTypeSymbol)
+            .Where(target => target != null)
+            .Select(target => target!)
+            .ToList();
 
         return targets;
     }
@@ -548,17 +543,30 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
         foreach (var classInfo in allClassInfos)
         {
-            if (!typeDependencies.ContainsKey(classInfo.FullClassName))
+            var normalizedName = NormalizeTypeName(classInfo.FullClassName);
+            if (!typeDependencies.ContainsKey(normalizedName))
             {
-                typeDependencies[classInfo.FullClassName] = new HashSet<string>();
+                typeDependencies[normalizedName] = new HashSet<string>();
             }
 
-            // Add direct property type dependencies (excluding collections and primitives)
+            // Add direct property type dependencies (for collections, add element types)
             foreach (var prop in classInfo.Properties)
             {
-                if (prop.NeedsDeepClone && !IsCollectionPropertyType(prop.TypeFullName))
+                if (!prop.NeedsDeepClone)
+                    continue;
+
+                if (IsCollectionPropertyType(prop.TypeFullName))
                 {
-                    typeDependencies[classInfo.FullClassName].Add(prop.TypeFullName);
+                    foreach (var elementType in ExtractCollectionElementTypes(prop.TypeFullName))
+                    {
+                        typeDependencies[normalizedName].Add(NormalizeTypeName(elementType));
+                    }
+                }
+                else
+                {
+                    typeDependencies[normalizedName].Add(
+                        NormalizeTypeName(prop.TypeFullName)
+                    );
                 }
             }
         }
@@ -579,13 +587,18 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         // Update ClassInfo objects with circular reference flag
         for (int i = 0; i < allClassInfos.Count; i++)
         {
-            if (typesInCycle.Contains(allClassInfos[i].FullClassName))
+            if (typesInCycle.Contains(NormalizeTypeName(allClassInfos[i].FullClassName)))
             {
                 // Create a new ClassInfo with updated HasCircularReference flag
                 var old = allClassInfos[i];
                 allClassInfos[i] = old with { HasCircularReference = true };
             }
         }
+    }
+
+    private static string NormalizeTypeName(string typeFullName)
+    {
+        return typeFullName.Replace("global::", string.Empty).Trim();
     }
 
     /// <summary>
@@ -636,12 +649,39 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             || typeFullName.Contains("System.Collections.Generic.SortedSet<")
             || typeFullName.Contains("System.Collections.Generic.Stack<")
             || typeFullName.Contains("System.Collections.Generic.Queue<")
+            || typeFullName.Contains("System.Collections.Generic.PriorityQueue<")
+            || typeFullName.Contains("System.Collections.Generic.LinkedList<")
             || typeFullName.Contains("System.Collections.ObjectModel.ObservableCollection<")
             || typeFullName.Contains("System.Collections.ObjectModel.ReadOnlyCollection<")
+            || typeFullName.Contains("System.Collections.Concurrent.BlockingCollection<")
+            || typeFullName.Contains("System.Collections.Concurrent.ConcurrentStack<")
+            || typeFullName.Contains("System.Collections.Concurrent.ConcurrentQueue<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableList<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableArray<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableHashSet<")
             || typeFullName.Contains("System.Collections.Immutable.ImmutableDictionary<")
             || typeFullName.Contains("[]");
+    }
+
+    private static IEnumerable<string> ExtractCollectionElementTypes(string typeFullName)
+    {
+        var arrayBracket = typeFullName.IndexOf('[');
+        if (arrayBracket >= 0)
+        {
+            var elementType = typeFullName.Substring(0, arrayBracket);
+            if (!string.IsNullOrWhiteSpace(elementType))
+                return new[] { elementType };
+        }
+
+        var genericStart = typeFullName.IndexOf('<');
+        var genericEnd = typeFullName.LastIndexOf('>');
+        if (genericStart < 0 || genericEnd <= genericStart)
+            return Array.Empty<string>();
+
+        var genericArgs = typeFullName.Substring(genericStart + 1, genericEnd - genericStart - 1);
+        return CodeGenerationUtility
+            .SplitGenericArgs(genericArgs)
+            .Select(arg => arg.Trim())
+            .Where(arg => !string.IsNullOrWhiteSpace(arg));
     }
 }

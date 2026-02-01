@@ -23,13 +23,14 @@ internal class SortedSetTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        var genericParams = CodeGenerationUtility.BuildGenericTypeParameterList(typeFullName);
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
-            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();

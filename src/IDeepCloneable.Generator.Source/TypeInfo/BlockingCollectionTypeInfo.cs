@@ -4,15 +4,16 @@ using Microsoft.CodeAnalysis;
 namespace IDeepCloneable.Generator;
 
 /// <summary>
-/// Special type handler for Queue&lt;T&gt; collections.
+/// Special type handler for BlockingCollection&lt;T&gt; collections.
 /// </summary>
-internal class QueueTypeInfo : SpecialTypeInfo
+internal class BlockingCollectionTypeInfo : SpecialTypeInfo
 {
-    public override string TargetTypeStartWith => "global::System.Collections.Generic.Queue<";
+    public override string TargetTypeStartWith =>
+        "global::System.Collections.Concurrent.BlockingCollection<";
 
     public override string GetMethodName(string typeFullName)
     {
-        return "CloneQueue_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
+        return "CloneBlockingCollection_" + CodeGenerationUtility.SanitizeTypeName(typeFullName);
     }
 
     public override IndentedStringBuilder GenerateCloneMethod(
@@ -38,21 +39,34 @@ internal class QueueTypeInfo : SpecialTypeInfo
 
         if (isImmutable)
         {
-            builder.AppendLine($"return new {typeFullName}(original);");
+            builder.AppendLine("var items = original.ToArray();");
+            builder.AppendLine(
+                $"var queue = new global::System.Collections.Concurrent.ConcurrentQueue<{innerType}>(items);"
+            );
         }
         else
         {
-            builder.AppendLine($"var queue = new {typeFullName}(original.Count);");
-            builder.AppendLine("foreach (var item in original)");
+            builder.AppendLine("var items = original.ToArray();");
+            builder.AppendLine(
+                $"var queue = new global::System.Collections.Concurrent.ConcurrentQueue<{innerType}>();"
+            );
+            builder.AppendLine("foreach (var item in items)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.AppendLine($"queue.Enqueue({cloneCall});");
             builder.DecreaseIndent();
             builder.AppendLine("}");
-            builder.AppendLine("return queue;");
         }
 
+        builder.AppendLine("var boundedCapacity = original.BoundedCapacity;");
+        builder.AppendLine(
+            $"var clone = boundedCapacity > 0"
+                + $" ? new {typeFullName}(queue, boundedCapacity)"
+                + $" : new {typeFullName}(queue);"
+        );
+        builder.AppendLine("if (original.IsAddingCompleted) clone.CompleteAdding();");
+        builder.AppendLine("return clone;");
         builder.DecreaseIndent();
         builder.AppendLine("}");
 

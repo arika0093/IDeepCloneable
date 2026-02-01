@@ -23,6 +23,7 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        var genericParams = CodeGenerationUtility.BuildGenericTypeParameterList(typeFullName);
         var genericArgs = CodeGenerationUtility.ExtractGenericType(typeFullName);
         var parts = CodeGenerationUtility.SplitGenericArgs(genericArgs);
 
@@ -38,7 +39,7 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
         builder.AppendLine("");
         builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
         builder.AppendLine(
-            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();

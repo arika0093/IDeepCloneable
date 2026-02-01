@@ -65,6 +65,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        var genericParams = CodeGenerationUtility.BuildGenericTypeParameterList(typeFullName);
         // Extract element type (everything before the first '[')
         var bracketIndex = typeFullName.IndexOf('[');
         var elementType = typeFullName.Substring(0, bracketIndex);
@@ -73,7 +74,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         builder.AppendLine("");
         builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
         builder.AppendLine(
-            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
@@ -120,6 +121,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        var genericParams = CodeGenerationUtility.BuildGenericTypeParameterList(typeFullName);
         // Extract element type (everything before the first '[')
         var bracketIndex = typeFullName.IndexOf('[');
         var elementType = typeFullName.Substring(0, bracketIndex);
@@ -128,7 +130,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         builder.AppendLine("");
         builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
         builder.AppendLine(
-            $"private static {typeFullName} {methodName}(this {typeFullName} original)"
+            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
         );
         builder.AppendLine("{");
         builder.IncreaseIndent();
@@ -149,20 +151,35 @@ internal class ArrayTypeInfo : SpecialTypeInfo
             // Get lengths for each dimension
             for (int i = 0; i < dimensionCount; i++)
             {
+                builder.AppendLine($"var lb{i} = original.GetLowerBound({i});");
                 builder.AppendLine($"var l{i} = original.GetLength({i});");
             }
 
-            // Create clone array
-            var commaPart = string.Join(
+            // Create clone array (preserve lower bounds if non-zero)
+            builder.AppendLine("var hasNonZeroLowerBound = false;");
+            for (int i = 0; i < dimensionCount; i++)
+            {
+                builder.AppendLine($"if (lb{i} != 0) hasNonZeroLowerBound = true;");
+            }
+
+            var lengthsPart = string.Join(
                 ",",
                 Enumerable.Range(0, dimensionCount).Select(i => $"l{i}")
             );
-            builder.AppendLine($"var clone = new {elementType}[{commaPart}];");
+            var lowerBoundsPart = string.Join(
+                ",",
+                Enumerable.Range(0, dimensionCount).Select(i => $"lb{i}")
+            );
+            builder.AppendLine(
+                $"var clone = hasNonZeroLowerBound"
+                    + $" ? ({typeFullName})global::System.Array.CreateInstance(typeof({elementType}), new[] {{ {lengthsPart} }}, new[] {{ {lowerBoundsPart} }})"
+                    + $" : new {elementType}[{lengthsPart}];"
+            );
 
             // Create clone each element
             for (int i = 0; i < dimensionCount; i++)
             {
-                builder.AppendLine($"for (int i{i} = 0; i{i} < l{i}; i{i}++)");
+                builder.AppendLine($"for (int i{i} = lb{i}; i{i} < lb{i} + l{i}; i{i}++)");
                 builder.AppendLine("{");
                 builder.IncreaseIndent();
             }

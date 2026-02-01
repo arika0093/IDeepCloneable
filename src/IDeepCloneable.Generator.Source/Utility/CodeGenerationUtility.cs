@@ -8,6 +8,94 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal static class CodeGenerationUtility
 {
+    private static readonly System.Collections.Generic.HashSet<string> CSharpKeywords = new(
+        StringComparer.Ordinal
+    )
+    {
+        "abstract",
+        "as",
+        "base",
+        "bool",
+        "break",
+        "byte",
+        "case",
+        "catch",
+        "char",
+        "checked",
+        "class",
+        "const",
+        "continue",
+        "decimal",
+        "default",
+        "delegate",
+        "do",
+        "double",
+        "else",
+        "enum",
+        "event",
+        "explicit",
+        "extern",
+        "false",
+        "finally",
+        "fixed",
+        "float",
+        "for",
+        "foreach",
+        "goto",
+        "if",
+        "implicit",
+        "in",
+        "int",
+        "interface",
+        "internal",
+        "is",
+        "lock",
+        "long",
+        "namespace",
+        "new",
+        "null",
+        "object",
+        "operator",
+        "out",
+        "override",
+        "params",
+        "private",
+        "protected",
+        "public",
+        "readonly",
+        "ref",
+        "return",
+        "sbyte",
+        "sealed",
+        "short",
+        "sizeof",
+        "stackalloc",
+        "static",
+        "string",
+        "struct",
+        "switch",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typeof",
+        "uint",
+        "ulong",
+        "unchecked",
+        "unsafe",
+        "ushort",
+        "using",
+        "virtual",
+        "void",
+        "volatile",
+        "while",
+        "nint",
+        "nuint",
+        "var",
+        "dynamic",
+        "record",
+        "init",
+    };
     /// <summary>
     /// Sanitizes a type name to be used as a method name or identifier.
     /// </summary>
@@ -123,6 +211,7 @@ internal static class CodeGenerationUtility
             && !trimmed.Contains("<")
             && !trimmed.Contains("[")
             && !trimmed.Contains(" ")
+            && !CSharpKeywords.Contains(trimmed)
             && trimmed.Length > 0
             && char.IsLetter(trimmed[0]); // Type parameters start with a letter
     }
@@ -187,5 +276,67 @@ internal static class CodeGenerationUtility
             result.Add(current.ToString().Trim());
 
         return result;
+    }
+
+    /// <summary>
+    /// Extracts unique generic type parameters referenced by a type name in order of appearance.
+    /// </summary>
+    public static System.Collections.Generic.List<string> ExtractGenericTypeParameters(
+        string typeFullName
+    )
+    {
+        var result = new System.Collections.Generic.List<string>();
+        var seen = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+
+        void Collect(string typeName)
+        {
+            if (string.IsNullOrWhiteSpace(typeName))
+                return;
+
+            var trimmed = typeName.Trim();
+            if (IsSimpleTypeParameter(trimmed))
+            {
+                var name = trimmed.Replace("global::", string.Empty);
+                if (seen.Add(name))
+                {
+                    result.Add(name);
+                }
+                return;
+            }
+
+            var arrayIndex = trimmed.IndexOf('[');
+            if (arrayIndex >= 0)
+            {
+                var elementType = trimmed.Substring(0, arrayIndex);
+                Collect(elementType);
+                return;
+            }
+
+            var genericStart = trimmed.IndexOf('<');
+            var genericEnd = trimmed.LastIndexOf('>');
+            if (genericStart < 0 || genericEnd <= genericStart)
+                return;
+
+            var genericArgs = trimmed.Substring(
+                genericStart + 1,
+                genericEnd - genericStart - 1
+            );
+            foreach (var arg in SplitGenericArgs(genericArgs))
+            {
+                Collect(arg);
+            }
+        }
+
+        Collect(typeFullName);
+        return result;
+    }
+
+    /// <summary>
+    /// Builds a generic parameter list for a method based on a type name.
+    /// </summary>
+    public static string BuildGenericTypeParameterList(string typeFullName)
+    {
+        var parameters = ExtractGenericTypeParameters(typeFullName);
+        return parameters.Count == 0 ? string.Empty : $"<{string.Join(", ", parameters)}>";
     }
 }
