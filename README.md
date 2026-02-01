@@ -408,3 +408,8 @@ This library implements its own `IDeepCloneable<T>` interface instead of the sta
 
 For these reasons, even as early as 2004, the use of `ICloneable` was not recommended. [Reference](https://learn.microsoft.com/en-us/archive/blogs/brada/should-we-obsolete-icloneable-the-slar-on-system-icloneable)
 
+## Acknowledgements
+This library has been heavily influenced by the following open-source projects:
+
+* [Mapperly](https://github.com/riok/mapperly) — the structure of the generated code
+* [FastCloner](https://github.com/lofcz/FastCloner) — the implementation of test cases
