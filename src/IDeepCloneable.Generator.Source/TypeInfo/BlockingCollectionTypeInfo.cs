@@ -46,10 +46,11 @@ internal class BlockingCollectionTypeInfo : SpecialTypeInfo
         }
         else
         {
+            builder.AppendLine("var items = original.ToArray();");
             builder.AppendLine(
                 $"var queue = new global::System.Collections.Concurrent.ConcurrentQueue<{innerType}>();"
             );
-            builder.AppendLine("foreach (var item in original)");
+            builder.AppendLine("foreach (var item in items)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
