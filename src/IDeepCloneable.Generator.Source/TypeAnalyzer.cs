@@ -564,9 +564,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 }
                 else
                 {
-                    typeDependencies[normalizedName].Add(
-                        NormalizeTypeName(prop.TypeFullName)
-                    );
+                    typeDependencies[normalizedName].Add(NormalizeTypeName(prop.TypeFullName));
                 }
             }
         }

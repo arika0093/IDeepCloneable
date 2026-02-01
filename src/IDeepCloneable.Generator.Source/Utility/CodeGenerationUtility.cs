@@ -96,6 +96,7 @@ internal static class CodeGenerationUtility
         "record",
         "init",
     };
+
     /// <summary>
     /// Sanitizes a type name to be used as a method name or identifier.
     /// </summary>
@@ -317,10 +318,7 @@ internal static class CodeGenerationUtility
             if (genericStart < 0 || genericEnd <= genericStart)
                 return;
 
-            var genericArgs = trimmed.Substring(
-                genericStart + 1,
-                genericEnd - genericStart - 1
-            );
+            var genericArgs = trimmed.Substring(genericStart + 1, genericEnd - genericStart - 1);
             foreach (var arg in SplitGenericArgs(genericArgs))
             {
                 Collect(arg);

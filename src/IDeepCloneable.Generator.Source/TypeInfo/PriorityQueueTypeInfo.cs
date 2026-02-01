@@ -44,9 +44,7 @@ internal class PriorityQueueTypeInfo : SpecialTypeInfo
         builder.AppendLine("{");
         builder.IncreaseIndent();
         builder.AppendLine("if (original == null) return null;");
-        builder.AppendLine(
-            $"var queue = new {typeFullName}(original.Count, original.Comparer);"
-        );
+        builder.AppendLine($"var queue = new {typeFullName}(original.Count, original.Comparer);");
         builder.AppendLine("foreach (var item in original.UnorderedItems)");
         builder.AppendLine("{");
         builder.IncreaseIndent();
@@ -56,11 +54,7 @@ internal class PriorityQueueTypeInfo : SpecialTypeInfo
             : codeGenerator.GenerateTypeCloneCall(elementType, "item.Element", allClassInfos);
         var priorityClone = priorityIsImmutable
             ? "item.Priority"
-            : codeGenerator.GenerateTypeCloneCall(
-                priorityType,
-                "item.Priority",
-                allClassInfos
-            );
+            : codeGenerator.GenerateTypeCloneCall(priorityType, "item.Priority", allClassInfos);
 
         builder.AppendLine($"queue.Enqueue({elementClone}, {priorityClone});");
         builder.DecreaseIndent();
