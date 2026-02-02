@@ -690,7 +690,8 @@ internal class CodeGenerator(
 
         // ------
         // part of TryCloneByKnownType
-        builder.AppendLine($$"""
+        builder.AppendLine(
+            $$"""
             private static bool TryCloneByKnownType(object value, out object clone)
             {
                 var type = value.GetType();
@@ -702,7 +703,8 @@ internal class CodeGenerator(
                 clone = default!;
                 return false;
             }        
-            """);
+            """
+        );
 
         // ------
         // part of CloneByRuntimeType
