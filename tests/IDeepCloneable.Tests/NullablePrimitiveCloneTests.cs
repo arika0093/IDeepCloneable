@@ -94,7 +94,8 @@ public class NullablePrimitiveCloneTests
 
     private static int ReadInt32(byte[] il, ref int position)
     {
-        var value = il[position]
+        var value =
+            il[position]
             | (il[position + 1] << 8)
             | (il[position + 2] << 16)
             | (il[position + 3] << 24);
