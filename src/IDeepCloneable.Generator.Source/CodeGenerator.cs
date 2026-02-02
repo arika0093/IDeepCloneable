@@ -706,7 +706,8 @@ internal class CodeGenerator(
 
         // ------
         // part of CloneByRuntimeType
-        builder.AppendLine($$"""
+        builder.AppendLine(
+            $$"""
             private static T CloneByRuntimeType<T>(T value)
             {
                 if (value is null)
@@ -717,7 +718,8 @@ internal class CodeGenerator(
                     return (T)clone;
                 return value;
             }
-            """);
+            """
+        );
 
         return builder;
     }
