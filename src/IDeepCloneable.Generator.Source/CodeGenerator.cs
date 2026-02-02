@@ -672,6 +672,8 @@ internal class CodeGenerator(
             openGenericEntries.Where(entry => seenOpenGenericTypes.Add(entry.OpenGenericType))
         );
 
+        // ------
+        // part of _knownCloneMap
         builder.AppendLine(
             "private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Func<object, object>> _knownCloneMap = new()"
         );
@@ -686,6 +688,8 @@ internal class CodeGenerator(
         builder.DecreaseIndent();
         builder.AppendLine("};");
 
+        // ------
+        // part of _openGenericCloneMethods
         if (uniqueOpenGenericEntries.Count > 0)
         {
             builder.AppendLine(
@@ -702,21 +706,17 @@ internal class CodeGenerator(
             builder.DecreaseIndent();
             builder.AppendLine("};");
 
-            builder.AppendLine(
-                "private static readonly global::System.Collections.Concurrent.ConcurrentDictionary<global::System.Type, global::System.Func<object, object>> _openGenericCloneCache = new();"
-            );
-
-            builder.AppendLine(
-                "private static global::System.Reflection.MethodInfo GetOpenGenericCloneMethod(string methodName)"
-            );
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
-            builder.AppendLine(
-                $"return typeof({options.ExtensionsClassName}).GetMethod(methodName, global::System.Reflection.BindingFlags.Static | global::System.Reflection.BindingFlags.NonPublic)!;"
-            );
-            builder.DecreaseIndent();
-            builder.AppendLine("}");
+            builder.AppendLine($$"""
+                private static readonly global::System.Collections.Concurrent.ConcurrentDictionary<global::System.Type, global::System.Func<object, object>> _openGenericCloneCache = new();
+                private static global::System.Reflection.MethodInfo GetOpenGenericCloneMethod(string methodName)
+                {
+                    return typeof({{options.ExtensionsClassName}}).GetMethod(methodName, global::System.Reflection.BindingFlags.Static | global::System.Reflection.BindingFlags.NonPublic)!;
+                }
+                """);
         }
+
+        // ------
+        // part of TryCloneByKnownType
 
         builder.AppendLine(
             "private static bool TryCloneByKnownType(object value, out object clone)"
@@ -734,29 +734,23 @@ internal class CodeGenerator(
 
         if (openGenericEntries.Count > 0)
         {
-            builder.AppendLine("if (type.IsGenericType)");
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
-            builder.AppendLine("var genericType = type.GetGenericTypeDefinition();");
-            builder.AppendLine(
-                "if (_openGenericCloneMethods.TryGetValue(genericType, out var method))"
-            );
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
-            builder.AppendLine("var closedClone = _openGenericCloneCache.GetOrAdd(type, t =>");
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
-            builder.AppendLine("var args = t.GetGenericArguments();");
-            builder.AppendLine("var closedMethod = method.MakeGenericMethod(args);");
-            builder.AppendLine("return value => closedMethod.Invoke(null, new[] { value })!;");
-            builder.DecreaseIndent();
-            builder.AppendLine("});");
-            builder.AppendLine("clone = closedClone(value);");
-            builder.AppendLine("return true;");
-            builder.DecreaseIndent();
-            builder.AppendLine("}");
-            builder.DecreaseIndent();
-            builder.AppendLine("}");
+            builder.AppendLine($$"""
+                if (type.IsGenericType)
+                {
+                    var genericType = type.GetGenericTypeDefinition();
+                    if (_openGenericCloneMethods.TryGetValue(genericType, out var method))
+                    {
+                        var closedClone = _openGenericCloneCache.GetOrAdd(type, t =>
+                        {
+                            var args = t.GetGenericArguments();
+                            var closedMethod = method.MakeGenericMethod(args);
+                            return value => closedMethod.Invoke(null, new[] { value })!;
+                        });
+                        clone = closedClone(value);
+                        return true;
+                    }
+                }
+                """);
         }
 
         builder.AppendLine("clone = default!;");
@@ -764,25 +758,20 @@ internal class CodeGenerator(
         builder.DecreaseIndent();
         builder.AppendLine("}");
 
-        builder.AppendLine("private static T CloneByRuntimeType<T>(T value)");
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("if (value is null) return default!;");
-        builder.AppendLine("if (value is global::IDeepCloneable<T> cloneable)");
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("return cloneable.DeepClone();");
-        builder.DecreaseIndent();
-        builder.AppendLine("}");
-        builder.AppendLine("if (TryCloneByKnownType(value, out var clone))");
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("return (T)clone;");
-        builder.DecreaseIndent();
-        builder.AppendLine("}");
-        builder.AppendLine("return value;");
-        builder.DecreaseIndent();
-        builder.AppendLine("}");
+        // ------
+        // part of CloneByRuntimeType
+        builder.AppendLine($$"""
+            private static T CloneByRuntimeType<T>(T value)
+            {
+                if (value is null)
+                    return default!;
+                if (value is {{options.ImplementedInterfaceName}}<T> cloneable)
+                    return cloneable.DeepClone();
+                if (TryCloneByKnownType((object)value, out var clone))
+                    return (T)clone;
+                return value;
+            }
+            """);
 
         return builder;
     }
