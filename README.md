@@ -148,7 +148,7 @@ public partial class Person
 ```
 
 ### Circular Reference
-By default, This library supports object graphs with circular references.
+This library supports object graphs with circular references.
 
 ```csharp
 [DeepCloneable]
@@ -170,8 +170,8 @@ var clonedNode1 = node1.DeepClone();
 ```
 
 ### Generic Types
-We also support classes that have generic types as members.
-If a member type implements `IDeepCloneable<T>`, it will be deep-cloned automatically.
+We also support classes that have generic types as members.  
+If a member type implements `IDeepCloneable<T>`, it will be deep-cloned automatically.  
 Otherwise, you must generate a `DeepClone` implementation for that type by applying the `[GenerateDeepCloneable]` attribute.
 
 ```csharp
