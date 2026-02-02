@@ -140,6 +140,15 @@ internal static class CodeGenerationUtility
     /// </summary>
     public static bool IsTypeImmutable(string typeFullName)
     {
+        if (string.IsNullOrWhiteSpace(typeFullName))
+            return false;
+
+        var unwrappedNullable = UnwrapNullableType(typeFullName);
+        if (!string.Equals(unwrappedNullable, typeFullName, StringComparison.Ordinal))
+        {
+            return IsTypeImmutable(unwrappedNullable);
+        }
+
         // Arrays are always mutable, even if their element type is immutable
         if (typeFullName.Contains("[") && typeFullName.Contains("]"))
             return false;
@@ -197,6 +206,28 @@ internal static class CodeGenerationUtility
             || normalizedType.Contains("system.datetimeoffset")
             || normalizedType.Contains("system.timespan")
             || normalizedType.Contains("system.guid");
+    }
+
+    /// <summary>
+    /// Unwraps nullable value types (e.g., int? or System.Nullable&lt;int&gt;) to their underlying type.
+    /// </summary>
+    private static string UnwrapNullableType(string typeFullName)
+    {
+        var trimmed = typeFullName.Trim();
+        if (trimmed.EndsWith("?", StringComparison.Ordinal))
+        {
+            return trimmed.Substring(0, trimmed.Length - 1);
+        }
+
+        if (
+            trimmed.StartsWith("global::System.Nullable<", StringComparison.Ordinal)
+            || trimmed.StartsWith("System.Nullable<", StringComparison.Ordinal)
+        )
+        {
+            return ExtractGenericType(trimmed);
+        }
+
+        return typeFullName;
     }
 
     /// <summary>
