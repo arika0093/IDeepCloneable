@@ -689,78 +689,20 @@ internal class CodeGenerator(
         builder.AppendLine("};");
 
         // ------
-        // part of _openGenericCloneMethods
-        if (uniqueOpenGenericEntries.Count > 0)
-        {
-            builder.AppendLine(
-                "private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Reflection.MethodInfo> _openGenericCloneMethods = new()"
-            );
-            builder.AppendLine("{");
-            builder.IncreaseIndent();
-            foreach (var entry in uniqueOpenGenericEntries)
-            {
-                builder.AppendLine(
-                    $"{{ typeof({entry.OpenGenericType}), GetOpenGenericCloneMethod(\"{entry.MethodName}\") }},"
-                );
-            }
-            builder.DecreaseIndent();
-            builder.AppendLine("};");
-
-            builder.AppendLine(
-                $$"""
-                private static readonly global::System.Collections.Concurrent.ConcurrentDictionary<global::System.Type, global::System.Func<object, object>> _openGenericCloneCache = new();
-                private static global::System.Reflection.MethodInfo GetOpenGenericCloneMethod(string methodName)
-                {
-                    return typeof({{options.ExtensionsClassName}}).GetMethod(methodName, global::System.Reflection.BindingFlags.Static | global::System.Reflection.BindingFlags.NonPublic)!;
-                }
-                """
-            );
-        }
-
-        // ------
         // part of TryCloneByKnownType
-
-        builder.AppendLine(
-            "private static bool TryCloneByKnownType(object value, out object clone)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("var type = value.GetType();");
-        builder.AppendLine("if (_knownCloneMap.TryGetValue(type, out var cloneFunc))");
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("clone = cloneFunc(value);");
-        builder.AppendLine("return true;");
-        builder.DecreaseIndent();
-        builder.AppendLine("}");
-
-        if (openGenericEntries.Count > 0)
-        {
-            builder.AppendLine(
-                $$"""
-                if (type.IsGenericType)
+        builder.AppendLine($$"""
+            private static bool TryCloneByKnownType(object value, out object clone)
+            {
+                var type = value.GetType();
+                if (_knownCloneMap.TryGetValue(type, out var cloneFunc))
                 {
-                    var genericType = type.GetGenericTypeDefinition();
-                    if (_openGenericCloneMethods.TryGetValue(genericType, out var method))
-                    {
-                        var closedClone = _openGenericCloneCache.GetOrAdd(type, t =>
-                        {
-                            var args = t.GetGenericArguments();
-                            var closedMethod = method.MakeGenericMethod(args);
-                            return value => closedMethod.Invoke(null, new[] { value })!;
-                        });
-                        clone = closedClone(value);
-                        return true;
-                    }
+                    clone = cloneFunc(value);
+                    return true;
                 }
-                """
-            );
-        }
-
-        builder.AppendLine("clone = default!;");
-        builder.AppendLine("return false;");
-        builder.DecreaseIndent();
-        builder.AppendLine("}");
+                clone = default!;
+                return false;
+            }        
+            """);
 
         // ------
         // part of CloneByRuntimeType
