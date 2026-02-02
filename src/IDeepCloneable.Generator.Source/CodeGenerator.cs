@@ -706,13 +706,15 @@ internal class CodeGenerator(
             builder.DecreaseIndent();
             builder.AppendLine("};");
 
-            builder.AppendLine($$"""
+            builder.AppendLine(
+                $$"""
                 private static readonly global::System.Collections.Concurrent.ConcurrentDictionary<global::System.Type, global::System.Func<object, object>> _openGenericCloneCache = new();
                 private static global::System.Reflection.MethodInfo GetOpenGenericCloneMethod(string methodName)
                 {
                     return typeof({{options.ExtensionsClassName}}).GetMethod(methodName, global::System.Reflection.BindingFlags.Static | global::System.Reflection.BindingFlags.NonPublic)!;
                 }
-                """);
+                """
+            );
         }
 
         // ------
@@ -734,7 +736,8 @@ internal class CodeGenerator(
 
         if (openGenericEntries.Count > 0)
         {
-            builder.AppendLine($$"""
+            builder.AppendLine(
+                $$"""
                 if (type.IsGenericType)
                 {
                     var genericType = type.GetGenericTypeDefinition();
@@ -750,7 +753,8 @@ internal class CodeGenerator(
                         return true;
                     }
                 }
-                """);
+                """
+            );
         }
 
         builder.AppendLine("clone = default!;");
@@ -760,7 +764,8 @@ internal class CodeGenerator(
 
         // ------
         // part of CloneByRuntimeType
-        builder.AppendLine($$"""
+        builder.AppendLine(
+            $$"""
             private static T CloneByRuntimeType<T>(T value)
             {
                 if (value is null)
@@ -771,7 +776,8 @@ internal class CodeGenerator(
                     return (T)clone;
                 return value;
             }
-            """);
+            """
+        );
 
         return builder;
     }
