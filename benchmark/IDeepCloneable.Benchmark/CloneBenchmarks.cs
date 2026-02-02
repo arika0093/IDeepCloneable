@@ -14,7 +14,7 @@ namespace IDeepCloneable.Benchmark;
 /// Benchmarks comparing different deep cloning approaches for complex object models.
 /// </summary>
 [MemoryDiagnoser]
-[DisassemblyDiagnoser(printSource: true)]
+// [DisassemblyDiagnoser(printSource: true)]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [SimpleJob]
 public class CloneBenchmarks
