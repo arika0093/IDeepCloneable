@@ -107,14 +107,24 @@ By doing this:
 ## Performance
 Performance is a concern, right? In benchmarks for [medium-sized models](./benchmark/IDeepCloneable.Benchmark/TestDataGenerator.cs), it shows comparable results to major libraries.
 
-| Method                    | Mean        | Ratio | Gen0   | Gen1   | Allocated |
-|-------------------------- |------------:|------:|-------:|-------:|----------:|
-| IDeepCloneable            |    912.7 ns |  1.00 | 0.2890 | 0.0048 |   4.73 KB |
-| Mapperly                  |    996.6 ns |  1.09 | 0.2880 | 0.0038 |   4.73 KB |
-| FastCloner_SourceGen      |  1,147.7 ns |  1.26 | 0.2880 | 0.0038 |   4.73 KB |
-| AutoMapper                |  3,139.2 ns |  3.44 | 0.3433 | 0.0038 |   5.65 KB |
-| FastCloner_Reflection     |  8,772.5 ns |  9.61 | 0.8392 | 0.0153 |  13.79 KB |
-| SystemTextJson_Reflection | 31,857.2 ns | 34.90 | 1.2207 |      - |  20.59 KB |
+```
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7623/25H2/2025Update/HudsonValley2)
+Intel Core i7-14700F 2.10GHz, 1 CPU, 28 logical and 20 physical cores
+.NET SDK 10.0.101
+  [Host]     : .NET 10.0.1 (10.0.1, 10.0.125.57005), X64 RyuJIT x86-64-v3
+  DefaultJob : .NET 10.0.1 (10.0.1, 10.0.125.57005), X64 RyuJIT x86-64-v3
+```
+
+| Method                    | Mean        | Ratio |
+|-------------------------- |------------:|------:|
+| **IDeepCloneable**        |    538.1 ns |  1.00 |
+| FastCloner_SourceGen      |    554.3 ns |  1.03 |
+| Manual                    |    560.6 ns |  1.04 |
+| Mapperly                  |    579.1 ns |  1.08 |
+| AutoMapper                |  2,146.0 ns |  3.99 |
+| FastCloner_Reflection     |  3,753.6 ns |  6.98 |
+| SystemTextJson_Reflection | 14,736.0 ns | 27.39 |
+| NewtonsoftJson            | 23,851.1 ns | 44.33 |
 
 Detailed results can be found in [benchmark/results](benchmark/results) and [Benchmark source code](benchmark/IDeepCloneable.Benchmark/).
 
