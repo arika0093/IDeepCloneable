@@ -9,6 +9,9 @@ namespace IDeepCloneable.Generator;
 internal class ListTypeInfo : SpecialTypeInfo
 {
     private const string ListFullName = "global::System.Collections.Generic.List";
+    private const string CollectionsMarshalFullName =
+        "global::System.Runtime.InteropServices.CollectionsMarshal";
+
     public override string TargetTypeStartWith => "global::System.Collections.Generic.List<";
 
     public override string GetMethodName(string typeFullName)
@@ -48,6 +51,7 @@ internal class ListTypeInfo : SpecialTypeInfo
         CodeGenerator codeGenerator
     )
     {
+        var isSupportSpanClone = false;
         var innerType = CodeGenerationUtility.ExtractGenericType(typeFullName);
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
         builder.AppendLine("if (original == null) return null;");
@@ -58,12 +62,26 @@ internal class ListTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var list = new {ListFullName}<{innerType}>(original.Count);");
-            builder.AppendLine("foreach (var item in original)");
+            builder.AppendLine($"var ct = original.Count;");
+            builder.AppendLine($"var list = new {ListFullName}<{innerType}>(ct);");
+
+            if (isSupportSpanClone)
+            {
+                builder.AppendLine($"{CollectionsMarshalFullName}.SetCount(list, ct);");
+                builder.AppendLine($"var span = {CollectionsMarshalFullName}.AsSpan(original);");
+            }
+
+            builder.AppendLine("for(var i = 0; i < ct; i++)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
-            var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
-            builder.AppendLine($"list.Add({cloneCall});");
+            var cloneCall = codeGenerator.GenerateTypeCloneCall(
+                innerType,
+                "original[i]",
+                allClassInfos
+            );
+            builder.AppendLine(
+                isSupportSpanClone ? $"span[i] = {cloneCall};" : $"list.Add({cloneCall});"
+            );
             builder.DecreaseIndent();
             builder.AppendLine("}");
         }

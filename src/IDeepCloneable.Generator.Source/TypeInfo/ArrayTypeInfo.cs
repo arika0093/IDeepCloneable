@@ -82,7 +82,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
 
         if (isImmutable)
         {
-            if (codeGenerator.SupportsArrayAsSpan)
+            if (codeGenerator.SupportsSpan)
             {
                 // Use AsSpan().ToArray() for fast cloning of immutable/primitive elements
                 builder.AppendLine("return original.AsSpan().ToArray();");
@@ -95,8 +95,14 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         else
         {
             // Deep clone each mutable element
-            builder.AppendLine($"var array = new {elementType}[original.Length];");
-            builder.AppendLine("for (int i = 0; i < original.Length; i++)");
+            builder.AppendLine($"var size = original.Length;");
+            builder.AppendLine($"var array = new {elementType}[size];");
+
+            if (codeGenerator.SupportsSpan)
+            {
+                builder.AppendLine("var arrSpan = array.AsSpan();");
+            }
+            builder.AppendLine("for (int i = 0; i < size; i++)");
             builder.AppendLine("{");
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(
@@ -104,7 +110,9 @@ internal class ArrayTypeInfo : SpecialTypeInfo
                 "original[i]",
                 allClassInfos
             );
-            builder.AppendLine($"array[i] = {cloneCall};");
+
+            var valName = codeGenerator.SupportsSpan ? "arrSpan" : "array";
+            builder.AppendLine($"{valName}[i] = {cloneCall};");
             builder.DecreaseIndent();
             builder.AppendLine("}");
             builder.AppendLine("return array;");
