@@ -12,7 +12,12 @@ public readonly record struct GenerationEnvironment
     /// <summary>
     /// Is array to Span API supported?
     /// </summary>
-    public bool SupportsArrayAsSpan { get; init; }
+    public bool SupportsSpan { get; init; }
+
+    /// <summary>
+    /// Is CollectionsMarshal.SetCount API supported? (.NET 7+)
+    /// </summary>
+    public bool SupportsCollectionsMarshalSetCount { get; init; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GenerationEnvironment"/> struct.
@@ -21,16 +26,30 @@ public readonly record struct GenerationEnvironment
     {
         return new GenerationEnvironment
         {
-            SupportsArrayAsSpan = SupportsArrayAsSpanApi(compilation),
+            SupportsSpan = SupportsSpanApi(compilation),
+            SupportsCollectionsMarshalSetCount = SupportsCollectionsMarshalSetCountApi(compilation),
         };
     }
 
-    /// <summary>
-    /// Determines whether the compilation supports Array to Span API.
-    /// </summary>
-    private static bool SupportsArrayAsSpanApi(Compilation compilation)
+    private static bool SupportsSpanApi(Compilation compilation)
     {
         var spanType = compilation.GetTypesByMetadataName("System.Span`1");
         return spanType.Any();
+    }
+
+    private static bool SupportsCollectionsMarshalSetCountApi(Compilation compilation)
+    {
+        var collectionsMarshalType = compilation.GetTypesByMetadataName(
+            "System.Runtime.InteropServices.CollectionsMarshal"
+        );
+        if (!collectionsMarshalType.Any())
+        {
+            return false;
+        }
+        var setCountMethod = collectionsMarshalType
+            .SelectMany(t => t.GetMembers("SetCount"))
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Parameters.Length == 2);
+        return setCountMethod != null;
     }
 }

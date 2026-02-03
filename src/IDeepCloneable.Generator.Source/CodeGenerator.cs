@@ -36,7 +36,9 @@ internal class CodeGenerator(
         new EnumerableTypeInfo(),
     ];
 
-    public bool SupportsArrayAsSpan { get; } = environment.SupportsArrayAsSpan;
+    public bool SupportsSpan { get; } = environment.SupportsSpan;
+    public bool SupportsCollectionsMarshalSetCount { get; } =
+        environment.SupportsCollectionsMarshalSetCount;
 
     /// <summary>
     /// Generates source code for deep cloning.
