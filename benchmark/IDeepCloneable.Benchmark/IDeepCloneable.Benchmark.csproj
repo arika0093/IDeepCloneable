@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
-    <PackageReference Include="FastCloner" Version="3.4.5" />
+    <PackageReference Include="FastCloner" Version="3.4.7" />
     <PackageReference Include="FastCloner.SourceGenerator" Version="1.1.5" />
     <PackageReference Include="AutoMapper" Version="14.0.0" />
     <PackageReference Include="Riok.Mapperly" Version="4.3.1" />
