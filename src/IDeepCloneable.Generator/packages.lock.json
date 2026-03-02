@@ -34,15 +34,15 @@
       },
       "Polyfill": {
         "type": "Direct",
-        "requested": "[9.10.0, )",
-        "resolved": "9.10.0",
-        "contentHash": "RRF+SB2BZu2E9HPWc7qQqbhcy6SCXeGdvUwsM4pBsPNMTQniUYVNhDmza2rKDrZ/CBG/INZaLjkRc8wG3SOLnw=="
+        "requested": "[9.13.0, )",
+        "resolved": "9.13.0",
+        "contentHash": "h84pHJ6cB97XCEKjBX3FbtzVq+5gGb1yMPEsDX3GQ+bHMz73MiOhc61p04N+WEV8joXf4tzJ80z2pqRQHQ8lsA=="
       },
       "SonarAnalyzer.CSharp": {
         "type": "Direct",
         "requested": "[10.*, )",
-        "resolved": "10.19.0.132793",
-        "contentHash": "vDQSFE+KU5pXfVNzz4R4CA0ZGuLO35Sn+a7z2nyV9EM/nHsvl+WFGZ61Uk9eTdbhta1YXzqCMXB2B+6dn6ykVA=="
+        "resolved": "10.20.0.135146",
+        "contentHash": "Dx+sh/lhhJrG4Sr5W+bCDr/JKhY1Op6UaIoG5UrDVIyryC7rZtqO4Q4adzvm3IqAhFGHY7oYuaSjtR46hIv8qQ=="
       },
       "Microsoft.CodeAnalysis.Common": {
         "type": "Transitive",
