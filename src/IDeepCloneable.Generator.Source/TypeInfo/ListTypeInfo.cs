@@ -30,12 +30,7 @@ internal class ListTypeInfo : SpecialTypeInfo
     {
         var genericParams = CodeGenerationUtility.BuildGenericTypeParameterList(typeFullName);
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         GenerateCloneMethodLogicPart(typeFullName, allClassInfos, builder, codeGenerator);
         builder.AppendLine("return list;");
         builder.DecreaseIndent();

@@ -28,20 +28,14 @@ internal class StackTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
+            """
+            if (original == null) return null;
+            var array = original.ToArray();
+            global::System.Array.Reverse(array);
+            """
         );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("if (original == null) return null;");
-
-        // Stack needs to preserve order, so we use ToArray() then pass to constructor
-        // ToArray() returns items in the order they would be popped (LIFO)
-        // The Stack constructor pushes items in the order they appear in the enumerable
-        // So we need to reverse to maintain the original order
-        builder.AppendLine($"var array = original.ToArray();");
-        builder.AppendLine($"global::System.Array.Reverse(array);");
 
         if (isImmutable)
         {
@@ -49,9 +43,13 @@ internal class StackTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var stack = new {typeFullName}(array.Length);");
-            builder.AppendLine("for (int i = 0; i < array.Length; i++)");
-            builder.AppendLine("{");
+            builder.AppendLine(
+                $$"""
+                var stack = new {{typeFullName}}(array.Length);
+                for (int i = 0; i < array.Length; i++)
+                {
+                """
+            );
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(
                 innerType,

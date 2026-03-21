@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 
 namespace IDeepCloneable.Generator;
@@ -8,10 +9,12 @@ namespace IDeepCloneable.Generator;
 /// <summary>
 /// Analyzes types and extracts metadata needed for deep clone generation.
 /// </summary>
-internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
+internal static class TypeAnalyzer
 {
-    public EquatableArray<ClassInfo>? GetRelationalAllClassInfo(
-        GeneratorAttributeSyntaxContext context
+    public static EquatableArray<ClassInfo>? GetRelationalAllClassInfo(
+        GeneratorAttributeSyntaxContext context,
+        CancellationToken cancellationToken,
+        CloneableGeneratorOptionsCore options
     )
     {
         // Extracts information from types marked with [DeepCloneable] and all reachable types.
@@ -33,6 +36,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
             while (typesToProcess.Count > 0)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var currentType = typesToProcess.Dequeue();
                 var fullName = GetFullTypeName(currentType);
 
@@ -41,7 +45,12 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
                 processedTypes.Add(fullName);
 
-                var classInfo = CreateClassInfo(currentType, out var childTypes);
+                var classInfo = CreateClassInfo(
+                    currentType,
+                    cancellationToken,
+                    options,
+                    out var childTypes
+                );
                 if (classInfo != null)
                 {
                     classInfoList.Add(classInfo);
@@ -52,15 +61,20 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                     // Enqueue child types discovered during property analysis
                     )
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         typesToProcess.Enqueue(childType);
                     }
                 }
             }
 
             // Detect circular references after all types are collected
-            DetectCircularReferences(classInfoList);
+            DetectCircularReferences(classInfoList, cancellationToken);
 
             return new EquatableArray<ClassInfo>(classInfoList);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -68,13 +82,15 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         }
     }
 
-    public EquatableArray<ClassInfo>? GetRelationalAllClassInfoFromGenerateAttribute(
-        GeneratorAttributeSyntaxContext context
+    public static EquatableArray<ClassInfo>? GetRelationalAllClassInfoFromGenerateAttribute(
+        GeneratorAttributeSyntaxContext context,
+        CancellationToken cancellationToken,
+        CloneableGeneratorOptionsCore options
     )
     {
         try
         {
-            var targetTypes = GetGenerateDeepCloneableTargets(context);
+            var targetTypes = GetGenerateDeepCloneableTargets(context, options);
             if (targetTypes.Count == 0)
                 return null;
 
@@ -87,11 +103,13 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             );
             foreach (var targetType in targetTypes)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 typesToProcess.Enqueue(targetType);
             }
 
             while (typesToProcess.Count > 0)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var currentType = typesToProcess.Dequeue();
                 var fullName = GetFullTypeName(currentType);
 
@@ -102,6 +120,8 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
                 var classInfo = CreateClassInfo(
                     currentType,
+                    cancellationToken,
+                    options,
                     out var childTypes,
                     forceNoDeepCloneMethod: rootTypeNames.Contains(fullName)
                 );
@@ -115,14 +135,19 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                         )
                     )
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         typesToProcess.Enqueue(childType);
                     }
                 }
             }
 
-            DetectCircularReferences(classInfoList);
+            DetectCircularReferences(classInfoList, cancellationToken);
 
             return new EquatableArray<ClassInfo>(classInfoList);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -130,16 +155,18 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         }
     }
 
-    private ClassInfo? CreateClassInfo(
+    private static ClassInfo? CreateClassInfo(
         INamedTypeSymbol typeSymbol,
+        CancellationToken cancellationToken,
+        CloneableGeneratorOptionsCore options,
         out List<INamedTypeSymbol> childTypes,
         bool forceNoDeepCloneMethod = false
     )
     {
-        var properties = GetProperties(typeSymbol, out childTypes);
+        var properties = GetProperties(typeSymbol, cancellationToken, options, out childTypes);
         var fullName = GetFullTypeName(typeSymbol);
 
-        var hasDeepCloneableAttribute = IsImplementedInterface(typeSymbol);
+        var hasDeepCloneableAttribute = IsImplementedInterface(typeSymbol, options);
 
         // Check if this type already has a DeepClone method
         var alreadyHasDeepClone = typeSymbol
@@ -155,8 +182,9 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         var current = typeSymbol.BaseType;
         while (current != null && current.SpecialType != SpecialType.System_Object)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // Check for [DeepCloneable] attribute
-            var hasAttribute = IsImplementedInterface(current);
+            var hasAttribute = IsImplementedInterface(current, options);
             if (hasAttribute)
             {
                 baseHasDeepClone = true;
@@ -216,7 +244,9 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             ClassName = typeSymbol.Name,
             FullClassName = fullName,
             Namespace = GetNamespace(typeSymbol),
-            ContainingTypeNames = new EquatableArray<string>(GetContainingTypeNames(typeSymbol)),
+            ContainingTypeNames = new EquatableArray<string>(
+                GetContainingTypeNames(typeSymbol, cancellationToken)
+            ),
             Properties = new EquatableArray<PropertyInfo>(properties),
             IsNullable = typeSymbol.NullableAnnotation == NullableAnnotation.Annotated,
             IsRecord = typeSymbol.IsRecord,
@@ -236,8 +266,9 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         };
     }
 
-    private List<INamedTypeSymbol> GetGenerateDeepCloneableTargets(
-        GeneratorAttributeSyntaxContext context
+    private static List<INamedTypeSymbol> GetGenerateDeepCloneableTargets(
+        GeneratorAttributeSyntaxContext context,
+        CloneableGeneratorOptionsCore options
     )
     {
         var targets = context
@@ -257,8 +288,10 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         return targets;
     }
 
-    private List<PropertyInfo> GetProperties(
+    private static List<PropertyInfo> GetProperties(
         INamedTypeSymbol typeSymbol,
+        CancellationToken cancellationToken,
+        CloneableGeneratorOptionsCore options,
         out List<INamedTypeSymbol> childTypes
     )
     {
@@ -267,6 +300,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
         foreach (var member in typeSymbol.GetMembers())
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ITypeSymbol? memberType = null;
             string? memberName = null;
             bool isRequired = false;
@@ -338,7 +372,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
                 // Only add child types if they need deep cloning (not ignored, not shallow)
                 if (needsDeepClone)
                 {
-                    ExtractChildTypes(memberType, childTypes);
+                    ExtractChildTypes(memberType, childTypes, cancellationToken);
                 }
             }
         }
@@ -346,7 +380,11 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         return properties;
     }
 
-    private void ExtractChildTypes(ITypeSymbol typeSymbol, List<INamedTypeSymbol> childTypes)
+    private static void ExtractChildTypes(
+        ITypeSymbol typeSymbol,
+        List<INamedTypeSymbol> childTypes,
+        CancellationToken cancellationToken
+    )
     {
         // Handle generic types (List<T>, Dictionary<TKey, TValue>, etc.)
         if (typeSymbol is INamedTypeSymbol namedType && namedType.IsGenericType)
@@ -354,6 +392,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             // Add all type arguments
             foreach (var typeArg in namedType.TypeArguments)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (typeArg is INamedTypeSymbol argNamedType && !IsImmutableType(typeArg))
                 {
                     childTypes.Add(argNamedType);
@@ -379,7 +418,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         }
     }
 
-    private string GetFullTypeName(ITypeSymbol typeSymbol)
+    private static string GetFullTypeName(ITypeSymbol typeSymbol)
     {
         // Handle array types specially (including multi-dimensional and jagged)
         if (typeSymbol is IArrayTypeSymbol arrayType)
@@ -444,19 +483,26 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         return typeSymbol.ContainingNamespace.ToDisplayString();
     }
 
-    private static List<string> GetContainingTypeNames(INamedTypeSymbol typeSymbol)
+    private static List<string> GetContainingTypeNames(
+        INamedTypeSymbol typeSymbol,
+        CancellationToken cancellationToken
+    )
     {
         var containingTypes = new List<string>();
         var containingType = typeSymbol.ContainingType;
         while (containingType != null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             containingTypes.Insert(0, containingType.Name);
             containingType = containingType.ContainingType;
         }
         return containingTypes;
     }
 
-    private bool IsImplementedInterface(INamedTypeSymbol typeSymbol)
+    private static bool IsImplementedInterface(
+        INamedTypeSymbol typeSymbol,
+        CloneableGeneratorOptionsCore options
+    )
     {
         return typeSymbol
             .GetAttributes()
@@ -466,7 +512,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             .Any(attrName => attrName == $"global::{options.AttributeMetadataName}");
     }
 
-    private bool IsImmutableType(ITypeSymbol typeSymbol)
+    private static bool IsImmutableType(ITypeSymbol typeSymbol)
     {
         // System.Object cannot be cloned (it's the base type)
         if (typeSymbol.SpecialType == SpecialType.System_Object)
@@ -513,7 +559,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         return false;
     }
 
-    private bool IsCollectionType(ITypeSymbol typeSymbol)
+    private static bool IsCollectionType(ITypeSymbol typeSymbol)
     {
         var fullName = GetFullTypeName(typeSymbol);
         return fullName.Contains("System.Collections.Generic.List<")
@@ -536,13 +582,17 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
     /// Marks types involved in circular reference patterns with HasCircularReference flag.
     /// A circular reference occurs when: T1 -> T2 -> T3 -> T1
     /// </summary>
-    private void DetectCircularReferences(List<ClassInfo> allClassInfos)
+    private static void DetectCircularReferences(
+        List<ClassInfo> allClassInfos,
+        CancellationToken cancellationToken
+    )
     {
         // Build a type dependency graph
         var typeDependencies = new Dictionary<string, HashSet<string>>();
 
         foreach (var classInfo in allClassInfos)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var normalizedName = NormalizeTypeName(classInfo.FullClassName);
             if (!typeDependencies.ContainsKey(normalizedName))
             {
@@ -552,13 +602,20 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             // Add direct property type dependencies (for collections, add element types)
             foreach (var prop in classInfo.Properties)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!prop.NeedsDeepClone)
                     continue;
 
                 if (IsCollectionPropertyType(prop.TypeFullName))
                 {
-                    foreach (var elementType in ExtractCollectionElementTypes(prop.TypeFullName))
+                    foreach (
+                        var elementType in ExtractCollectionElementTypes(
+                            prop.TypeFullName,
+                            cancellationToken
+                        )
+                    )
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         typeDependencies[normalizedName].Add(NormalizeTypeName(elementType));
                     }
                 }
@@ -579,12 +636,21 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             select typeName
         )
         {
-            DetectCyclesDFS(typeName, typeDependencies, visited, recursionStack, typesInCycle);
+            cancellationToken.ThrowIfCancellationRequested();
+            DetectCyclesDFS(
+                typeName,
+                typeDependencies,
+                visited,
+                recursionStack,
+                typesInCycle,
+                cancellationToken
+            );
         }
 
         // Update ClassInfo objects with circular reference flag
         for (int i = 0; i < allClassInfos.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (typesInCycle.Contains(NormalizeTypeName(allClassInfos[i].FullClassName)))
             {
                 // Create a new ClassInfo with updated HasCircularReference flag
@@ -602,12 +668,13 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
     /// <summary>
     /// Helper method to detect cycles using depth-first search.
     /// </summary>
-    private void DetectCyclesDFS(
+    private static void DetectCyclesDFS(
         string typeName,
         Dictionary<string, HashSet<string>> graph,
         HashSet<string> visited,
         HashSet<string> recursionStack,
-        HashSet<string> typesInCycle
+        HashSet<string> typesInCycle,
+        CancellationToken cancellationToken
     )
     {
         visited.Add(typeName);
@@ -617,15 +684,24 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
         {
             foreach (var dependency in dependencies)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!visited.Contains(dependency))
                 {
-                    DetectCyclesDFS(dependency, graph, visited, recursionStack, typesInCycle);
+                    DetectCyclesDFS(
+                        dependency,
+                        graph,
+                        visited,
+                        recursionStack,
+                        typesInCycle,
+                        cancellationToken
+                    );
                 }
                 else if (recursionStack.Contains(dependency))
                 {
                     // Cycle detected - mark all types in the recursion stack as circular
                     foreach (var typeInStack in recursionStack)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         typesInCycle.Add(typeInStack);
                     }
                     typesInCycle.Add(dependency);
@@ -661,7 +737,10 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
             || typeFullName.Contains("[]");
     }
 
-    private static IEnumerable<string> ExtractCollectionElementTypes(string typeFullName)
+    private static IEnumerable<string> ExtractCollectionElementTypes(
+        string typeFullName,
+        CancellationToken cancellationToken
+    )
     {
         var arrayBracket = typeFullName.IndexOf('[');
         if (arrayBracket >= 0)
@@ -678,7 +757,7 @@ internal class TypeAnalyzer(CloneableGeneratorOptionsCore options)
 
         var genericArgs = typeFullName.Substring(genericStart + 1, genericEnd - genericStart - 1);
         return CodeGenerationUtility
-            .SplitGenericArgs(genericArgs)
+            .SplitGenericArgs(genericArgs, cancellationToken)
             .Select(arg => arg.Trim())
             .Where(arg => !string.IsNullOrWhiteSpace(arg));
     }

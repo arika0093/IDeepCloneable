@@ -29,12 +29,7 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
@@ -45,10 +40,12 @@ internal class ImmutableHashSetTypeInfo : SpecialTypeInfo
         else
         {
             builder.AppendLine(
-                $"var builder = global::System.Collections.Immutable.ImmutableHashSet.CreateBuilder<{innerType}>();"
+                $$"""
+                var builder = global::System.Collections.Immutable.ImmutableHashSet.CreateBuilder<{{innerType}}>();
+                foreach (var item in original)
+                {
+                """
             );
-            builder.AppendLine("foreach (var item in original)");
-            builder.AppendLine("{");
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.AppendLine($"builder.Add({cloneCall});");

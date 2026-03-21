@@ -29,12 +29,7 @@ internal class BlockingCollectionTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
@@ -46,12 +41,14 @@ internal class BlockingCollectionTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine("var items = original.ToArray();");
             builder.AppendLine(
-                $"var queue = new global::System.Collections.Concurrent.ConcurrentQueue<{innerType}>();"
+                $$"""
+                var items = original.ToArray();
+                var queue = new global::System.Collections.Concurrent.ConcurrentQueue<{{innerType}}>();
+                foreach (var item in items)
+                {
+                """
             );
-            builder.AppendLine("foreach (var item in items)");
-            builder.AppendLine("{");
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.AppendLine($"queue.Enqueue({cloneCall});");
@@ -59,14 +56,14 @@ internal class BlockingCollectionTypeInfo : SpecialTypeInfo
             builder.AppendLine("}");
         }
 
-        builder.AppendLine("var boundedCapacity = original.BoundedCapacity;");
         builder.AppendLine(
-            $"var clone = boundedCapacity > 0"
-                + $" ? new {typeFullName}(queue, boundedCapacity)"
-                + $" : new {typeFullName}(queue);"
+            $$"""
+            var boundedCapacity = original.BoundedCapacity;
+            var clone = boundedCapacity > 0 ? new {{typeFullName}}(queue, boundedCapacity) : new {{typeFullName}}(queue);
+            if (original.IsAddingCompleted) clone.CompleteAdding();
+            return clone;
+            """
         );
-        builder.AppendLine("if (original.IsAddingCompleted) clone.CompleteAdding();");
-        builder.AppendLine("return clone;");
         builder.DecreaseIndent();
         builder.AppendLine("}");
 

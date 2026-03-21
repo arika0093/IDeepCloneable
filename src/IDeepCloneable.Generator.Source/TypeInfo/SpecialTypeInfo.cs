@@ -9,6 +9,23 @@ namespace IDeepCloneable.Generator;
 /// </summary>
 internal abstract class SpecialTypeInfo
 {
+    protected static void AppendCloneMethodStart(
+        IndentedStringBuilder builder,
+        string typeFullName,
+        string methodName,
+        string genericParams
+    )
+    {
+        builder.AppendLine(
+            $$"""
+            {{CodeTemplateContents.EditorBrowsableAttribute}}
+            private static {{typeFullName}} {{methodName}}{{genericParams}}(this {{typeFullName}} original)
+            {
+            """
+        );
+        builder.IncreaseIndent();
+    }
+
     /// <summary>Target type prefix to match against.</summary>
     public abstract string TargetTypeStartWith { get; }
 

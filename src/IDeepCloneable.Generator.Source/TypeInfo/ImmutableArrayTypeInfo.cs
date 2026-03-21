@@ -29,12 +29,7 @@ internal class ImmutableArrayTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine("if (original.IsDefault) return original;");
 
         if (isImmutable)
@@ -45,10 +40,12 @@ internal class ImmutableArrayTypeInfo : SpecialTypeInfo
         else
         {
             builder.AppendLine(
-                $"var builder = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{innerType}>(original.Length);"
+                $$"""
+                var builder = global::System.Collections.Immutable.ImmutableArray.CreateBuilder<{{innerType}}>(original.Length);
+                for (int i = 0; i < original.Length; i++)
+                {
+                """
             );
-            builder.AppendLine("for (int i = 0; i < original.Length; i++)");
-            builder.AppendLine("{");
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(
                 innerType,

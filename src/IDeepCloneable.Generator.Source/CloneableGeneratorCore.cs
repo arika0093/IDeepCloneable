@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -17,11 +16,6 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     /// Generator options instance.
     /// </summary>
     private static readonly TOptions options = new();
-
-    /// <summary>
-    /// Type analyzer instance.
-    /// </summary>
-    private readonly TypeAnalyzer _typeAnalyzer = new(options);
 
     /// <summary>
     /// Initializes the incremental generator.
@@ -50,55 +44,69 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
         var classDeclarations = deepCloneableDeclarations
             .Collect()
             .Combine(generateCloneableDeclarations.Collect())
-            .Select(static (pair, _) => pair.Left.AddRange(pair.Right));
+            .Select(
+                static (pair, _) => new EquatableArray<ClassInfo>(pair.Left.AddRange(pair.Right))
+            );
+
+        var distinctClassDeclarations = classDeclarations.Select(
+            static (classInfos, cancellationToken) => DropDuplicates(classInfos, cancellationToken)
+        );
 
         var environment = context.CompilationProvider.Select(
             static (compilation, _) => GenerationEnvironment.Create(compilation)
         );
 
         context.RegisterSourceOutput(
-            classDeclarations.Combine(environment),
-            (spc, pair) => Execute(DropDuplicates(pair.Left), pair.Right, spc)
+            distinctClassDeclarations.Combine(environment),
+            static (spc, pair) => Execute(pair.Left, pair.Right, spc)
         );
     }
 
     /// <summary>
     /// Transforms the syntax context into class information.
     /// </summary>
-    protected virtual EquatableArray<ClassInfo>? TransformFunc(
+    private static EquatableArray<ClassInfo>? TransformFunc(
         GeneratorAttributeSyntaxContext ctx,
         CancellationToken cancellationToken
-    ) => _typeAnalyzer.GetRelationalAllClassInfo(ctx);
+    ) => TypeAnalyzer.GetRelationalAllClassInfo(ctx, cancellationToken, options);
 
     /// <summary>
     /// Transforms the syntax context for [GenerateDeepCloneable] into class information.
     /// </summary>
-    protected virtual EquatableArray<ClassInfo>? TransformGenerateDeepCloneableFunc(
+    private static EquatableArray<ClassInfo>? TransformGenerateDeepCloneableFunc(
         GeneratorAttributeSyntaxContext ctx,
         CancellationToken cancellationToken
-    ) => _typeAnalyzer.GetRelationalAllClassInfoFromGenerateAttribute(ctx);
+    ) => TypeAnalyzer.GetRelationalAllClassInfoFromGenerateAttribute(
+        ctx,
+        cancellationToken,
+        options
+    );
 
     /// <summary>
     /// Executes the code generation process.
     /// </summary>
-    protected virtual void Execute(
-        List<ClassInfo> allClassInfos,
+    private static void Execute(
+        EquatableArray<ClassInfo> allClassInfos,
         GenerationEnvironment environment,
         SourceProductionContext context
     )
     {
         var codeGenerator = new CodeGenerator(options, environment);
-        codeGenerator.Execute(allClassInfos, context);
+        codeGenerator.Execute(allClassInfos.ToList(), context);
     }
 
     /// <summary>
     /// Drops duplicate ClassInfo entries based on FullClassName.
     /// </summary>
-    protected List<ClassInfo> DropDuplicates(ImmutableArray<ClassInfo> classInfos)
+    private static EquatableArray<ClassInfo> DropDuplicates(
+        EquatableArray<ClassInfo> classInfos,
+        CancellationToken cancellationToken
+    )
     {
         var map = new Dictionary<string, ClassInfo>();
         foreach (var classInfo in classInfos)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!map.TryGetValue(classInfo.FullClassName, out var existing))
             {
                 map[classInfo.FullClassName] = classInfo;
@@ -121,7 +129,7 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
             };
         }
 
-        return map.Values.ToList();
+        return new EquatableArray<ClassInfo>(map.Values);
     }
 
     /// <summary>

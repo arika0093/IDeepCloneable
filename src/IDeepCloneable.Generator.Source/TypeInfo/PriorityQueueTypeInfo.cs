@@ -37,16 +37,15 @@ internal class PriorityQueueTypeInfo : SpecialTypeInfo
         var priorityIsImmutable = CodeGenerationUtility.IsTypeImmutable(priorityType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
+            $$"""
+            if (original == null) return null;
+            var queue = new {{typeFullName}}(original.Count, original.Comparer);
+            foreach (var item in original.UnorderedItems)
+            {
+            """
         );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("if (original == null) return null;");
-        builder.AppendLine($"var queue = new {typeFullName}(original.Count, original.Comparer);");
-        builder.AppendLine("foreach (var item in original.UnorderedItems)");
-        builder.AppendLine("{");
         builder.IncreaseIndent();
 
         var elementClone = elementIsImmutable

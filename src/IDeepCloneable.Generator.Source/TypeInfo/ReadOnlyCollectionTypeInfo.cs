@@ -26,12 +26,7 @@ internal class ReadOnlyCollectionTypeInfo : SpecialTypeInfo
     {
         var genericParams = CodeGenerationUtility.BuildGenericTypeParameterList(typeFullName);
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         // ReadOnlyCollection wraps a List, but we can just create a new one with the same items
         ListTypeInfo.GenerateCloneMethodLogicPart(
             typeFullName,

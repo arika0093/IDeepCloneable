@@ -28,12 +28,7 @@ internal class LinkedListTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
@@ -42,9 +37,13 @@ internal class LinkedListTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var list = new {typeFullName}();");
-            builder.AppendLine("foreach (var item in original)");
-            builder.AppendLine("{");
+            builder.AppendLine(
+                $$"""
+                var list = new {{typeFullName}}();
+                foreach (var item in original)
+                {
+                """
+            );
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(innerType, "item", allClassInfos);
             builder.AppendLine($"list.AddLast({cloneCall});");

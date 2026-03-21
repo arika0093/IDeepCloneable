@@ -72,12 +72,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
 
         builder.AppendLine("");
-        builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)
@@ -143,12 +138,7 @@ internal class ArrayTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(elementType);
 
         builder.AppendLine("");
-        builder.AppendLine($"{CodeTemplateContents.EditorBrowsableAttribute}");
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine("if (original == null) return null;");
 
         if (isImmutable)

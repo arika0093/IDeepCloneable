@@ -43,12 +43,7 @@ internal class EnumerableTypeInfo : SpecialTypeInfo
     {
         var genericParams = CodeGenerationUtility.BuildGenericTypeParameterList(typeFullName);
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         ListTypeInfo.GenerateCloneMethodLogicPart(
             typeFullName,
             allClassInfos,

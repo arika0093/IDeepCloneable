@@ -37,12 +37,7 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
         var valueIsImmutable = CodeGenerationUtility.IsTypeImmutable(valueType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
-        builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine("if (original == null) return null;");
 
         if (keyIsImmutable && valueIsImmutable)
@@ -51,9 +46,13 @@ internal class DictionaryTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var dict = new {typeFullName}(original.Count);");
-            builder.AppendLine("foreach (var kvp in original)");
-            builder.AppendLine("{");
+            builder.AppendLine(
+                $$"""
+                var dict = new {{typeFullName}}(original.Count);
+                foreach (var kvp in original)
+                {
+                """
+            );
             builder.IncreaseIndent();
 
             var keyClone = keyIsImmutable

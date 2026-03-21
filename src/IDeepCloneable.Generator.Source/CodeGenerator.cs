@@ -101,14 +101,16 @@ internal class CodeGenerator(
     {
         var builder = new IndentedStringBuilder();
         builder = GenerateFileHeader(builder);
-        builder.AppendLine($"namespace {options.ExtensionsNamespace}");
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
         builder.AppendLine(
-            "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]"
+            $$"""
+            namespace {{options.ExtensionsNamespace}}
+            {
+                [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]
+                internal static partial class {{options.ExtensionsClassName}}
+                {
+            """
         );
-        builder.AppendLine($"internal static partial class {options.ExtensionsClassName}");
-        builder.AppendLine("{");
+        builder.IncreaseIndent();
         builder.IncreaseIndent();
 
         builder = GenerateCloneRuntimeHelpers(classInfos, builder);
@@ -617,7 +619,6 @@ internal class CodeGenerator(
     )
     {
         var directEntries = new List<(string TypeFullName, string MethodName)>();
-        var openGenericEntries = new List<(string OpenGenericType, string MethodName)>();
 
         foreach (var classInfo in classInfos)
         {
@@ -631,15 +632,10 @@ internal class CodeGenerator(
             var methodName =
                 CodeGenerationUtility.SanitizeTypeName(classInfo.FullClassName) + "_CloneInternal";
 
-            if (!string.IsNullOrWhiteSpace(classInfo.GenericTypeParameters))
-            {
-                var openType = BuildOpenGenericTypeExpression(classInfo.FullClassName);
-                if (!string.IsNullOrEmpty(openType))
-                {
-                    openGenericEntries.Add((openType, methodName));
-                }
-            }
-            else if (!ContainsTypeParameterReference(classInfo.FullClassName))
+            if (
+                string.IsNullOrWhiteSpace(classInfo.GenericTypeParameters)
+                && !ContainsTypeParameterReference(classInfo.FullClassName)
+            )
             {
                 directEntries.Add((classInfo.FullClassName, methodName));
             }
@@ -650,16 +646,9 @@ internal class CodeGenerator(
         {
             if (ContainsTypeParameterReference(entry.TypeFullName))
             {
-                var openType = BuildOpenGenericTypeExpression(entry.TypeFullName);
-                if (!string.IsNullOrEmpty(openType))
-                {
-                    openGenericEntries.Add((openType, entry.MethodName));
-                }
+                continue;
             }
-            else
-            {
-                directEntries.Add(entry);
-            }
+            directEntries.Add(entry);
         }
 
         var uniqueDirectEntries = new List<(string TypeFullName, string MethodName)>();
@@ -668,45 +657,37 @@ internal class CodeGenerator(
             directEntries.Where(entry => seenDirectTypes.Add(entry.TypeFullName))
         );
 
-        var uniqueOpenGenericEntries = new List<(string OpenGenericType, string MethodName)>();
-        var seenOpenGenericTypes = new HashSet<string>();
-        uniqueOpenGenericEntries.AddRange(
-            openGenericEntries.Where(entry => seenOpenGenericTypes.Add(entry.OpenGenericType))
-        );
-
-        // ------
-        // part of _knownCloneMap
-        builder.AppendLine(
-            "private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Func<object, object>> _knownCloneMap = new()"
-        );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        foreach (var entry in uniqueDirectEntries)
-        {
-            builder.AppendLine(
-                $"{{ typeof({entry.TypeFullName}), static value => {entry.MethodName}(({entry.TypeFullName})value) }},"
-            );
-        }
-        builder.DecreaseIndent();
-        builder.AppendLine("};");
-
         // ------
         // part of TryCloneByKnownType
         builder.AppendLine(
-            $$"""
-            private static bool TryCloneByKnownType(object value, out object clone)
+            """
+            private static bool TryCloneByKnownType<T>(T value, out T clone)
             {
-                var type = value.GetType();
-                if (_knownCloneMap.TryGetValue(type, out var cloneFunc))
-                {
-                    clone = cloneFunc(value);
-                    return true;
-                }
-                clone = default!;
-                return false;
-            }        
             """
         );
+        builder.IncreaseIndent();
+        for (int i = 0; i < uniqueDirectEntries.Count; i++)
+        {
+            var entry = uniqueDirectEntries[i];
+            var variableName = $"typed{i}";
+            builder.AppendLine(
+                $$"""
+                if (value is {{entry.TypeFullName}} {{variableName}})
+                {
+                    clone = (T)(object){{entry.MethodName}}({{variableName}});
+                    return true;
+                }
+                """
+            );
+        }
+        builder.AppendLine(
+            """
+            clone = default!;
+            return false;
+            """
+        );
+        builder.DecreaseIndent();
+        builder.AppendLine("}");
 
         // ------
         // part of CloneByRuntimeType
@@ -718,8 +699,8 @@ internal class CodeGenerator(
                     return default!;
                 if (value is {{options.ImplementedInterfaceName}}<T> cloneable)
                     return cloneable.DeepClone();
-                if (TryCloneByKnownType((object)value, out var clone))
-                    return (T)clone;
+                if (TryCloneByKnownType(value, out var clone))
+                    return clone;
                 return value;
             }
             """
@@ -801,61 +782,6 @@ internal class CodeGenerator(
 
         return ExtractGenericTypeArguments(typeFullName)
             .Any(arg => ContainsTypeParameterReference(arg));
-    }
-
-    private static string BuildOpenGenericTypeExpression(string typeFullName)
-    {
-        if (!typeFullName.Contains("<"))
-            return string.Empty;
-
-        var result = new System.Text.StringBuilder();
-        var depth = 0;
-        var argStart = -1;
-
-        for (int i = 0; i < typeFullName.Length; i++)
-        {
-            var c = typeFullName[i];
-            if (c == '<')
-            {
-                if (depth == 0)
-                {
-                    argStart = i + 1;
-                }
-                depth++;
-            }
-            else if (c == '>')
-            {
-                depth--;
-                if (depth == 0 && argStart >= 0)
-                {
-                    var inner = typeFullName.Substring(argStart, i - argStart);
-                    var commaCount = 0;
-                    var innerDepth = 0;
-                    foreach (var innerChar in inner)
-                    {
-                        if (innerChar == '<')
-                            innerDepth++;
-                        else if (innerChar == '>')
-                            innerDepth--;
-                        else if (innerChar == ',' && innerDepth == 0)
-                            commaCount++;
-                    }
-
-                    result.Append('<');
-                    for (int j = 0; j < commaCount; j++)
-                        result.Append(',');
-                    result.Append('>');
-                    argStart = -1;
-                }
-            }
-
-            if (depth == 0 && c != '>')
-            {
-                result.Append(c);
-            }
-        }
-
-        return result.ToString();
     }
 
     /// <summary>

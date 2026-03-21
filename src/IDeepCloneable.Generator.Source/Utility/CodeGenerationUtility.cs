@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 
 namespace IDeepCloneable.Generator;
 
@@ -275,7 +276,10 @@ internal static class CodeGenerationUtility
     /// <summary>
     /// Splits generic type arguments, handling nested generics correctly.
     /// </summary>
-    public static System.Collections.Generic.List<string> SplitGenericArgs(string typeArgs)
+    public static System.Collections.Generic.List<string> SplitGenericArgs(
+        string typeArgs,
+        CancellationToken cancellationToken = default
+    )
     {
         var result = new System.Collections.Generic.List<string>();
         var current = new System.Text.StringBuilder();
@@ -283,6 +287,7 @@ internal static class CodeGenerationUtility
 
         foreach (var c in typeArgs)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (c == '<')
             {
                 depth++;

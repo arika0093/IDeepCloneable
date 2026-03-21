@@ -29,15 +29,14 @@ internal class ConcurrentStackTypeInfo : SpecialTypeInfo
         var isImmutable = CodeGenerationUtility.IsTypeImmutable(innerType);
 
         builder.AppendLine("");
-        builder.AppendLine(CodeTemplateContents.EditorBrowsableAttribute);
+        AppendCloneMethodStart(builder, typeFullName, methodName, genericParams);
         builder.AppendLine(
-            $"private static {typeFullName} {methodName}{genericParams}(this {typeFullName} original)"
+            """
+            if (original == null) return null;
+            var array = original.ToArray();
+            global::System.Array.Reverse(array);
+            """
         );
-        builder.AppendLine("{");
-        builder.IncreaseIndent();
-        builder.AppendLine("if (original == null) return null;");
-        builder.AppendLine("var array = original.ToArray();");
-        builder.AppendLine("global::System.Array.Reverse(array);");
 
         if (isImmutable)
         {
@@ -45,9 +44,13 @@ internal class ConcurrentStackTypeInfo : SpecialTypeInfo
         }
         else
         {
-            builder.AppendLine($"var stack = new {typeFullName}();");
-            builder.AppendLine("for (int i = 0; i < array.Length; i++)");
-            builder.AppendLine("{");
+            builder.AppendLine(
+                $$"""
+                var stack = new {{typeFullName}}();
+                for (int i = 0; i < array.Length; i++)
+                {
+                """
+            );
             builder.IncreaseIndent();
             var cloneCall = codeGenerator.GenerateTypeCloneCall(
                 innerType,
