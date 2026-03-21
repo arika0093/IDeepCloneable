@@ -76,11 +76,12 @@ internal abstract class CloneableGeneratorCore<TOptions>() : IIncrementalGenerat
     private static EquatableArray<ClassInfo>? TransformGenerateDeepCloneableFunc(
         GeneratorAttributeSyntaxContext ctx,
         CancellationToken cancellationToken
-    ) => TypeAnalyzer.GetRelationalAllClassInfoFromGenerateAttribute(
-        ctx,
-        cancellationToken,
-        options
-    );
+    ) =>
+        TypeAnalyzer.GetRelationalAllClassInfoFromGenerateAttribute(
+            ctx,
+            cancellationToken,
+            options
+        );
 
     /// <summary>
     /// Executes the code generation process.
