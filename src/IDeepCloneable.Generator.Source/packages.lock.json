@@ -20,8 +20,8 @@
       "Nerdbank.GitVersioning": {
         "type": "Direct",
         "requested": "[3.*, )",
-        "resolved": "3.9.50",
-        "contentHash": "HtOgGF6jZ+WYbXnCUCYPT8Y2d6mIJo9ozjK/FINTRsXdm4Zgv9GehUMa7EFoGQkqrMcDJNOIDwCmENnvXg4UbA=="
+        "resolved": "3.10.85",
+        "contentHash": "smhqiTAbnI/6NRn+k7m+a65qKY7nREbnFqFgqxiw3JS8kXiBUOxdCxIZFP9TOpCsoh46DbMlBlcd+dWQYAVVCA=="
       },
       "NETStandard.Library": {
         "type": "Direct",
@@ -34,9 +34,9 @@
       },
       "Polyfill": {
         "type": "Direct",
-        "requested": "[10.8.1, )",
-        "resolved": "10.8.1",
-        "contentHash": "zCmC6hnEKdHMFt1woGAq2oYZhx4EwELj8ArkBuGZBwX6Jg4M67eCa6YVmbMDSMwonCKZ9OGaKxOul60nVykTOw=="
+        "requested": "[10.11.1, )",
+        "resolved": "10.11.1",
+        "contentHash": "SeryCUevv4WJc2QxLZKJJM8wfR7DLqvM10u01lkHXv0qhFuN0oPRIuujxpgUyBZozpnx92DF6weUEptEaupj4Q=="
       },
       "SonarAnalyzer.CSharp": {
         "type": "Direct",
