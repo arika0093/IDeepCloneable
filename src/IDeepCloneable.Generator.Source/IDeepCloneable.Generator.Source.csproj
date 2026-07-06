@@ -9,7 +9,7 @@
   <ItemGroup>
     <PackageReference Include="lint4sg" Version="0.1.6" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" />
-    <PackageReference Include="Polyfill" Version="10.11.1" Condition="!Exists('packages.config')">
+    <PackageReference Include="Polyfill" Version="10.11.2" Condition="!Exists('packages.config')">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
