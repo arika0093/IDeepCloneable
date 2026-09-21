@@ -34,9 +34,9 @@
       },
       "Polyfill": {
         "type": "Direct",
-        "requested": "[11.3.0, )",
-        "resolved": "11.3.0",
-        "contentHash": "bSmvuJftFcVuh6dn3TL3upLzk5rNuFZgzuZgM+7YGOvTL3xihd038i1IpqywikM/2Jnh/TOc+DIWGhfjTEjMHA=="
+        "requested": "[11.4.0, )",
+        "resolved": "11.4.0",
+        "contentHash": "BZQ7tQW61+Kzlcj2QUQr0KaWAg0CPxdFF9kkiBMYTnCdyShha5ObkEFxBa+HcnAg6CtbeApPTMaxSI9By0QE4g=="
       },
       "SonarAnalyzer.CSharp": {
         "type": "Direct",
