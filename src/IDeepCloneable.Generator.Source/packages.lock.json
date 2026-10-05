@@ -4,9 +4,9 @@
     ".NETStandard,Version=v2.0": {
       "lint4sg": {
         "type": "Direct",
-        "requested": "[0.1.6, )",
-        "resolved": "0.1.6",
-        "contentHash": "b/UIUYqa8dD4gwgHyu0Dh4YsNuAhDAuv8RfjcQ4tm47L5GAoyIcMjAFlv+tZfyVGvZdbk5DIyAsrWseLRz9Z/A=="
+        "requested": "[0.1.7, )",
+        "resolved": "0.1.7",
+        "contentHash": "lEfB1p2/WyvNrzWx1On4Rx/WaNCeOT4SQu+G7apQOA1b8rUOjZpqRFaoxZ+54QkUODUSffNqVY0EowW2/7FujQ=="
       },
       "Microsoft.CodeAnalysis.CSharp": {
         "type": "Direct",
