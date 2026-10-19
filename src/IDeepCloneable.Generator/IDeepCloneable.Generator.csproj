@@ -19,7 +19,7 @@
     />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="lint4sg" Version="0.1.6">
+    <PackageReference Include="lint4sg" Version="0.1.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
